@@ -1,22 +1,22 @@
-"""
-Send emails via Gmail web interface using Selenium (no SMTP credentials needed).
-This leverages the already-logged-in Gmail session in the browser.
-"""
 import os
-import platform
 import time
+import platform
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
-from logger import logger
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
+from config.user_profiles import get_selected_user_config, get_global_settings, substitute_template_variables, get_resume_file_path
+from config.email_templates import DEFAULT_EMAIL_TEMPLATE
+from core.logging.config import logger
 
 def generate_email_draft():
     """Generate email subject and body dynamically using the active user configuration and templates."""
     try:
-        from user_config_manager import get_selected_user_config, substitute_template_variables
         user_conf = get_selected_user_config()
     except Exception:
         user_conf = {}
@@ -27,7 +27,6 @@ def generate_email_draft():
     # Retrieve template from config
     raw_template = email_scraper.get("email_template")
     if not raw_template:
-        from user_config_manager import DEFAULT_EMAIL_TEMPLATE
         raw_template = DEFAULT_EMAIL_TEMPLATE
         
     # Substitute variables
@@ -37,21 +36,71 @@ def generate_email_draft():
     return subject, body
 
 
-def send_email_via_gmail(driver, to_email, review_mode=None):
-    """
-    Send email via Gmail web interface using Selenium.
-    Requires driver to already be logged into Gmail.
+def send_email_smtp(to_email, name, post_url):
+    """Sends email via standard SMTP server."""
+    subject, body = generate_email_draft()
     
-    Args:
-        driver: Selenium WebDriver instance
-        to_email: Recipient email address
-        review_mode: If True, prompt before sending each email.
-    
-    Returns:
-        bool: True if email sent successfully, False otherwise
-    """
     try:
-        from user_config_manager import get_selected_user_config
+        user_conf = get_selected_user_config()
+        global_conf = get_global_settings()
+    except Exception:
+        user_conf = {}
+        global_conf = {}
+        
+    email_scraper = user_conf.get("email_scraper", {})
+    review_mode = email_scraper.get("review_mode", True)
+    
+    smtp_email = global_conf.get("smtp_email") or os.getenv("SMTP_EMAIL", "lk356003@gmail.com")
+    smtp_password = global_conf.get("smtp_password") or os.getenv("SMTP_PASSWORD")
+    smtp_server = global_conf.get("smtp_server") or os.getenv("SMTP_SERVER", "smtp.gmail.com")
+    try:
+        smtp_port = int(global_conf.get("smtp_port") or os.getenv("SMTP_PORT", 587))
+    except ValueError:
+        smtp_port = 587
+    
+    if review_mode:
+        print("\n" + "="*50)
+        print("REVIEW MODE - NEW EMAIL (SMTP)")
+        print("="*50)
+        print(f"To: {to_email} ({name})")
+        print(f"Post Source: {post_url}")
+        print("-" * 50)
+        print(f"Subject: {subject}")
+        print(body)
+        print("="*50)
+        
+        choice = input("Send this email? (Y/N): ").strip().lower()
+        if choice != 'y':
+            logger.info(f"User skipped sending email to {to_email}.")
+            return False
+
+    if not smtp_email or not smtp_password:
+        logger.error("SMTP credentials not configured. Cannot send email.")
+        return False
+
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = smtp_email
+        msg['To'] = to_email
+        msg['Subject'] = subject
+        msg.attach(MIMEText(body, 'plain'))
+
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()
+        server.login(smtp_email, smtp_password)
+        server.send_message(msg)
+        server.quit()
+        
+        logger.info(f"Successfully sent email to {to_email}.")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send email to {to_email}: {e}")
+        return False
+
+
+def send_email_via_gmail(driver, to_email, review_mode=None):
+    """Send email via Gmail web interface using Selenium."""
+    try:
         user_conf = get_selected_user_config()
     except Exception:
         user_conf = {}
@@ -63,10 +112,7 @@ def send_email_via_gmail(driver, to_email, review_mode=None):
         review_mode = email_scraper.get("review_mode", True)
     
     review_mode = bool(review_mode)
-    
-    from user_config_manager import get_resume_file_path
     resume_file_path = get_resume_file_path(profile)
-    
     subject, body = generate_email_draft()
 
     def attach_resume(file_path):
@@ -123,8 +169,6 @@ def send_email_via_gmail(driver, to_email, review_mode=None):
             logger.warning(f"Failed to attach resume: {e}")
             return False
 
-    # Compose the message in Gmail first (populate fields), then ask to send if REVIEW_MODE
-
     try:
         # Navigate to Gmail if not already there
         if "mail.google.com" not in driver.current_url:
@@ -134,9 +178,9 @@ def send_email_via_gmail(driver, to_email, review_mode=None):
         
         # Click "Compose" button
         compose_selectors = [
-            ".aMvxe",  # Gmail compose button class
+            ".aMvxe",
             "button[aria-label='Compose']",
-            "div[gh='cm']",  # common Gmail compose selector
+            "div[gh='cm']",
             "div[role='button'][gh='cm']",
             "//div[text()='Compose' and @role='button']",
             ".rK7tdc",
@@ -168,9 +212,7 @@ def send_email_via_gmail(driver, to_email, review_mode=None):
             logger.warning("Could not find Gmail compose button")
             return False
         
-        # Enter recipient email - Gmail uses various selectors depending on version
         time.sleep(0.5)
-        
         select_all_key = Keys.COMMAND if platform.system() == 'Darwin' else Keys.CONTROL
 
         def _get_field_text(field):
@@ -290,7 +332,6 @@ def send_email_via_gmail(driver, to_email, review_mode=None):
         time.sleep(0.3)
         subject_field = None
         
-        # Try multiple strategies to find subject field
         try:
             subject_field = WebDriverWait(driver, 3).until(
                 EC.presence_of_element_located((By.XPATH, "//input[@aria-label='Subject']"))
@@ -308,7 +349,6 @@ def send_email_via_gmail(driver, to_email, review_mode=None):
         
         if not subject_field:
             try:
-                # Look for input field that might be the subject
                 inputs = driver.find_elements(By.XPATH, "//input[@role='textbox']")
                 if len(inputs) > 0:
                     subject_field = inputs[0]
@@ -345,7 +385,6 @@ def send_email_via_gmail(driver, to_email, review_mode=None):
         time.sleep(0.3)
         body_field = None
         
-        # Try multiple strategies to find body field
         try:
             body_field = WebDriverWait(driver, 3).until(
                 EC.presence_of_element_located((By.XPATH, "//div[@aria-label='Message body']"))
@@ -363,10 +402,8 @@ def send_email_via_gmail(driver, to_email, review_mode=None):
         
         if not body_field:
             try:
-                # Look for any contenteditable div that might be the body
                 divs = driver.find_elements(By.XPATH, "//div[@contenteditable='true']")
                 if len(divs) > 0:
-                    # Usually the body field is the largest contenteditable div
                     body_field = divs[-1] if len(divs) > 1 else divs[0]
                     logger.info("Found Body field via contenteditable (multiple)")
             except NoSuchElementException:
@@ -383,7 +420,6 @@ def send_email_via_gmail(driver, to_email, review_mode=None):
                 logger.info("Successfully populated Body field")
             except Exception as e:
                 logger.warning(f"Failed to populate body field via send_keys: {e}")
-                # Try JavaScript fallback for contenteditable
                 try:
                     driver.execute_script("""
                         var field = arguments[0];
@@ -401,13 +437,13 @@ def send_email_via_gmail(driver, to_email, review_mode=None):
             logger.warning("Could not find body field")
             return False
 
-        # Attach resume before sending
+        # Attach resume
         time.sleep(0.5)
         if not attach_resume(resume_file_path):
             logger.warning("Failed to attach resume. Aborting send.")
             return False
 
-                # At this point the compose window should be populated. If review_mode is enabled, prompt user.
+        # Confirm before sending
         if review_mode:
             print("\n" + "="*50)
             print("REVIEW MODE - COMPOSED EMAIL (in Gmail)")
@@ -421,6 +457,7 @@ def send_email_via_gmail(driver, to_email, review_mode=None):
         else:
             logger.info("Review mode disabled – automatically sending email.")
             choice = 'y'
+            
         if choice != 'y':
             logger.info(f"User skipped sending email to {to_email}.")
             return False
@@ -429,10 +466,9 @@ def send_email_via_gmail(driver, to_email, review_mode=None):
         time.sleep(0.5)
         send_btn = None
         
-        # Try multiple strategies to find Send button
         send_xpaths = [
             "//div[@aria-label='Send']",
-            "//button[@aria-label='Send ']",  # Gmail often has a space after "Send"
+            "//button[@aria-label='Send ']",
             "//button[contains(@aria-label, 'Send')]",
             "//div[@role='button' and contains(@aria-label, 'Send')]",
             "//div[contains(text(), 'Send') and @role='button']",
@@ -452,7 +488,6 @@ def send_email_via_gmail(driver, to_email, review_mode=None):
                 continue
         
         if not send_btn:
-            # Try CSS selectors as fallback
             css_selectors = [
                 "[aria-label='Send']",
                 "button[aria-label*='Send']",
@@ -473,12 +508,11 @@ def send_email_via_gmail(driver, to_email, review_mode=None):
                 driver.execute_script("arguments[0].scrollIntoView(true);", send_btn)
                 time.sleep(0.3)
                 driver.execute_script("arguments[0].click();", send_btn)
-                time.sleep(5)  # Wait for email to be sent and compose window to close
+                time.sleep(5)
                 logger.info(f"Successfully sent email to {to_email} via Gmail web interface.")
                 return True
             except Exception as e:
                 logger.warning(f"Failed to click Send button: {e}")
-                # Try direct click as fallback
                 try:
                     send_btn.click()
                     time.sleep(5)

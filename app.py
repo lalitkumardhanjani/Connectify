@@ -11,15 +11,21 @@ from werkzeug.utils import secure_filename
 import pandas as pd
 import openpyxl
 
+# Connectify Consolidated Configurations and Core Imports
+from config.settings import BASE_DIR, JOB_TRACKER_FILE, JOB_LEADS_FILE, RESUMES_DIR
+from config.user_profiles import (
+    load_all_configs, save_all_configs, get_selected_user_name,
+    get_selected_user_config, get_global_settings, get_resume_file_path
+)
+from config.email_templates import DEFAULT_EMAIL_TEMPLATE, DEFAULT_CONNECTION_TEMPLATE
+from core.analytics.metrics import get_email_metrics, get_company_metrics
+from core.storage.database import _trigger_mac_excel_reload, update_status_by_id, edit_row
+
 app = Flask(__name__, template_folder='templates', static_folder='static')
-from analytics import get_email_metrics, get_company_metrics
-# File Paths
-JOB_TRACKER_FILE = "job_tracker.xlsx"
-JOB_LEADS_FILE = "LinkedIn_Job_Tracker.xlsx"
+
 PYTHON_BIN = os.path.join(os.getcwd(), ".venv", "bin", "python")
 
 # Active task tracking
-# task_id -> { "process": subprocess.Popen, "logs": [], "status": "running", "waiting_for_input": False, "thread": Thread }
 active_tasks = {}
 task_lock = threading.Lock()
 
@@ -85,12 +91,10 @@ class SubprocessRunner:
                     break
                 
                 clean_line = line.strip()
-                # Log clean line
                 self.logs.append(line.rstrip('\r\n'))
                 
                 # Check if review_for_referral or job search is waiting for option/confirmation selection
                 if "Enter choice:" in clean_line or "Options:" in clean_line or "press ENTER to continue" in clean_line:
-                    # Let it output the full prompt lines, then mark waiting
                     time.sleep(0.2)
                     self.waiting_for_input = True
 
@@ -138,7 +142,6 @@ def get_excel_data(file_path):
         return []
     try:
         df = pd.read_excel(file_path)
-        # Convert NaN to empty string for clean JSON parsing
         df = df.fillna("")
         return df.to_dict(orient="records")
     except Exception as e:
@@ -149,8 +152,10 @@ def get_excel_data(file_path):
 @app.route('/')
 def home():
     return render_template('index.html')
+
 def index():
     return render_template('index.html')
+
 @app.route('/dashboard')
 def dashboard():
     return render_template('dashboard.html')
@@ -198,7 +203,6 @@ def company_stats():
 def job_tracker_data():
     return jsonify(get_excel_data(JOB_TRACKER_FILE))
 
-
 @app.route('/api/data/job_leads')
 def job_leads_data():
     return jsonify(get_excel_data(JOB_LEADS_FILE))
@@ -218,8 +222,7 @@ def start_scraper():
         if phase in ("phase1", "phase2"):
             args = ["--phase", phase]
         
-        # Scraper workflow (runs linkedin_scraper.py)
-        runner = SubprocessRunner(task_id, [("linkedin_scraper.py", args)])
+        runner = SubprocessRunner(task_id, [("run_email_outreach.py", args)])
         active_tasks[task_id] = runner
         runner.start()
         
@@ -237,10 +240,10 @@ def start_referral():
         step = body.get("step")
         
         all_commands = [
-            ("linkedin_find_job.py", []),
-            ("review_for_referral.py", []),
-            ("shorten_urls.py", []),
-            ("linkdin_connect.py", [])
+            ("run_job_search.py", []),
+            ("run_referral_review.py", []),
+            ("run_url_shortener.py", []),
+            ("run_linkedin_connect.py", [])
         ]
         
         if step is not None:
@@ -281,7 +284,6 @@ def get_task_logs(task_id):
         if task_id not in active_tasks:
             return jsonify({"status": "error", "message": "Task not found"}), 404
         
-        # Return status, waiting indicator, and full logs
         runner = active_tasks[task_id]
         current_step_name = None
         args = []
@@ -329,52 +331,8 @@ def kill_task(task_id):
         return jsonify({"status": "success"})
 
 
-def read_env_file():
-    config_data = {}
-    if os.path.exists(".env"):
-        with open(".env", "r") as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                if "=" in line:
-                    k, v = line.split("=", 1)
-                    config_data[k.strip()] = v.strip()
-    return config_data
-
-
-def write_env_file(updated_configs):
-    lines = []
-    keys_written = set()
-    if os.path.exists(".env"):
-        with open(".env", "r") as f:
-            lines = f.readlines()
-            
-    new_lines = []
-    for line in lines:
-        stripped = line.strip()
-        if stripped and not stripped.startswith("#") and "=" in stripped:
-            k, v = stripped.split("=", 1)
-            key = k.strip()
-            if key in updated_configs:
-                new_lines.append(f"{key}={updated_configs[key]}\n")
-                keys_written.add(key)
-                continue
-        new_lines.append(line)
-        
-    for k, v in updated_configs.items():
-        if k not in keys_written:
-            if new_lines and not new_lines[-1].endswith("\n"):
-                new_lines[-1] = new_lines[-1] + "\n"
-            new_lines.append(f"{k}={v}\n")
-            
-    with open(".env", "w") as f:
-        f.writelines(new_lines)
-
-
 @app.route('/api/users', methods=['GET'])
 def get_users_list():
-    from user_config_manager import load_all_configs
     config = load_all_configs()
     users = list(config.get("users", {}).keys())
     selected = config.get("selected_user", "")
@@ -386,7 +344,6 @@ def get_users_list():
 
 @app.route('/api/users/select', methods=['POST'])
 def select_active_user():
-    from user_config_manager import load_all_configs, save_all_configs
     body = request.get_json() or {}
     user = body.get("user")
     config = load_all_configs()
@@ -399,7 +356,6 @@ def select_active_user():
 
 @app.route('/api/users/create', methods=['POST'])
 def create_user_profile():
-    from user_config_manager import load_all_configs, save_all_configs, DEFAULT_EMAIL_TEMPLATE, DEFAULT_CONNECTION_TEMPLATE
     body = request.get_json() or {}
     username = body.get("username", "").strip()
     if not username:
@@ -445,7 +401,6 @@ def create_user_profile():
 
 @app.route('/api/users/config', methods=['GET'])
 def get_user_configuration():
-    from user_config_manager import load_all_configs, get_selected_user_name, get_global_settings
     config = load_all_configs()
     username = get_selected_user_name()
     user_data = config.get("users", {}).get(username, {})
@@ -459,7 +414,6 @@ def get_user_configuration():
 
 @app.route('/api/users/config', methods=['POST'])
 def save_user_configuration():
-    from user_config_manager import load_all_configs, save_all_configs, get_selected_user_name
     body = request.get_json() or {}
     config = load_all_configs()
     username = get_selected_user_name()
@@ -483,7 +437,6 @@ def save_user_configuration():
 
 @app.route('/api/users/resume/upload', methods=['POST'])
 def upload_user_resume():
-    from user_config_manager import load_all_configs, save_all_configs, get_selected_user_name
     if 'resume' not in request.files:
         return jsonify({"status": "error", "message": "No file uploaded"}), 400
     file = request.files['resume']
@@ -493,9 +446,9 @@ def upload_user_resume():
     if file:
         filename = secure_filename(file.filename)
         username = get_selected_user_name()
-        os.makedirs("resumes", exist_ok=True)
+        os.makedirs(RESUMES_DIR, exist_ok=True)
         new_filename = f"{username}_{filename}"
-        save_path = os.path.join(os.getcwd(), "resumes", new_filename)
+        save_path = os.path.join(RESUMES_DIR, new_filename)
         file.save(save_path)
         
         config = load_all_configs()
@@ -508,33 +461,25 @@ def upload_user_resume():
 
 @app.route('/api/users/resume/download/<username>', methods=['GET'])
 def download_user_resume(username):
-    from user_config_manager import load_all_configs
     config = load_all_configs()
     user_data = config.get("users", {}).get(username, {})
     resume_name = user_data.get("profile", {}).get("resume_name", "")
     
-    # Fallback to default resume if user hasn't uploaded one
-    # Determine path for the user's resume
-    resumes_dir = os.path.join(os.getcwd(), "resumes")
-    user_resume_path = os.path.join(resumes_dir, resume_name) if resume_name else ""
+    user_resume_path = os.path.join(RESUMES_DIR, resume_name) if resume_name else ""
 
-    # If the user has a resume uploaded and it exists, serve it
     if resume_name and os.path.exists(user_resume_path):
-        return send_from_directory(resumes_dir, resume_name, as_attachment=False)
+        return send_from_directory(RESUMES_DIR, resume_name, as_attachment=False)
 
-    # Otherwise, fall back to the default resume defined in config.py
-    from config import RESUME_FILE_PATH
-    default_path = RESUME_FILE_PATH
+    # Fall back to the default resume path
+    default_path = get_resume_file_path(user_data.get("profile", {}))
     if os.path.exists(default_path):
         return send_file(default_path, as_attachment=False)
 
-    # If no resume is available, return an error
     return "Resume not found", 404
 
 
 @app.route('/api/config', methods=['GET'])
 def get_config():
-    from user_config_manager import get_selected_user_config, get_global_settings
     user_conf = get_selected_user_config()
     global_conf = get_global_settings()
     profile = user_conf.get("profile", {})
@@ -562,7 +507,6 @@ def get_config():
 
 @app.route('/api/config', methods=['POST'])
 def save_config():
-    from user_config_manager import load_all_configs, save_all_configs, get_selected_user_name
     body = request.get_json() or {}
     config = load_all_configs()
     username = get_selected_user_name()
@@ -640,7 +584,6 @@ def update_row_status():
         if updated:
             wb.save(path)
             try:
-                from data_store import _trigger_mac_excel_reload
                 _trigger_mac_excel_reload(path)
             except Exception:
                 pass
@@ -648,7 +591,6 @@ def update_row_status():
         return jsonify({"status": "error", "message": "ID not found"}), 404
         
     elif db_type == "referral":
-        from data_store import update_status_by_id
         success = update_status_by_id(row_id, status)
         if success:
             return jsonify({"status": "success"})
@@ -696,7 +638,6 @@ def delete_table_row():
         if deleted:
             wb.save(path)
             try:
-                from data_store import _trigger_mac_excel_reload
                 _trigger_mac_excel_reload(path)
             except Exception:
                 pass
@@ -725,7 +666,6 @@ def edit_table_row():
         return jsonify({"status": "error", "message": "Invalid ID"}), 400
         
     if db_type == "scraper":
-        from data_store import edit_row
         success = edit_row(row_id, email, status, keyword, JOB_TRACKER_FILE)
         if success:
             return jsonify({"status": "success"})
@@ -735,7 +675,7 @@ def edit_table_row():
 
 
 if __name__ == '__main__':
-    # Load folders if not exist
+    # Ensure standard directories exist
     os.makedirs("templates", exist_ok=True)
     os.makedirs("static/css", exist_ok=True)
     os.makedirs("static/js", exist_ok=True)

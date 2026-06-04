@@ -1,22 +1,20 @@
 import time
-import re
 import os
 import json
+import urllib.parse
 from datetime import datetime
 from selenium.common.exceptions import InvalidSessionIdException, WebDriverException, NoSuchElementException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-from linkedin_job_config import SEARCH_KEYWORDS_LIST, SEARCH_URLS
-from linkedin_job_driver import (
-    get_driver, wait_for_page, wait_for_search_results,
-    wait_until_logged_in, inject_runtime_overlay, remove_runtime_overlay
-)
-from linkedin_job_helpers import decode_apply_redirect, normalize_external_url, extract_job_id
-from linkedin_job_io import clean_json_outputs, load_saved_jobs, seen_external_urls
-
-OUTPUT_FILE = "linkedin_jobs.json"
+from config.settings import JOBS_JSON_FILE
+from config.user_profiles import get_selected_user_config, get_global_settings
+from config.constants import LINKEDIN_CONNECT_KEYWORDS_DEFAULT
+from core.integrations.selenium_driver import get_driver, wait_for_page, inject_runtime_overlay, remove_runtime_overlay
+from core.utils.url_utils import decode_apply_redirect, normalize_external_url, extract_job_id, is_valid_external_url
+from core.storage.database import load_saved_jobs, save_job, init_job_leads_store, seen_external_urls
+from core.logging.config import logger
 
 def is_already_saved(url):
     """Check if job URL already exists in Excel tracking list."""
@@ -32,9 +30,9 @@ def is_already_saved(url):
 def is_job_already_processed_json(company, position):
     """Check if job signature (company|position) already exists in JSON file."""
     try:
-        if not os.path.exists(OUTPUT_FILE):
+        if not os.path.exists(JOBS_JSON_FILE):
             return False
-        with open(OUTPUT_FILE, 'r', encoding="utf-8") as f:
+        with open(JOBS_JSON_FILE, 'r', encoding="utf-8") as f:
             existing_jobs = json.load(f)
         
         job_signature = f"{company.lower().strip()}|{position.lower().strip()}"
@@ -44,15 +42,18 @@ def is_job_already_processed_json(company, position):
                 return True
         return False
     except Exception as e:
-        print(f"Error checking duplicates in JSON: {str(e)}")
+        logger.error(f"Error checking duplicates in JSON: {str(e)}")
         return False
 
 def save_job_json(company, url, position):
     """Save the external job opportunity details to JSON output file."""
     jobs = []
-    if os.path.exists(OUTPUT_FILE):
+    # Ensure data directory exists
+    os.makedirs(os.path.dirname(JOBS_JSON_FILE), exist_ok=True)
+    
+    if os.path.exists(JOBS_JSON_FILE):
         try:
-            with open(OUTPUT_FILE, "r", encoding="utf-8") as f:
+            with open(JOBS_JSON_FILE, "r", encoding="utf-8") as f:
                 jobs = json.load(f)
         except Exception:
             jobs = []
@@ -67,11 +68,11 @@ def save_job_json(company, url, position):
             "saved_at": datetime.now().isoformat(),
             "status": "Pending"
         })
-        with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+        with open(JOBS_JSON_FILE, "w", encoding="utf-8") as f:
             json.dump(jobs, f, indent=4)
-        print(f"  [SAVED JSON] saved to {OUTPUT_FILE}: {url}")
+        logger.info(f"  [SAVED JSON] saved to {JOBS_JSON_FILE}: {url}")
     else:
-        print("  [INFO] Job already exists in JSON. Skipping JSON save.")
+        logger.info("  [INFO] Job already exists in JSON. Skipping JSON save.")
 
 def is_title_matching_keywords(title, keyword_list):
     """Check if the job title matches any keyword from the configured keyword list."""
@@ -84,9 +85,9 @@ def is_title_matching_keywords(title, keyword_list):
 def load_processed_signatures_from_json():
     """Load all processed job signatures (company|position) from JSON to populate session tracking."""
     sigs = set()
-    if os.path.exists(OUTPUT_FILE):
+    if os.path.exists(JOBS_JSON_FILE):
         try:
-            with open(OUTPUT_FILE, "r", encoding="utf-8") as f:
+            with open(JOBS_JSON_FILE, "r", encoding="utf-8") as f:
                 jobs = json.load(f)
             for j in jobs:
                 comp = j.get("company", "").lower().strip()
@@ -94,7 +95,7 @@ def load_processed_signatures_from_json():
                 if comp and pos:
                     sigs.add(f"{comp}|{pos}")
         except Exception as e:
-            print(f"Error loading signatures: {e}")
+            logger.error(f"Error loading signatures: {e}")
     return sigs
 
 def get_left_pane_container(driver):
@@ -110,11 +111,10 @@ def get_left_pane_container(driver):
 
 def get_job_cards(driver):
     """Scroll the left list pane and return all found job cards."""
-    print("Loading job cards...")
-    
+    logger.info("Loading job cards...")
     left_pane = get_left_pane_container(driver)
-
     previous_count = 0
+    
     for _ in range(15):
         try:
             if left_pane:
@@ -137,7 +137,6 @@ def get_job_cards(driver):
                 'div[role="button"][componentkey*="job-card-component-ref"], div.job-card-container, li.jobs-search-results__list-item, div.job-card-list__item, div.jobs-search-results__list-item, .base-card'
             )
             
-        # Filter for cards that actually contain a job view link
         valid_cards = []
         for c in cards:
             try:
@@ -146,7 +145,7 @@ def get_job_cards(driver):
             except Exception:
                 pass
                 
-        print(f"Currently visible valid cards: {len(valid_cards)}")
+        logger.info(f"Currently visible valid cards: {len(valid_cards)}")
         if len(valid_cards) == previous_count:
             break
         previous_count = len(valid_cards)
@@ -170,14 +169,13 @@ def get_job_cards(driver):
                 valid_cards.append(c)
         except Exception:
             pass
-    print(f"Final valid cards found: {len(valid_cards)}")
+    logger.info(f"Final valid cards found: {len(valid_cards)}")
     return valid_cards
-
 
 def go_to_next_jobs_page(driver):
     """Click the pagination next page control button."""
     try:
-        print("Trying to move to next jobs page...")
+        logger.info("Trying to move to next jobs page...")
         next_button = WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((
                 By.CSS_SELECTOR,
@@ -191,80 +189,126 @@ def go_to_next_jobs_page(driver):
         """, next_button)
 
         if disabled:
-            print("Next page button disabled")
+            logger.info("Next page button disabled")
             return False
 
         driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", next_button)
         time.sleep(1)
 
         driver.execute_script("arguments[0].click();", next_button)
-        print("Moved to next jobs page")
+        logger.info("Moved to next jobs page")
         time.sleep(6)
         return True
     except Exception as e:
-        print(f"Could not move to next page: {str(e)}")
+        logger.warning(f"Could not move to next page: {str(e)}")
         return False
 
-def run_automation(target_url=None):
-    clean_json_outputs()
+def wait_for_search_results(driver, timeout=30):
+    try:
+        WebDriverWait(driver, timeout).until(lambda d: d.execute_script(
+            "return !!d.querySelector('a[href*=\"/jobs/view/\"]') || "
+            "!!d.querySelector('ul.jobs-search__results-list li') || "
+            "!!d.querySelector('div.jobs-search-results__list-item') || "
+            "!!d.querySelector('div.job-card-container') || "
+            "!!d.querySelector('div.job-card-list__item') || "
+            "!!d.querySelector('.base-card')"
+        ))
+        return True
+    except Exception:
+        return False
+
+def build_search_url(keyword, search_location, search_time_range):
+    quoted = urllib.parse.quote_plus(keyword)
+    quoted_loc = urllib.parse.quote_plus(search_location)
+    return (
+        f"https://www.linkedin.com/jobs/search/?keywords={quoted}"
+        f"&location={quoted_loc}&f_TPR={search_time_range}"
+        f"&trk=public_jobs_jobs-search-bar_search-submit&position=1&pageNum=0"
+    )
+
+def wait_until_logged_in(driver, timeout_seconds=300):
+    logger.info("\nLogin required.")
+    logger.info("In the opened Chrome window, sign in to LinkedIn using email/password.")
+    logger.info("Avoid 'Continue with Google' here; Google often blocks sign-in in automated browsers.")
+
+    start = time.time()
+    while time.time() - start < timeout_seconds:
+        try:
+            logged_in = driver.execute_script(
+                "return !!document.querySelector("
+                "  'input[placeholder*=\"Search\"],"
+                "   input[role=\"combobox\"],"
+                "   .search-global-typeahead__input'"
+                ");"
+            )
+            if logged_in:
+                logger.info("Login detected.")
+                return True
+        except Exception:
+            pass
+        time.sleep(2)
+    return False
+
+def run_job_finder(target_url=None):
+    """Executes the LinkedIn Job Finder scraper workflow."""
+    init_job_leads_store()
     driver = get_driver()
 
     try:
         driver.get("https://www.linkedin.com/login")
 
         if not wait_until_logged_in(driver, timeout_seconds=5):
-            from linkedin_job_config import LINKEDIN_EMAIL, LINKEDIN_PASSWORD
+            global_conf = get_global_settings()
+            email = global_conf.get("linkedin_email")
+            password = global_conf.get("linkedin_password")
             try:
-                driver.find_element(By.ID, "username").send_keys(LINKEDIN_EMAIL or "")
-                driver.find_element(By.ID, "password").send_keys(LINKEDIN_PASSWORD or "")
+                driver.find_element(By.ID, "username").send_keys(email or "")
+                driver.find_element(By.ID, "password").send_keys(password or "")
                 driver.find_element(By.XPATH, "//button[@type='submit']").click()
                 if not wait_until_logged_in(driver, timeout_seconds=30):
-                    print("Manual login required – complete in the browser.")
+                    logger.info("Manual login required – complete in the browser.")
             except Exception as e:
-                print(f"Auto-login failed: {e}")
+                logger.warning(f"Auto-login failed: {e}")
 
         inject_runtime_overlay(driver)
-
-        # Store the main window handle
         main_handle = driver.current_window_handle
-        print(f"Main window handle: {main_handle}")
 
         # Load existing tracker urls
         _, existing_urls = load_saved_jobs()
         seen_external_urls.update(existing_urls)
-        print(f"Loaded {len(existing_urls)} existing jobs from Excel tracker.\n")
+        logger.info(f"Loaded {len(existing_urls)} existing jobs from Excel tracker.\n")
 
-        # Load time limit per keyword
-        from user_config_manager import get_global_settings
+        # Load dynamic configurations
+        user_conf = get_selected_user_config()
         global_conf = get_global_settings()
+        
+        keywords = user_conf.get("linkedin_connect", {}).get("keywords", LINKEDIN_CONNECT_KEYWORDS_DEFAULT)
+        search_location = global_conf.get("search_location", "Bangalore, Karnataka, India")
+        search_time_range = global_conf.get("search_time_range", "r604800")
+        
+        search_urls = [build_search_url(k, search_location, search_time_range) for k in keywords]
+        
         try:
             max_duration = int(global_conf.get("max_run_duration_seconds", 120))
         except ValueError:
             max_duration = 120
 
-        print(f"Time limit per keyword: {max_duration} seconds")
+        logger.info(f"Time limit per keyword: {max_duration} seconds")
         total_saved = 0
         session_lost = False
         processed_signatures = load_processed_signatures_from_json()
         processed_job_ids = set()
 
-        for kw_i, (keyword, search_url) in enumerate(
-            zip(SEARCH_KEYWORDS_LIST, SEARCH_URLS), start=1
-        ):
+        for kw_i, (keyword, search_url) in enumerate(zip(keywords, search_urls), start=1):
             if session_lost:
                 break
 
-            print(f"\n{'='*60}")
-            print(f"[KEYWORD {kw_i}/{len(SEARCH_KEYWORDS_LIST)}] {keyword}")
-            print(f"{'='*60}")
-
+            logger.info(f"\n[KEYWORD {kw_i}/{len(keywords)}] {keyword}")
             try:
                 driver.get(search_url)
-                print("Loading search results...")
+                logger.info("Loading search results...")
                 wait_for_page(8)
                 wait_for_search_results(driver, timeout=20)
-                wait_for_page(2)
-                # Handle optional search results layout verification / optional filters
                 wait_for_page(2)
 
                 page_no = 1
@@ -273,23 +317,22 @@ def run_automation(target_url=None):
                 while True:
                     elapsed = time.time() - keyword_start_time
                     if elapsed >= max_duration:
-                        print(f"Time limit reached for keyword '{keyword}' ({int(elapsed)}s >= {max_duration}s). Moving to next keyword.")
+                        logger.info(f"Time limit reached for keyword '{keyword}' ({int(elapsed)}s >= {max_duration}s). Moving to next keyword.")
                         break
 
-                    print(f"\n[PAGE {page_no}] Keyword: '{keyword}' (Elapsed: {int(elapsed)}s)")
+                    logger.info(f"\n[PAGE {page_no}] Keyword: '{keyword}' (Elapsed: {int(elapsed)}s)")
 
                     job_cards = get_job_cards(driver)
                     if not job_cards:
-                        print("No jobs found on current page.")
+                        logger.info("No jobs found on current page.")
                         break
 
-                    print(f"Found {len(job_cards)} jobs on page {page_no}")
+                    logger.info(f"Found {len(job_cards)} jobs on page {page_no}")
 
                     for index in range(len(job_cards)):
-                        # Check time limit inside loop
                         elapsed = time.time() - keyword_start_time
                         if elapsed >= max_duration:
-                            print(f"Time limit reached during card processing ({int(elapsed)}s >= {max_duration}s).")
+                            logger.info(f"Time limit reached during card processing ({int(elapsed)}s >= {max_duration}s).")
                             break
 
                         sig = ""
@@ -319,8 +362,6 @@ def run_automation(target_url=None):
                                 break
 
                             card = valid_cards[index]
-
-                            # Scroll card into viewport
                             driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", card)
                             time.sleep(2)
 
@@ -369,23 +410,22 @@ def run_automation(target_url=None):
 
                             sig = f"{company.lower().strip()}|{position.lower().strip()}"
 
-                            print(f"\n  --- Job {index + 1}/{len(valid_cards)} (Page {page_no}) ---")
-                            print(f"  Title  : {position}")
-                            print(f"  Company: {company}")
+                            logger.info(f"\n  --- Job {index + 1}/{len(valid_cards)} (Page {page_no}) ---")
+                            logger.info(f"  Title  : {position}")
+                            logger.info(f"  Company: {company}")
                             if job_id:
-                                print(f"  Job ID : {job_id}")
+                                logger.info(f"  Job ID : {job_id}")
 
-                            # Check duplicates/processed state early
                             if job_id and job_id in processed_job_ids:
-                                print(f"  [SKIP] Job ID {job_id} already processed in this run.")
+                                logger.info(f"  [SKIP] Job ID {job_id} already processed in this run.")
                                 continue
                             if sig in processed_signatures:
-                                print("  [SKIP] Job already processed (session signature check).")
+                                logger.info("  [SKIP] Job already processed (session signature check).")
                                 if job_id:
                                     processed_job_ids.add(job_id)
                                 continue
                             if is_job_already_processed_json(company, position):
-                                print("  [SKIP] Job already processed (JSON signature check).")
+                                logger.info("  [SKIP] Job already processed (JSON signature check).")
                                 processed_signatures.add(sig)
                                 if job_id:
                                     processed_job_ids.add(job_id)
@@ -395,7 +435,7 @@ def run_automation(target_url=None):
                             driver.execute_script("arguments[0].click();", card)
                             time.sleep(3)
 
-                            # Find right details pane to wait for buttons
+                            # Find right details pane
                             right_pane = None
                             for css in ['.jobs-search__job-details', '.jobs-details', '#job-details', '.scaffold-layout__detail']:
                                 try:
@@ -408,7 +448,7 @@ def run_automation(target_url=None):
 
                             target_container = right_pane if right_pane else driver
 
-                            # Wait until Apply / Easy Apply buttons are loaded
+                            # Wait for Apply buttons
                             try:
                                 WebDriverWait(driver, 15).until(
                                     EC.presence_of_element_located((
@@ -425,11 +465,10 @@ def run_automation(target_url=None):
                                     ))
                                 )
                             except Exception:
-                                print("  Apply section load timeout.")
+                                logger.info("  Apply section load timeout.")
 
                             time.sleep(2)
 
-                            # Find all candidate Apply/Easy Apply buttons inside the container
                             apply_buttons = []
                             candidate_selectors = [
                                 "a[aria-label*='Easy Apply']",
@@ -464,14 +503,14 @@ def run_automation(target_url=None):
                                     continue
 
                             if is_easy_apply:
-                                print("  [SKIP] Easy Apply job. Skipping completely.")
+                                logger.info("  [SKIP] Easy Apply job. Skipping completely.")
                                 processed_signatures.add(sig)
                                 if job_id:
                                     processed_job_ids.add(job_id)
                                 continue
 
                             if not external_apply_btn:
-                                print("  [SKIP] No regular Apply button found.")
+                                logger.info("  [SKIP] No regular Apply button found.")
                                 processed_signatures.add(sig)
                                 if job_id:
                                     processed_job_ids.add(job_id)
@@ -480,11 +519,11 @@ def run_automation(target_url=None):
                             original_tab = driver.current_window_handle
                             pre_click_handles = driver.window_handles
 
-                            # Click external Apply button directly in browser to trigger new tab
-                            print("  Clicking the external Apply button...")
+                            # Click external Apply button
+                            logger.info("  Clicking the external Apply button...")
                             driver.execute_script("arguments[0].click();", external_apply_btn)
 
-                            # Wait up to 10 seconds for a new tab to open
+                            # Wait for tab
                             new_handle = None
                             for _ in range(20):
                                 time.sleep(0.5)
@@ -497,22 +536,21 @@ def run_automation(target_url=None):
                                     break
 
                             if not new_handle:
-                                print("  [WARNING] Clicked Apply but no new tab opened.")
+                                logger.warning("  [WARNING] Clicked Apply but no new tab opened.")
                                 processed_signatures.add(sig)
                                 if job_id:
                                     processed_job_ids.add(job_id)
                                 continue
 
-                            # Switch to external tab
                             driver.switch_to.window(new_handle)
-                            time.sleep(5)  # Wait for redirects to settle
+                            time.sleep(5)
 
                             external_url = driver.current_url
-                            print(f"  Settled External URL: {external_url}")
+                            logger.info(f"  Settled External URL: {external_url}")
 
                             # Check duplicate in Excel
                             if is_already_saved(external_url):
-                                print("  [SKIP] Job already saved in Excel tracker.")
+                                logger.info("  [SKIP] Job already saved in Excel tracker.")
                                 driver.close()
                                 driver.switch_to.window(original_tab)
                                 time.sleep(2)
@@ -521,38 +559,31 @@ def run_automation(target_url=None):
                                     processed_job_ids.add(job_id)
                                 continue
 
-                            # Check if job title matches any keyword from our configured list
-                            if is_title_matching_keywords(position, SEARCH_KEYWORDS_LIST):
-                                # Store to JSON
+                            if is_title_matching_keywords(position, keywords):
                                 save_job_json(company, external_url, position)
-                                # Store to Excel to update Pipeline database records
                                 try:
-                                    from linkedin_job_io import save_job as excel_save_job
-                                    if excel_save_job({
+                                    if save_job({
                                         "url": external_url,
                                         "company": company,
                                         "search_keyword": keyword
                                     }):
                                         total_saved += 1
-                                        print("  [SUCCESS] Job stored in Excel tracker.")
+                                        logger.info("  [SUCCESS] Job stored in Excel tracker.")
                                 except Exception as e:
-                                    print(f"  [ERROR] Excel save error: {e}")
+                                    logger.error(f"  [ERROR] Excel save error: {e}")
                             else:
-                                print(f"  [SKIP] Title '{position}' does not match configured SEARCH_KEYWORDS_LIST.")
+                                logger.info(f"  [SKIP] Title '{position}' does not match configured keyword list.")
 
-                            # Close external tab and switch back to search page
                             driver.close()
                             driver.switch_to.window(original_tab)
                             time.sleep(2)
 
-                            # Mark as processed in session
                             processed_signatures.add(sig)
                             if job_id:
                                 processed_job_ids.add(job_id)
 
                         except Exception as e:
-                            print(f"  Error processing job {index + 1}: {str(e)}")
-                            # Recovery: close any extra handles and switch back to main
+                            logger.error(f"  Error processing job {index + 1}: {str(e)}")
                             try:
                                 handles = driver.window_handles
                                 if len(handles) > 1:
@@ -563,7 +594,6 @@ def run_automation(target_url=None):
                                 driver.switch_to.window(main_handle)
                             except Exception:
                                 pass
-                            # Ensure we mark it processed to avoid looping
                             try:
                                 processed_signatures.add(sig)
                                 if job_id:
@@ -572,21 +602,18 @@ def run_automation(target_url=None):
                                 pass
                             continue
 
-                    # Navigate to next page
                     moved = go_to_next_jobs_page(driver)
                     if not moved:
-                        print("No more pages available.")
+                        logger.info("No more pages available.")
                         break
                     page_no += 1
 
             except (InvalidSessionIdException, WebDriverException) as e:
-                print(f"Session lost: {e}")
+                logger.error(f"Session lost: {e}")
                 session_lost = True
                 break
 
-        print(f"\n{'='*60}")
-        print(f"[COMPLETE] Total jobs saved: {total_saved}")
-        print(f"{'='*60}")
+        logger.info(f"\n[COMPLETE] Total jobs saved: {total_saved}")
 
     finally:
         try:
@@ -597,6 +624,3 @@ def run_automation(target_url=None):
             driver.quit()
         except Exception:
             pass
-
-if __name__ == "__main__":
-    run_automation()

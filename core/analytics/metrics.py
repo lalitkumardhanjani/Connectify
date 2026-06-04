@@ -1,13 +1,7 @@
 import os
 import pandas as pd
 from datetime import datetime, timedelta
-
-# Path to the Excel file used by the email scraper
-EMAIL_EXCEL_FILE = os.path.join(os.getcwd(), 'job_tracker.xlsx')
-
-# Path to the leads Excel file used by the company scraper
-COMPANY_EXCEL_FILE = os.path.join(os.getcwd(), 'LinkedIn_Job_Tracker.xlsx')
-
+from config.settings import JOB_TRACKER_FILE, JOB_LEADS_FILE
 
 def _load_excel(path):
     """Utility to load an Excel file into a pandas DataFrame.
@@ -35,7 +29,7 @@ def _find_col(df, *candidates):
 
 def get_email_metrics():
     """Compute email-scraper analytics from job_tracker.xlsx."""
-    df = _load_excel(EMAIL_EXCEL_FILE)
+    df = _load_excel(JOB_TRACKER_FILE)
 
     empty_result = {
         "total_emails": 0,
@@ -139,7 +133,7 @@ def get_email_metrics():
 
 def get_company_metrics():
     """Compute company-scraper analytics from LinkedIn_Job_Tracker.xlsx."""
-    df = _load_excel(COMPANY_EXCEL_FILE)
+    df = _load_excel(JOB_LEADS_FILE)
 
     empty_result = {
         "total_companies": 0,
@@ -205,11 +199,3 @@ def get_company_metrics():
         "keyword_counts":     keyword_counts,
         "keyword_status":     keyword_status,
     }
-
-
-if __name__ == "__main__":
-    import json
-    print("=== EMAIL METRICS ===")
-    print(json.dumps(get_email_metrics(), indent=2, default=str))
-    print("\n=== COMPANY METRICS ===")
-    print(json.dumps(get_company_metrics(), indent=2, default=str))

@@ -1,66 +1,9 @@
 import os
 import json
+from config.settings import BASE_DIR, RESUMES_DIR
+from config.email_templates import DEFAULT_EMAIL_TEMPLATE, DEFAULT_CONNECTION_TEMPLATE
 
-CONFIG_FILE = "users_config.json"
-
-DEFAULT_EMAIL_TEMPLATE = """Hi,
-
-I came across your post regarding an opportunity.
-
-My name is {FIRST_NAME}, and I have {EXPERIENCE} of experience.
-
-I have attached my resume for your review. If my profile is a good fit for the role, I would be grateful if you could consider referring me or sharing it with the appropriate hiring team.
-
-Email: {EMAIL}
-Mobile: {PHONE_NUMBER}
-Current Location: {CURRENT_LOCATION}
-Preferred Locations: {PREFERRED_LOCATIONS}
-LinkedIn: {LINKEDIN_PROFILE_URL}
-
-Thank you for your time and support.
-
-Regards,
-{FIRST_NAME}"""
-
-DEFAULT_CONNECTION_TEMPLATE = "Hi, I am {FIRST_NAME}. I am applying for the position at {company}. Would you kindly refer me?\\nJob: {job_url}\\nResume: {resume}\\nThank you for your support."
-
-def substitute_template_variables(template_str, profile_dict, extra_vars=None):
-    if not template_str:
-        return ""
-    
-    # Map profile dict fields to template placeholder names
-    mappings = {
-        "{FIRST_NAME}": profile_dict.get("first_name", ""),
-        "{LAST_NAME}": profile_dict.get("last_name", ""),
-        "{EMAIL}": profile_dict.get("email", ""),
-        "{PHONE_NUMBER}": profile_dict.get("phone", ""),
-        "{EXPERIENCE}": profile_dict.get("experience", ""),
-        "{LINKEDIN_PROFILE_URL}": profile_dict.get("linkedin_url", ""),
-        "{CURRENT_LOCATION}": profile_dict.get("current_location", ""),
-        "{PREFERRED_LOCATIONS}": profile_dict.get("preferred_locations", ""),
-        "{CURRENT_CTC}": profile_dict.get("current_ctc", ""),
-        "{EXPECTED_CTC}": profile_dict.get("expected_ctc", "")
-    }
-    
-    result = template_str
-    for placeholder, val in mappings.items():
-        result = result.replace(placeholder, str(val))
-        
-    if extra_vars:
-        for placeholder, val in extra_vars.items():
-            result = result.replace(placeholder, str(val))
-            
-    return result
-
-def get_resume_file_path(profile):
-    local_resume_name = profile.get("resume_name", "")
-    if local_resume_name:
-        return os.path.join(os.getcwd(), "resumes", local_resume_name)
-    else:
-        return os.getenv(
-            "RESUME_FILE_PATH",
-            os.path.abspath(os.path.join(os.getcwd(), "Resume_YuvashreeJ_SQLDBA.pdf"))
-        )
+CONFIG_FILE = os.path.join(BASE_DIR, "users_config.json")
 
 def load_all_configs():
     if not os.path.exists(CONFIG_FILE):
@@ -188,7 +131,6 @@ def get_selected_user_config():
 
 def get_global_settings():
     config = load_all_configs()
-    # If global_settings key is missing (for legacy user_config), return defaults
     return config.get("global_settings", {
         "linkedin_email": os.getenv("LINKEDIN_EMAIL", ""),
         "linkedin_password": os.getenv("LINKEDIN_PASSWORD", ""),
@@ -202,3 +144,40 @@ def get_global_settings():
         "smtp_email": os.getenv("SMTP_EMAIL", "lk356003@gmail.com"),
         "smtp_password": os.getenv("SMTP_PASSWORD", "")
     })
+
+def substitute_template_variables(template_str, profile_dict, extra_vars=None):
+    if not template_str:
+        return ""
+    
+    mappings = {
+        "{FIRST_NAME}": profile_dict.get("first_name", ""),
+        "{LAST_NAME}": profile_dict.get("last_name", ""),
+        "{EMAIL}": profile_dict.get("email", ""),
+        "{PHONE_NUMBER}": profile_dict.get("phone", ""),
+        "{EXPERIENCE}": profile_dict.get("experience", ""),
+        "{LINKEDIN_PROFILE_URL}": profile_dict.get("linkedin_url", ""),
+        "{CURRENT_LOCATION}": profile_dict.get("current_location", ""),
+        "{PREFERRED_LOCATIONS}": profile_dict.get("preferred_locations", ""),
+        "{CURRENT_CTC}": profile_dict.get("current_ctc", ""),
+        "{EXPECTED_CTC}": profile_dict.get("expected_ctc", "")
+    }
+    
+    result = template_str
+    for placeholder, val in mappings.items():
+        result = result.replace(placeholder, str(val))
+        
+    if extra_vars:
+        for placeholder, val in extra_vars.items():
+            result = result.replace(placeholder, str(val))
+            
+    return result
+
+def get_resume_file_path(profile_dict):
+    local_resume_name = profile_dict.get("resume_name", "")
+    if local_resume_name:
+        return os.path.join(RESUMES_DIR, local_resume_name)
+    else:
+        return os.getenv(
+            "RESUME_FILE_PATH",
+            os.path.abspath(os.path.join(RESUMES_DIR, "Resume_YuvashreeJ_SQLDBA.pdf"))
+        )

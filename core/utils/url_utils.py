@@ -1,35 +1,6 @@
 import re
 import urllib.parse
 
-def get_unique_job_key(url):
-    try:
-        parsed = urllib.parse.urlparse(url)
-        params = urllib.parse.parse_qs(parsed.query)
-
-        priority_keys = [
-            "jobReferenceCode",
-            "jobid",
-            "jobId",
-            "reqid",
-            "reqId",
-            "reference",
-            "id"
-        ]
-
-        for key in priority_keys:
-            if key in params:
-                return f"{parsed.netloc}:{params[key][0]}".lower()
-
-        return normalize_external_url(url)
-
-    except Exception:
-        return normalize_external_url(url)
-
-def normalize_text(*parts):
-    return " ".join(
-        p.strip() for p in parts if isinstance(p, str) and p.strip()
-    ).lower()
-
 def decode_apply_redirect(apply_url):
     if not apply_url:
         return apply_url
@@ -258,3 +229,32 @@ def extract_job_reference_code(driver, current_url="", job_url=""):
             break
 
     return out
+
+def get_unique_job_key(url):
+    try:
+        parsed = urllib.parse.urlparse(url)
+        params = urllib.parse.parse_qs(parsed.query)
+
+        priority_keys = [
+            "jobReferenceCode",
+            "jobid",
+            "jobId",
+            "reqid",
+            "reqId",
+            "reference",
+            "id"
+        ]
+
+        for key in priority_keys:
+            if key in params:
+                return f"{parsed.netloc}:{params[key][0]}".lower()
+
+        return normalize_external_url(url)
+
+    except Exception:
+        return normalize_external_url(url)
+
+def normalize_text(*parts):
+    return " ".join(
+        p.strip() for p in parts if isinstance(p, str) and p.strip()
+    ).lower()

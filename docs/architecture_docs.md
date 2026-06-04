@@ -1,0 +1,126 @@
+# Connectify – Technical Architecture Documentation
+
+This document describes the codebase architecture, design choices, data flow models, and extension guidelines for **Connectify**.
+
+---
+
+## 🏗️ Core Architecture Overview
+
+Connectify follows clean architectural principles by separating cross-cutting configurations, common infrastructure utilities, data storage layers, and execution pipelines.
+
+```
++-------------------------------------------------------------+
+|                     Flask Web App (app.py)                  |
++------------------------------+------------------------------+
+                               | launches
+                               v
++-------------------------------------------------------------+
+|                  Runner Scripts (run_*.py)                  |
++------------------------------+------------------------------+
+                               | calls
+                               v
++-------------------------------------------------------------+
+|                     Pipelines Package                       |
+|  - email_outreach/           - linkedin_outreach/            |
+|    - scraper.py                 - job_finder.py              |
+|    - sender.py                  - reviewer.py                |
+|    - pipeline.py                - connector.py               |
++------------------------------+------------------------------+
+                               | uses
+                               v
++-------------------------------------------------------------+
+|                       Core package                          |
+|  - storage/database.py       - integrations/selenium_driver |
+|  - analytics/metrics.py      - utils/url_utils & string_    |
++------------------------------+------------------------------+
+                               | configures
+                               v
++-------------------------------------------------------------+
+|                     Configuration package                   |
+|  - settings.py   - constants.py   - user_profiles.py        |
++-------------------------------------------------------------+
+```
+
+---
+
+## 🛠️ Module Breakdowns
+
+### 1. Configuration Package (`config/`)
+Centralizes all settings parameters and resolves paths relative to the root directory.
+- **`settings.py`**: Resolves local environment setups, file pathways, and creates runtime directories (`data/`, `logs/`, `resumes/`) on startup.
+- **`constants.py`**: Keeps static database schemas, Excel column header orders, and standard search keywords.
+- **`user_profiles.py`**: Interacts with `users_config.json` to fetch and store details for the active user (e.g. experience, template parameters, resumes).
+- **`email_templates.py`**: Holds default message fallbacks.
+
+### 2. Core Library Package (`core/`)
+Abstracts shared utility layers so pipelines remain focused solely on execution flows.
+- **`storage/database.py`**: Coordinates openpyxl and JSON file reads/writes under the `data/` directory. Automatically handles duplicate checks, incrementing primary IDs, and trigger sheet re-loads on macOS using AppleScript.
+- **`integrations/selenium_driver.py`**: Consolidates browser profile setups. Sets remote debugging ports, maximizes windows, configures Darwin application binaries, and manages UI overlays.
+- **`integrations/url_shortener.py`**: Connects to TinyURL API GET endpoints to shorten company URLs.
+- **`utils/`**: Split into `string_utils.py` (regex expressions for email parsing) and `url_utils.py` (handles URL normalization, decoding safety redirects, and parsing job IDs).
+- **`analytics/metrics.py`**: Processes Excel/JSON tracking files into standard dashboard stats.
+
+### 3. Pipelines Package (`pipelines/`)
+Dedicated workflows that implement browser manipulation and scraper logic.
+
+#### Email Scraper & Outreach (`pipelines/email_outreach/`)
+Scrapes emails from posts and sends outreach emails.
+- **`services/scraper.py`**: Navigates to LinkedIn content boards, searches keywords, expands posts, extracts text, finds email addresses, and saves them to `data/job_tracker.xlsx`.
+- **`services/sender.py`**: Formulates messages based on dynamic configurations and sends emails using SMTP or Selenium Gmail browser automation.
+- **`pipeline.py`**: Standard orchestrator combining scraper (Phase 1) and sender (Phase 2) workflows.
+
+#### Job Search & Connect (`pipelines/linkedin_outreach/`)
+Finds job listings and sends connection/direct message requests.
+- **`services/job_finder.py`**: Scrapes job listings, checks for duplicate postings in `data/LinkedIn_Job_Tracker.xlsx`, and opens external apply links to cache actual settled career URLs.
+- **`services/reviewer.py`**: Terminal CLI prompt allowing users to choose whether to request referrals for a listed company or mark it as skipped.
+- **`services/connector.py`**: Leverages Selenium to search for people working at target companies, and sends connection invites (with personalized notes) or direct messages (to 1st degree connections).
+- **`pipeline.py`**: Step coordinator interface.
+
+---
+
+## 🔄 Pipeline Data Flow Models
+
+### 1. Email Scraper Pipeline Data Flow
+```
+[LinkedIn Content Boards] --(Selenium Scrapes Text)--> [Scraped Content]
+                                                              |
+                                                    (extracts via regex)
+                                                              v
+                                                       [Email Addresses]
+                                                              |
+                                                        (database check)
+                                                              v
+[SMTP Server / Gmail UI] <--(Send Mail Compose)-- [data/job_tracker.xlsx]
+```
+
+### 2. LinkedIn Job & Connect Pipeline Data Flow
+```
+[LinkedIn Search Jobs] --(Discovers Job Card)--> [External Apply Button]
+                                                              |
+                                                      (decodes redirect)
+                                                              v
+[Review Option (CLI)] <--(Presents NEW Job)-- [data/LinkedIn_Job_Tracker.xlsx]
+          |
+     (Sets status)
+          v
+[Ask For Referral] --(TinyURL shortens links)--> [ShortenURL column updated]
+                                                              |
+                                                    (Selenium Search People)
+                                                              v
+[Send Connection / Note] --(Records Contact Name)--> [ReferralPerson column updated]
+```
+
+---
+
+## 🚀 Guidelines for Adding New Features
+
+### Adding a new Configuration Variable
+1. If the setting is system-wide, add it to `config/settings.py` (if it loads from environment variables) or `config/constants.py` (if it is a static configuration constant).
+2. If it is user-specific, add it to the default user dictionaries in `config/user_profiles.py` inside `load_all_configs()`. This ensures that new user profiles created via the dashboard will inherit the parameter.
+
+### Adding a new Outreach Pipeline
+1. Create a subfolder under `pipelines/` (e.g., `pipelines/new_platform_outreach/`).
+2. Implement your browser scraper and automation routines under a `services/` folder inside it.
+3. Expose a central `run_pipeline()` entrypoint in `pipelines/new_platform_outreach/pipeline.py`.
+4. Create a corresponding thin wrapper script in the root directory (e.g. `run_new_outreach.py`) that imports and calls your runner function.
+5. In `app.py`, update `SubprocessRunner` commands to support triggering the new wrapper script.

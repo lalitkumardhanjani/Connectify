@@ -1,10 +1,14 @@
+import os
+import sys
 import time
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.support.ui import WebDriverWait
-from linkedin_job_config import CHROME_PROFILE_DIR
+from selenium.webdriver.chrome.service import Service
+from config.settings import CHROME_PROFILE_DIR, MAC_CHROME_BINARY, CHROMEDRIVER_PATH
+from core.logging.config import logger
 
 def get_driver():
+    """Initializes and returns a Selenium webdriver.Chrome instance with the configured profile and options."""
     options = Options()
     options.add_argument("--remote-debugging-port=9222")
     options.add_argument(f"--user-data-dir={CHROME_PROFILE_DIR}")
@@ -12,68 +16,36 @@ def get_driver():
     options.add_argument("--disable-popup-blocking")
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option("useAutomationExtension", False)
+    
     prefs = {
         "profile.default_content_setting_values.popups": 1,
     }
     options.add_experimental_option("prefs", prefs)
-    options.binary_location = "/System/Volumes/Data/Volumes/Google Chrome/Google Chrome.app/Contents/MacOS/Google Chrome"
 
-    import os
-    from selenium.webdriver.chrome.service import Service
-    local_chromedriver = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chromedriver")
-    if os.path.exists(local_chromedriver):
-        service = Service(local_chromedriver)
+    # MacOS Chrome Binary check
+    if sys.platform == 'darwin' and os.path.exists(MAC_CHROME_BINARY):
+        options.binary_location = MAC_CHROME_BINARY
+        logger.info(f"Using custom Chrome binary location: {MAC_CHROME_BINARY}")
+
+    # Chromedriver setup
+    if os.path.exists(CHROMEDRIVER_PATH):
+        logger.info(f"Using local chromedriver binary: {CHROMEDRIVER_PATH}")
+        service = Service(CHROMEDRIVER_PATH)
     else:
+        logger.info("Local chromedriver not found, installing via webdriver_manager...")
         from webdriver_manager.chrome import ChromeDriverManager
         service = Service(ChromeDriverManager(driver_version="148.0.7778.216").install())
+
     driver = webdriver.Chrome(service=service, options=options)
     driver.maximize_window()
     return driver
 
 def wait_for_page(seconds=5):
+    """Simple wrapper to sleep execution for page loads or actions."""
     time.sleep(seconds)
 
-def wait_for_search_results(driver, timeout=30):
-    try:
-        WebDriverWait(driver, timeout).until(lambda d: d.execute_script(
-            "return !!document.querySelector('a[href*=\"/jobs/view/\"]') || "
-            "!!document.querySelector('ul.jobs-search__results-list li') || "
-            "!!document.querySelector('div.jobs-search-results__list-item') || "
-            "!!document.querySelector('div.job-card-container') || "
-            "!!document.querySelector('div.job-card-list__item') || "
-            "!!document.querySelector('.base-card')"
-        ))
-        return True
-    except Exception:
-        return False
-
-def is_logged_in(driver):
-    try:
-        return driver.execute_script(
-            "return !!document.querySelector("
-            "  'input[placeholder*=\"Search\"],"
-            "   input[role=\"combobox\"],"
-            "   .search-global-typeahead__input'"
-            ");"
-        )
-    except Exception:
-        return False
-
-def wait_until_logged_in(driver, timeout_seconds=300):
-    print("\nLogin required.")
-    print("In the opened Chrome window, sign in to LinkedIn using email/password.")
-    print("Avoid 'Continue with Google' here; Google often blocks sign-in in automated browsers.")
-
-    start = time.time()
-    while time.time() - start < timeout_seconds:
-        if is_logged_in(driver):
-            print("Login detected.")
-            return True
-        time.sleep(2)
-
-    return False
-
 def inject_runtime_overlay(driver):
+    """Injects a visually distinct timer overlay onto the web page."""
     try:
         driver.execute_script(r"""
             (function(){
@@ -112,6 +84,7 @@ def inject_runtime_overlay(driver):
         pass
 
 def remove_runtime_overlay(driver):
+    """Removes the timer overlay from the web page."""
     try:
         driver.execute_script(r"""
             (function(){

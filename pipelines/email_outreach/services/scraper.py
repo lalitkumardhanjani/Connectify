@@ -1,42 +1,22 @@
-from selenium import webdriver
+import time
+import random
+import re
+from urllib.parse import quote
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, StaleElementReferenceException
-from selenium.webdriver.chrome.options import Options
-import os
-import time
-import random
-import re
-import csv
-from urllib.parse import quote
 
-from config import CHROME_PROFILE_PATH, LINKEDIN_EMAIL, LINKEDIN_PASSWORD, DEFAULT_SEARCH_KEYWORDS, REVIEW_MODE
-from email_extractor import extract_emails
-from email_sender_gmail_web import send_email_via_gmail
-from data_store import init_store, append_email, update_status
-from logger import logger
-import openpyxl
+from config.user_profiles import get_selected_user_config, get_global_settings
+from config.constants import DBA_KEYWORDS_DEFAULT
+from core.utils.string_utils import extract_emails
+from core.storage.database import append_email, init_scraper_store
+from core.logging.config import logger
 
 class LinkedInScraper:
-    def __init__(self):
-        self.driver = self._setup_driver()
+    def __init__(self, driver):
+        self.driver = driver
 
-    def _setup_driver(self):
-        options = Options()
-        options.add_argument("--remote-debugging-port=9222")
-        options.add_argument(f"--user-data-dir={CHROME_PROFILE_PATH}")
-        options.add_argument("--disable-blink-features=AutomationControlled")
-        options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        options.add_experimental_option('useAutomationExtension', False)
-
-        driver = webdriver.Chrome(options=options)
-        driver.maximize_window()
-        return driver
-
-    # ---------------------------------------------------------------------
-    # Post discovery helpers
-    # ---------------------------------------------------------------------
     def _find_post_containers(self):
         selectors = [
             ("css", ".feed-shared-update-v2"),
@@ -78,11 +58,8 @@ class LinkedInScraper:
                 continue
         return False
 
-    # ---------------------------------------------------------------------
-    # Authentication
-    # ---------------------------------------------------------------------
     def login(self):
-        """Handle LinkedIn login"""
+        """Handle LinkedIn login using config profiles."""
         self.driver.get("https://www.linkedin.com/feed/")
         logger.info("Checking if already logged in...")
         try:
@@ -101,10 +78,16 @@ class LinkedInScraper:
                         return True
                 except TimeoutException:
                     continue
+                    
             logger.info("Not logged in. Attempting login...")
-            if not LINKEDIN_EMAIL or not LINKEDIN_PASSWORD:
+            global_conf = get_global_settings()
+            email = global_conf.get("linkedin_email")
+            password = global_conf.get("linkedin_password")
+            
+            if not email or not password:
                 logger.error("LinkedIn credentials missing in config.")
                 return False
+                
             email_selectors = [
                 "input[id*='username']",
                 "input[name='session_key']",
@@ -120,10 +103,12 @@ class LinkedInScraper:
                     break
                 except TimeoutException:
                     continue
+                    
             if email_input:
-                email_input.send_keys(LINKEDIN_EMAIL)
+                email_input.send_keys(email)
                 password_input = self.driver.find_element(By.CSS_SELECTOR, "input[type='password']")
-                password_input.send_keys(LINKEDIN_PASSWORD)
+                password_input.send_keys(password)
+                
                 button_selectors = [
                     "button[type='submit']",
                     "button[data-litms-control-urn*='sign-in']",
@@ -142,9 +127,6 @@ class LinkedInScraper:
             logger.error(f"Login error: {str(e)}")
             return False
 
-    # ---------------------------------------------------------------------
-    # Search handling per keyword
-    # ---------------------------------------------------------------------
     def search_for_keyword(self, keyword):
         """Navigate to the LinkedIn search page for a given keyword and ensure the Posts/LATEST view is active."""
         search_query = quote(keyword)
@@ -175,9 +157,6 @@ class LinkedInScraper:
                 return False
         return True
 
-    # ---------------------------------------------------------------------
-    # Post data extraction (content only – we ignore name/date/url)
-    # ---------------------------------------------------------------------
     def extract_post_data(self, post_element):
         """Extract raw text content from a post element."""
         try:
@@ -190,7 +169,7 @@ class LinkedInScraper:
                 ".//div[@data-test-id='feed-item-text']",
                 ".//p",
                 ".//span",
-                "."  # fallback to the whole element text
+                "."
             ]
             post_content = ""
             for selector in content_selectors:
@@ -220,16 +199,18 @@ class LinkedInScraper:
             logger.warning(f"Error extracting post data: {e}")
             return None
 
-    # ---------------------------------------------------------------------
-    # Scrolling loop with per‑keyword timeout
-    # ---------------------------------------------------------------------
     def process_keyword(self, keyword, timeout_seconds=60):
+        """Scroll and scrape emails for the given keyword."""
         start_time = time.time()
         processed_ids = set()
         last_height = self.driver.execute_script("return document.body.scrollHeight")
         no_new_posts = 0
+        
+        user_conf = get_selected_user_config()
+        email_scraper = user_conf.get("email_scraper", {})
+        search_keywords = email_scraper.get("keywords", DBA_KEYWORDS_DEFAULT)
+
         while True:
-            # Check timeout first
             if time.time() - start_time > timeout_seconds:
                 logger.info(f"Keyword '{keyword}' timed out after {timeout_seconds}s.")
                 break
@@ -247,11 +228,9 @@ class LinkedInScraper:
                     data = self.extract_post_data(post)
                     if data and data.get('content'):
                         content = data['content']
-                        # Verify at least one keyword appears
-                        if any(kw.lower() in content.lower() for kw in DEFAULT_SEARCH_KEYWORDS):
+                        if any(kw.lower() in content.lower() for kw in search_keywords):
                             emails = extract_emails(content)
                             for email in emails:
-                                # append_email handles duplicate checking and immediate save
                                 appended = append_email(email, keyword)
                                 if appended:
                                     logger.info(f"Collected new email: {email}")
@@ -274,73 +253,3 @@ class LinkedInScraper:
             else:
                 no_new_posts = 0
             last_height = new_height
-
-    def close(self):
-        self.driver.quit()
-
-# -------------------------------------------------------------------------
-# Phase execution helpers
-# -------------------------------------------------------------------------
-def run_phase_one(scraper):
-    init_store()
-    for kw in DEFAULT_SEARCH_KEYWORDS:
-        logger.info(f"=== Processing keyword: '{kw}' ===")
-        if scraper.search_for_keyword(kw):
-            scraper.process_keyword(kw, timeout_seconds=60)
-        else:
-            logger.warning(f"Skipping keyword '{kw}' due to navigation failure.")
-
-def run_phase_two(scraper, review_mode=REVIEW_MODE):
-    excel_path = 'job_tracker.xlsx'
-    if not os.path.exists(excel_path):
-        logger.warning("Excel file not found – nothing to send.")
-        return
-    wb = openpyxl.load_workbook(excel_path)
-    ws = wb.active
-    col_map = {cell.value: idx+1 for idx, cell in enumerate(ws[1])}
-    email_col = col_map.get('Email')
-    status_col = col_map.get('Status')
-    if not email_col or not status_col:
-        logger.error("Excel schema missing required columns.")
-        return
-    for row in range(2, ws.max_row + 1):
-        status = (ws.cell(row=row, column=status_col).value or '').strip().lower()
-        if status == 'sent':
-            continue
-        email = ws.cell(row=row, column=email_col).value
-        if not email:
-            continue
-        logger.info(f"Sending email to {email} (row {row})")
-        sent = send_email_via_gmail(scraper.driver, email, review_mode=review_mode)
-        if sent:
-            update_status(email, 'sent')
-        else:
-            logger.info(f"Email to {email} not sent – leaving status unchanged.")
-
-if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser(description="LinkedIn email scraper with optional phases.")
-    parser.add_argument(
-        "--phase",
-        choices=["full", "phase1", "phase2"],
-        default="full",
-        help="Which part of the workflow to run: full (both phases), phase1 only, or phase2 only.",
-    )
-    parser.add_argument(
-        "--review",
-        action="store_true",
-        help="Ask for confirmation before sending each email (default false).",
-    )
-    args = parser.parse_args()
-
-    scraper = LinkedInScraper()
-    try:
-        if not scraper.login():
-            logger.error("Login failed – aborting.")
-        else:
-            if args.phase in ("full", "phase1"):
-                run_phase_one(scraper)
-            if args.phase in ("full", "phase2"):
-                run_phase_two(scraper, review_mode=args.review)
-    finally:
-        scraper.close()
