@@ -1,0 +1,744 @@
+import os
+import sys
+import json
+import time
+import subprocess
+import threading
+import signal
+from datetime import datetime
+from flask import Flask, jsonify, request, render_template, send_from_directory, send_file
+from werkzeug.utils import secure_filename
+import pandas as pd
+import openpyxl
+
+app = Flask(__name__, template_folder='templates', static_folder='static')
+from analytics import get_email_metrics, get_company_metrics
+# File Paths
+JOB_TRACKER_FILE = "job_tracker.xlsx"
+JOB_LEADS_FILE = "LinkedIn_Job_Tracker.xlsx"
+PYTHON_BIN = os.path.join(os.getcwd(), ".venv", "bin", "python")
+
+# Active task tracking
+# task_id -> { "process": subprocess.Popen, "logs": [], "status": "running", "waiting_for_input": False, "thread": Thread }
+active_tasks = {}
+task_lock = threading.Lock()
+
+class SubprocessRunner:
+    def __init__(self, task_id, commands):
+        self.task_id = task_id
+        self.commands = commands # List of (script_name, list_of_args)
+        self.logs = []
+        self.status = "queued"
+        self.waiting_for_input = False
+        self.process = None
+        self.current_step = 0
+        self.thread = None
+
+    def start(self):
+        self.status = "running"
+        self.thread = threading.Thread(target=self._run_loop)
+        self.thread.daemon = True
+        self.thread.start()
+
+    def log(self, text):
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        self.logs.append(f"[{timestamp}] {text}")
+
+    def _run_loop(self):
+        for idx, (script, args) in enumerate(self.commands):
+            self.current_step = idx + 1
+            script_path = os.path.join(os.getcwd(), script)
+            cmd = [PYTHON_BIN, "-u", script_path] + args
+            
+            self.log(f"--- Launching Step {self.current_step}/{len(self.commands)}: {script} ---")
+            
+            # Read fresh env variables from .env to forward to subprocess
+            env_copy = os.environ.copy()
+            if os.path.exists(".env"):
+                with open(".env", "r") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            k, v = line.split("=", 1)
+                            env_copy[k.strip()] = v.strip()
+            
+            try:
+                self.process = subprocess.Popen(
+                    cmd,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                    preexec_fn=None if sys.platform == 'win32' else os.setsid,
+                    env=env_copy
+                )
+            except Exception as e:
+                self.log(f"Failed to start script {script}: {e}")
+                self.status = "failed"
+                return
+
+            # Read stdout line by line
+            while True:
+                line = self.process.stdout.readline()
+                if not line:
+                    break
+                
+                clean_line = line.strip()
+                # Log clean line
+                self.logs.append(line.rstrip('\r\n'))
+                
+                # Check if review_for_referral or job search is waiting for option/confirmation selection
+                if "Enter choice:" in clean_line or "Options:" in clean_line or "press ENTER to continue" in clean_line:
+                    # Let it output the full prompt lines, then mark waiting
+                    time.sleep(0.2)
+                    self.waiting_for_input = True
+
+            self.process.stdout.close()
+            return_code = self.process.wait()
+            self.waiting_for_input = False
+            
+            if return_code != 0:
+                self.log(f"Script {script} exited with non-zero status code: {return_code}")
+                self.status = "failed"
+                return
+            
+            self.log(f"Step {self.current_step} completed successfully.")
+
+        self.status = "success"
+
+    def send_input(self, text):
+        if self.process and self.process.stdin:
+            try:
+                self.process.stdin.write(text + "\n")
+                self.process.stdin.flush()
+                self.log(f"Piped input: {text}")
+                self.waiting_for_input = False
+                return True
+            except Exception as e:
+                self.log(f"Failed to write to stdin: {e}")
+        return False
+
+    def kill(self):
+        if self.process:
+            try:
+                if sys.platform == 'win32':
+                    self.process.terminate()
+                else:
+                    os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
+                self.log("Process terminated by user.")
+            except Exception as e:
+                self.log(f"Error terminating process: {e}")
+        self.status = "killed"
+        self.waiting_for_input = False
+
+
+def get_excel_data(file_path):
+    if not os.path.exists(file_path):
+        return []
+    try:
+        df = pd.read_excel(file_path)
+        # Convert NaN to empty string for clean JSON parsing
+        df = df.fillna("")
+        return df.to_dict(orient="records")
+    except Exception as e:
+        print(f"Error reading {file_path}: {e}")
+        return []
+
+
+@app.route('/')
+def home():
+    return render_template('index.html')
+def index():
+    return render_template('index.html')
+@app.route('/dashboard')
+def dashboard():
+    return render_template('dashboard.html')
+
+@app.route('/api/stats')
+def get_stats():
+    job_tracker = get_excel_data(JOB_TRACKER_FILE)
+    job_leads = get_excel_data(JOB_LEADS_FILE)
+
+    total_emails = len(job_tracker)
+    emails_sent = sum(1 for r in job_tracker if str(r.get('Status')).strip().lower() == 'sent')
+    
+    total_leads = len(job_leads)
+    
+    referral_requests_sent = 0
+    done_referrals = 0
+    for r in job_leads:
+        ref_person = r.get('ReferralPerson') or r.get('Referral Person')
+        if ref_person:
+            names = [n.strip() for n in str(ref_person).split(',') if n.strip()]
+            referral_requests_sent += len(names)
+        
+        status = str(r.get('Status')).strip().lower()
+        if status == 'done':
+            done_referrals += 1
+
+    return jsonify({
+        "total_emails_scraped": total_emails,
+        "emails_sent": emails_sent,
+        "total_jobs_scraped": total_leads,
+        "referral_requests_sent": referral_requests_sent,
+        "done_jobs_count": done_referrals
+    })
+
+
+@app.route('/api/email_stats')
+def email_stats():
+    return jsonify(get_email_metrics())
+
+@app.route('/api/company_stats')
+def company_stats():
+    return jsonify(get_company_metrics())
+
+@app.route('/api/data/job_tracker')
+def job_tracker_data():
+    return jsonify(get_excel_data(JOB_TRACKER_FILE))
+
+
+@app.route('/api/data/job_leads')
+def job_leads_data():
+    return jsonify(get_excel_data(JOB_LEADS_FILE))
+
+
+@app.route('/api/run/scraper', methods=['POST'])
+def start_scraper():
+    with task_lock:
+        task_id = "scraper_pipeline"
+        if task_id in active_tasks and active_tasks[task_id].status == "running":
+            return jsonify({"status": "error", "message": "Scraper pipeline is already running"}), 400
+        
+        body = request.get_json(silent=True) or {}
+        phase = body.get("phase", "full")
+        
+        args = []
+        if phase in ("phase1", "phase2"):
+            args = ["--phase", phase]
+        
+        # Scraper workflow (runs linkedin_scraper.py)
+        runner = SubprocessRunner(task_id, [("linkedin_scraper.py", args)])
+        active_tasks[task_id] = runner
+        runner.start()
+        
+        return jsonify({"status": "success", "task_id": task_id})
+
+
+@app.route('/api/run/referral', methods=['POST'])
+def start_referral():
+    with task_lock:
+        task_id = "referral_pipeline"
+        if task_id in active_tasks and active_tasks[task_id].status == "running":
+            return jsonify({"status": "error", "message": "Referral pipeline is already running"}), 400
+        
+        body = request.get_json() or {}
+        step = body.get("step")
+        
+        all_commands = [
+            ("linkedin_find_job.py", []),
+            ("review_for_referral.py", []),
+            ("shorten_urls.py", []),
+            ("linkdin_connect.py", [])
+        ]
+        
+        if step is not None:
+            try:
+                step_idx = int(step) - 1
+                if step_idx < 0 or step_idx >= len(all_commands):
+                    return jsonify({"status": "error", "message": f"Invalid step: {step}"}), 400
+                commands = [all_commands[step_idx]]
+            except ValueError:
+                return jsonify({"status": "error", "message": f"Step must be an integer: {step}"}), 400
+        else:
+            commands = all_commands
+        
+        runner = SubprocessRunner(task_id, commands)
+        active_tasks[task_id] = runner
+        runner.start()
+        
+        return jsonify({"status": "success", "task_id": task_id})
+
+
+@app.route('/api/tasks')
+def get_all_tasks():
+    with task_lock:
+        result = {}
+        for tid, runner in active_tasks.items():
+            result[tid] = {
+                "status": runner.status,
+                "waiting_for_input": runner.waiting_for_input,
+                "current_step": runner.current_step,
+                "total_steps": len(runner.commands)
+            }
+        return jsonify(result)
+
+
+@app.route('/api/task/<task_id>/logs')
+def get_task_logs(task_id):
+    with task_lock:
+        if task_id not in active_tasks:
+            return jsonify({"status": "error", "message": "Task not found"}), 404
+        
+        # Return status, waiting indicator, and full logs
+        runner = active_tasks[task_id]
+        current_step_name = None
+        args = []
+        if runner.current_step > 0 and runner.current_step <= len(runner.commands):
+            cmd_tuple = runner.commands[runner.current_step - 1]
+            current_step_name = cmd_tuple[0]
+            args = cmd_tuple[1]
+        
+        return jsonify({
+            "status": runner.status,
+            "waiting_for_input": runner.waiting_for_input,
+            "logs": runner.logs,
+            "current_step_name": current_step_name,
+            "args": args,
+            "is_single_step": len(runner.commands) == 1
+        })
+
+
+@app.route('/api/task/<task_id>/input', methods=['POST'])
+def send_task_input(task_id):
+    with task_lock:
+        if task_id not in active_tasks:
+            return jsonify({"status": "error", "message": "Task not found"}), 404
+        
+        body = request.get_json() or {}
+        val = body.get("input", "")
+        
+        runner = active_tasks[task_id]
+        success = runner.send_input(val)
+        
+        if success:
+            return jsonify({"status": "success"})
+        else:
+            return jsonify({"status": "error", "message": "Failed to send input"}), 500
+
+
+@app.route('/api/task/<task_id>/kill', methods=['POST'])
+def kill_task(task_id):
+    with task_lock:
+        if task_id not in active_tasks:
+            return jsonify({"status": "error", "message": "Task not found"}), 404
+        
+        runner = active_tasks[task_id]
+        runner.kill()
+        return jsonify({"status": "success"})
+
+
+def read_env_file():
+    config_data = {}
+    if os.path.exists(".env"):
+        with open(".env", "r") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" in line:
+                    k, v = line.split("=", 1)
+                    config_data[k.strip()] = v.strip()
+    return config_data
+
+
+def write_env_file(updated_configs):
+    lines = []
+    keys_written = set()
+    if os.path.exists(".env"):
+        with open(".env", "r") as f:
+            lines = f.readlines()
+            
+    new_lines = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#") and "=" in stripped:
+            k, v = stripped.split("=", 1)
+            key = k.strip()
+            if key in updated_configs:
+                new_lines.append(f"{key}={updated_configs[key]}\n")
+                keys_written.add(key)
+                continue
+        new_lines.append(line)
+        
+    for k, v in updated_configs.items():
+        if k not in keys_written:
+            if new_lines and not new_lines[-1].endswith("\n"):
+                new_lines[-1] = new_lines[-1] + "\n"
+            new_lines.append(f"{k}={v}\n")
+            
+    with open(".env", "w") as f:
+        f.writelines(new_lines)
+
+
+@app.route('/api/users', methods=['GET'])
+def get_users_list():
+    from user_config_manager import load_all_configs
+    config = load_all_configs()
+    users = list(config.get("users", {}).keys())
+    selected = config.get("selected_user", "")
+    return jsonify({
+        "users": users,
+        "selected_user": selected
+    })
+
+
+@app.route('/api/users/select', methods=['POST'])
+def select_active_user():
+    from user_config_manager import load_all_configs, save_all_configs
+    body = request.get_json() or {}
+    user = body.get("user")
+    config = load_all_configs()
+    if not user or user not in config.get("users", {}):
+        return jsonify({"status": "error", "message": "User not found"}), 404
+    config["selected_user"] = user
+    save_all_configs(config)
+    return jsonify({"status": "success"})
+
+
+@app.route('/api/users/create', methods=['POST'])
+def create_user_profile():
+    from user_config_manager import load_all_configs, save_all_configs, DEFAULT_EMAIL_TEMPLATE, DEFAULT_CONNECTION_TEMPLATE
+    body = request.get_json() or {}
+    username = body.get("username", "").strip()
+    if not username:
+        return jsonify({"status": "error", "message": "Username is required"}), 400
+    
+    config = load_all_configs()
+    if username in config.get("users", {}):
+        return jsonify({"status": "error", "message": "User already exists"}), 400
+        
+    config["users"][username] = {
+        "profile": {
+            "first_name": username,
+            "last_name": "",
+            "email": "",
+            "phone": "",
+            "resume_name": "",
+            "resume_url": "",
+            "current_location": "",
+            "preferred_locations": "",
+            "experience": "",
+            "linkedin_url": "",
+            "current_ctc": "",
+            "expected_ctc": ""
+        },
+        "email_scraper": {
+            "email_template": DEFAULT_EMAIL_TEMPLATE,
+            "keywords": ["SQL DBA", "SQL Server DBA", "Database Administrator"],
+            "sender_email": "",
+            "interval": "60",
+            "review_mode": True
+        },
+        "linkedin_connect": {
+            "message_template": DEFAULT_CONNECTION_TEMPLATE,
+            "keywords": ["SQL DBA", "SQL Server DBA"],
+            "interval": "60",
+            "review_mode": True
+        }
+    }
+    config["selected_user"] = username
+    save_all_configs(config)
+    return jsonify({"status": "success", "selected_user": username})
+
+
+@app.route('/api/users/config', methods=['GET'])
+def get_user_configuration():
+    from user_config_manager import load_all_configs, get_selected_user_name, get_global_settings
+    config = load_all_configs()
+    username = get_selected_user_name()
+    user_data = config.get("users", {}).get(username, {})
+    global_settings = get_global_settings()
+    return jsonify({
+        "username": username,
+        "config": user_data,
+        "global_settings": global_settings
+    })
+
+
+@app.route('/api/users/config', methods=['POST'])
+def save_user_configuration():
+    from user_config_manager import load_all_configs, save_all_configs, get_selected_user_name
+    body = request.get_json() or {}
+    config = load_all_configs()
+    username = get_selected_user_name()
+    
+    if username not in config.get("users", {}):
+        return jsonify({"status": "error", "message": f"User {username} not found"}), 404
+        
+    user_profile = body.get("profile", {})
+    email_scraper = body.get("email_scraper", {})
+    linkedin_connect = body.get("linkedin_connect", {})
+    global_settings = body.get("global_settings", {})
+    
+    config["users"][username]["profile"] = user_profile
+    config["users"][username]["email_scraper"] = email_scraper
+    config["users"][username]["linkedin_connect"] = linkedin_connect
+    config["global_settings"] = global_settings
+    
+    save_all_configs(config)
+    return jsonify({"status": "success"})
+
+
+@app.route('/api/users/resume/upload', methods=['POST'])
+def upload_user_resume():
+    from user_config_manager import load_all_configs, save_all_configs, get_selected_user_name
+    if 'resume' not in request.files:
+        return jsonify({"status": "error", "message": "No file uploaded"}), 400
+    file = request.files['resume']
+    if file.filename == '':
+        return jsonify({"status": "error", "message": "No file selected"}), 400
+        
+    if file:
+        filename = secure_filename(file.filename)
+        username = get_selected_user_name()
+        os.makedirs("resumes", exist_ok=True)
+        new_filename = f"{username}_{filename}"
+        save_path = os.path.join(os.getcwd(), "resumes", new_filename)
+        file.save(save_path)
+        
+        config = load_all_configs()
+        if username in config.get("users", {}):
+            config["users"][username]["profile"]["resume_name"] = new_filename
+            save_all_configs(config)
+            
+        return jsonify({"status": "success", "resume_name": new_filename})
+
+
+@app.route('/api/users/resume/download/<username>', methods=['GET'])
+def download_user_resume(username):
+    from user_config_manager import load_all_configs
+    config = load_all_configs()
+    user_data = config.get("users", {}).get(username, {})
+    resume_name = user_data.get("profile", {}).get("resume_name", "")
+    
+    # Fallback to default resume if user hasn't uploaded one
+    # Determine path for the user's resume
+    resumes_dir = os.path.join(os.getcwd(), "resumes")
+    user_resume_path = os.path.join(resumes_dir, resume_name) if resume_name else ""
+
+    # If the user has a resume uploaded and it exists, serve it
+    if resume_name and os.path.exists(user_resume_path):
+        return send_from_directory(resumes_dir, resume_name, as_attachment=False)
+
+    # Otherwise, fall back to the default resume defined in config.py
+    from config import RESUME_FILE_PATH
+    default_path = RESUME_FILE_PATH
+    if os.path.exists(default_path):
+        return send_file(default_path, as_attachment=False)
+
+    # If no resume is available, return an error
+    return "Resume not found", 404
+
+
+@app.route('/api/config', methods=['GET'])
+def get_config():
+    from user_config_manager import get_selected_user_config, get_global_settings
+    user_conf = get_selected_user_config()
+    global_conf = get_global_settings()
+    profile = user_conf.get("profile", {})
+    scraper = user_conf.get("email_scraper", {})
+    
+    response_data = {
+        "LINKEDIN_EMAIL": global_conf.get("linkedin_email", ""),
+        "LINKEDIN_PASSWORD": global_conf.get("linkedin_password", ""),
+        "SEARCH_KEYWORDS": "|".join(scraper.get("keywords", [])),
+        "SEARCH_LOCATION": global_conf.get("search_location", "Bangalore, Karnataka, India"),
+        "SEARCH_TIME_RANGE": global_conf.get("search_time_range", "r604800"),
+        "DRY_RUN": global_conf.get("dry_run", "0"),
+        "MAX_RUN_DURATION_SECONDS": global_conf.get("max_run_duration_seconds", "600"),
+        "RESUME_LINK": profile.get("resume_url", ""),
+        "OUTREACH_MODE": "both",
+        "MAX_APPLY": global_conf.get("max_apply", "5"),
+        "SMTP_EMAIL": global_conf.get("smtp_email", ""),
+        "SMTP_PASSWORD": global_conf.get("smtp_password", ""),
+        "SISTER_NAME": (profile.get("first_name", "") + " " + profile.get("last_name", "")).strip() or profile.get("full_name", ""),
+        "SISTER_EMAIL": profile.get("email", ""),
+        "PHONE_NUMBER": profile.get("phone", "")
+    }
+    return jsonify(response_data)
+
+
+@app.route('/api/config', methods=['POST'])
+def save_config():
+    from user_config_manager import load_all_configs, save_all_configs, get_selected_user_name
+    body = request.get_json() or {}
+    config = load_all_configs()
+    username = get_selected_user_name()
+    if username in config.get("users", {}):
+        if "SISTER_NAME" in body:
+            full_name = (body["SISTER_NAME"] or "").strip()
+            parts = full_name.split(maxsplit=1)
+            first_name = parts[0] if parts else ""
+            last_name = parts[1] if len(parts) > 1 else ""
+            config["users"][username]["profile"]["first_name"] = first_name
+            config["users"][username]["profile"]["last_name"] = last_name
+        if "SISTER_EMAIL" in body:
+            config["users"][username]["profile"]["email"] = body["SISTER_EMAIL"]
+        if "PHONE_NUMBER" in body:
+            config["users"][username]["profile"]["phone"] = body["PHONE_NUMBER"]
+        if "RESUME_LINK" in body:
+            config["users"][username]["profile"]["resume_url"] = body["RESUME_LINK"]
+        if "SEARCH_KEYWORDS" in body:
+            config["users"][username]["email_scraper"]["keywords"] = [k.strip() for k in body["SEARCH_KEYWORDS"].split("|") if k.strip()]
+        
+        # global settings
+        if "LINKEDIN_EMAIL" in body:
+            config["global_settings"]["linkedin_email"] = body["LINKEDIN_EMAIL"]
+        if "LINKEDIN_PASSWORD" in body:
+            config["global_settings"]["linkedin_password"] = body["LINKEDIN_PASSWORD"]
+        if "SEARCH_LOCATION" in body:
+            config["global_settings"]["search_location"] = body["SEARCH_LOCATION"]
+        if "SEARCH_TIME_RANGE" in body:
+            config["global_settings"]["search_time_range"] = body["SEARCH_TIME_RANGE"]
+        if "DRY_RUN" in body:
+            config["global_settings"]["dry_run"] = body["DRY_RUN"]
+        if "MAX_APPLY" in body:
+            config["global_settings"]["max_apply"] = body["MAX_APPLY"]
+        if "SMTP_EMAIL" in body:
+            config["global_settings"]["smtp_email"] = body["SMTP_EMAIL"]
+        if "SMTP_PASSWORD" in body:
+            config["global_settings"]["smtp_password"] = body["SMTP_PASSWORD"]
+            
+        save_all_configs(config)
+    return jsonify({"status": "success"})
+
+
+@app.route('/api/data/update_status', methods=['POST'])
+def update_row_status():
+    body = request.get_json() or {}
+    db_type = body.get("db_type")
+    row_id = body.get("id")
+    status = body.get("status")
+    
+    if not db_type or row_id is None or not status:
+        return jsonify({"status": "error", "message": "Missing required fields"}), 400
+        
+    try:
+        row_id = int(row_id)
+    except ValueError:
+        pass
+        
+    if db_type == "scraper":
+        path = JOB_TRACKER_FILE
+        if not os.path.exists(path):
+            return jsonify({"status": "error", "message": "File not found"}), 404
+        wb = openpyxl.load_workbook(path)
+        ws = wb.active
+        col_indices = {cell.value: idx for idx, cell in enumerate(ws[1], start=1)}
+        id_col = col_indices.get('ID', 1)
+        status_col = col_indices.get('Status', 3)
+        timestamp_col = col_indices.get('Timestamp', 4)
+        updated = False
+        for row in range(2, ws.max_row + 1):
+            if ws.cell(row=row, column=id_col).value == row_id:
+                ws.cell(row=row, column=status_col, value=status)
+                ws.cell(row=row, column=timestamp_col, value=datetime.utcnow().isoformat())
+                updated = True
+                break
+        if updated:
+            wb.save(path)
+            try:
+                from data_store import _trigger_mac_excel_reload
+                _trigger_mac_excel_reload(path)
+            except Exception:
+                pass
+            return jsonify({"status": "success"})
+        return jsonify({"status": "error", "message": "ID not found"}), 404
+        
+    elif db_type == "referral":
+        from data_store import update_status_by_id
+        success = update_status_by_id(row_id, status)
+        if success:
+            return jsonify({"status": "success"})
+        return jsonify({"status": "error", "message": "JobID not found"}), 404
+        
+    else:
+        return jsonify({"status": "error", "message": "Invalid db_type"}), 400
+
+
+@app.route('/api/data/delete_row', methods=['POST'])
+def delete_table_row():
+    body = request.get_json() or {}
+    db_type = body.get("db_type")
+    row_id = body.get("id")
+    
+    if not db_type or row_id is None:
+        return jsonify({"status": "error", "message": "Missing required fields"}), 400
+        
+    try:
+        row_id = int(row_id)
+    except ValueError:
+        pass
+        
+    path = JOB_TRACKER_FILE if db_type == "scraper" else JOB_LEADS_FILE
+    if not os.path.exists(path):
+        return jsonify({"status": "error", "message": "File not found"}), 404
+        
+    try:
+        wb = openpyxl.load_workbook(path)
+        ws = wb.active
+        col_indices = {cell.value: idx for idx, cell in enumerate(ws[1], start=1)}
+        id_col_name = 'ID' if db_type == "scraper" else 'JobID'
+        id_col = col_indices.get(id_col_name)
+        
+        if not id_col:
+            return jsonify({"status": "error", "message": "ID column not found"}), 500
+            
+        deleted = False
+        for row in range(2, ws.max_row + 1):
+            if ws.cell(row=row, column=id_col).value == row_id:
+                ws.delete_rows(row)
+                deleted = True
+                break
+                
+        if deleted:
+            wb.save(path)
+            try:
+                from data_store import _trigger_mac_excel_reload
+                _trigger_mac_excel_reload(path)
+            except Exception:
+                pass
+            return jsonify({"status": "success"})
+            
+        return jsonify({"status": "error", "message": "ID not found"}), 404
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/api/data/edit_row', methods=['POST'])
+def edit_table_row():
+    body = request.get_json() or {}
+    db_type = body.get("db_type")
+    row_id = body.get("id")
+    email = body.get("email")
+    status = body.get("status")
+    keyword = body.get("keyword")
+    
+    if not db_type or row_id is None or not email or not status:
+        return jsonify({"status": "error", "message": "Missing required fields"}), 400
+        
+    try:
+        row_id = int(row_id)
+    except ValueError:
+        return jsonify({"status": "error", "message": "Invalid ID"}), 400
+        
+    if db_type == "scraper":
+        from data_store import edit_row
+        success = edit_row(row_id, email, status, keyword, JOB_TRACKER_FILE)
+        if success:
+            return jsonify({"status": "success"})
+        return jsonify({"status": "error", "message": "ID not found"}), 404
+    else:
+        return jsonify({"status": "error", "message": "Editing is only supported for Scraper Database"}), 400
+
+
+if __name__ == '__main__':
+    # Load folders if not exist
+    os.makedirs("templates", exist_ok=True)
+    os.makedirs("static/css", exist_ok=True)
+    os.makedirs("static/js", exist_ok=True)
+    
+    print("Connectify Automation Hub starting at http://127.0.0.1:5001")
+    app.run(host='127.0.0.1', port=5001, debug=True)

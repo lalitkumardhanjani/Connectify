@@ -1,0 +1,39 @@
+# Credentials & Settings
+.env
+users_config.json
+
+# Local database Excel files (holds processed candidate run data)
+*.xlsx
+*.csv
+
+# Local JSON data states & cache
+*.json
+!users_config.json.example
+
+# Python virtual environment & cache
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# ChromeDriver binaries & Chrome session profiles
+chromedriver
+chromedriver.exe
+.chrome-profile*/
+.chrome-profile-login*/
+.chrome-profile-rerun*/
+*selenium-chrome-profile*
+
+# Debug files
+debug_screenshot_*
+debug_html_*
+*.png
+*.html
+!templates/*.html
+
+# Log files
+*.log
+
+# OS-specific files
+.DS_Store
+Thumbs.db
