@@ -59,37 +59,56 @@ Connectify/
 
 ---
 
-## 🚀 15-Minute Onboarding Guide
+## 🚀 Onboarding & Cloning Guide (MacOS & Windows)
+
+If your friend or colleague wants to clone and run this project, they can follow these steps.
 
 ### Step 1: Install System Dependencies
-Make sure you have [Google Chrome](https://www.google.com/chrome/) installed. (On MacOS, Chrome should be in your `/Applications` folder).
+- **All OS**: Make sure you have the standard [Google Chrome](https://www.google.com/chrome/) browser installed.
+- **Windows**: 
+  1. Download and install [Git for Windows](https://gitforwindows.org/).
+  2. Download and install [Python 3.9+](https://www.python.org/). Make sure to check the box **"Add Python to PATH"** during installation.
 
-### Step 2: Set Up Virtual Environment & Packages
-Open a terminal in the project directory and run:
+### Step 2: Clone the Project
+Open your terminal (Terminal on Mac, or Command Prompt/PowerShell on Windows) and run:
 ```bash
-# Create virtual environment
-python3 -m venv .venv
-
-# Activate virtual environment
-source .venv/bin/activate  # On Windows, use `.venv\Scripts\activate`
-
-# Install required packages
-pip install -r requirements.txt
+git clone https://github.com/lalitkumardhanjani/Connectify.git
+cd Connectify
 ```
+
+### Step 3: Set Up Virtual Environment & Packages
+- **On macOS / Linux**:
+  ```bash
+  python3 -m venv .venv
+  source .venv/bin/activate
+  pip install -r requirements.txt
+  ```
+- **On Windows (Command Prompt / PowerShell)**:
+  ```cmd
+  python -m venv .venv
+  .venv\Scripts\activate
+  pip install -r requirements.txt
+  ```
 *Note: Pip will install Selenium, Flask, openpyxl, pandas, requests, python-dotenv, and webdriver-manager.*
 
-### Step 3: Configure Settings
+### Step 4: Configure Settings
 1. Copy the example configuration files:
-   ```bash
-   cp .env.example .env
-   cp users_config.json.example users_config.json
-   ```
+   - **On macOS / Linux**:
+     ```bash
+     cp .env.example .env
+     cp users_config.json.example users_config.json
+     ```
+   - **On Windows (Command Prompt or PowerShell)**:
+     ```cmd
+     copy .env.example .env
+     copy users_config.json.example users_config.json
+     ```
 2. Update the `.env` file with your LinkedIn login credentials:
    ```env
    LINKEDIN_EMAIL=your_email@gmail.com
    LINKEDIN_PASSWORD=your_secure_password
    ```
-3. (Optional) Customize search terms and templates inside `users_config.json`.
+3. Place your resume PDF in the `resumes/` folder, and customize your search terms or messages inside `users_config.json`.
 
 ---
 
@@ -109,23 +128,29 @@ Open your browser and navigate to **`http://127.0.0.1:5001`**. From here, you ca
 ### Option B: Running Pipelines Individually via Terminal
 You can run any pipeline or utility directly from the command line using the root wrapper scripts:
 
+- **On macOS / Linux**:
+  ```bash
+  source .venv/bin/activate
+  python run_email_outreach.py --phase full
+  ```
+- **On Windows**:
+  ```cmd
+  .venv\Scripts\activate
+  python run_email_outreach.py --phase full
+  ```
+
+Other runner scripts:
 ```bash
-# Activate virtualenv first
-source .venv/bin/activate
-
-# 1. Run Email Scraper & Outreach Pipeline (Both phases)
-python run_email_outreach.py --phase full
-
-# 2. Run Job Search Automation
+# 1. Run Job Search Automation
 python run_job_search.py
 
-# 3. Launch Terminal Reviewer (Flags new jobs as Interested/Skip)
+# 2. Launch Terminal Reviewer (Flags new jobs as Interested/Skip)
 python run_referral_review.py
 
-# 4. Run TinyURL url shortener on gathered URLs
+# 3. Run TinyURL url shortener on gathered URLs
 python run_url_shortener.py
 
-# 5. Execute LinkedIn Connections & Referrals messaging outreach
+# 4. Execute LinkedIn Connections & Referrals messaging outreach
 python run_linkedin_connect.py
 ```
 
@@ -133,6 +158,7 @@ python run_linkedin_connect.py
 
 ## ⚠️ Troubleshooting & Browser Tips
 
+- **Windows Chrome & Chromedriver**: On Windows, the system automatically detects the OS, bypasses the Mac local binary check, and relies on `webdriver_manager` to download the matching Windows `chromedriver.exe` binary. No manual setup is needed.
 - **Mac Chrome Execution**: The driver is configured to automatically search for Google Chrome in the standard `/System/Volumes/Data/Volumes/Google Chrome/Google Chrome.app` path or default location.
 - **Mac Excel Sheet Reloads**: The system uses AppleScript to reload active Excel/Numbers sheets automatically if they are open while data is writing. If prompted, grant terminal permission to script applications.
 - **Google Sign-In**: Avoid choosing "Continue with Google" during automated sessions as Google security blocks automated login pages. Sign in directly using email and password.
