@@ -21,31 +21,8 @@
         <aside class="sidebar">
             <div class="logo">
                 <img src="/static/connectify_logo.png" alt="Connectify Logo" class="logo-image glow-logo">
-                <h2>Connectify</h2>
             </div>
-            <!-- User Selector Component -->
-            <div class="user-selector-container">
-                <label class="user-selector-label"><i class="fa-solid fa-user-gear"></i> Active Profile</label>
-                <div class="searchable-select" id="user-searchable-select">
-                    <div class="searchable-select-trigger" id="user-select-trigger">
-                        <span id="selected-user-display">Loading User...</span>
-                        <i class="fa-solid fa-chevron-down"></i>
-                    </div>
-                    <div class="searchable-select-dropdown hidden" id="user-select-dropdown">
-                        <div class="searchable-select-search-box">
-                            <input type="text" id="user-search-input" placeholder="Search profiles..." autocomplete="off">
-                        </div>
-                        <div class="searchable-select-options" id="user-select-options-list">
-                            <!-- Populated dynamically -->
-                        </div>
-                        <div class="searchable-select-footer">
-                            <button type="button" class="btn btn-primary btn-create-user-trigger" id="btn-show-create-modal">
-                                <i class="fa-solid fa-user-plus"></i> Add Profile
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+
 
             <nav class="nav-menu">
                 <button class="nav-item active" data-tab="dashboard">
@@ -58,23 +35,53 @@
                     <i class="fa-solid fa-circle-play"></i> Pipelines
                 </button>
                 <button class="nav-item" data-tab="db-scraper">
-                    <i class="fa-solid fa-database"></i> Scraper Database
+                    <i class="fa-solid fa-address-book"></i> Outreach Leads
                 </button>
                 <button class="nav-item" data-tab="db-referral">
-                    <i class="fa-solid fa-file-invoice"></i> Referral Database
+                    <i class="fa-solid fa-briefcase"></i> Referrals Tracker
                 </button>
                 <button class="nav-item" data-tab="settings">
                     <i class="fa-solid fa-sliders"></i> Settings
                 </button>
             </nav>
-            <div class="system-status">
-                <div class="status-indicator online"></div>
-                <span>Server Connected</span>
-            </div>
         </aside>
 
         <!-- Main Content Area -->
         <main class="main-content">
+            <!-- Active Profile Dropdown -->
+            <div class="user-selector-container">
+                <div class="searchable-select" id="user-searchable-select">
+                    <!-- Trigger: A circular profile avatar with initials -->
+                    <div class="user-profile-avatar-trigger" id="user-select-trigger" title="Switch active profile">
+                        <span id="selected-user-display-initials">U</span>
+                    </div>
+                    
+                    <!-- Dropdown Menu -->
+                    <div class="searchable-select-dropdown hidden" id="user-select-dropdown">
+                        <div class="dropdown-user-header">
+                            <div class="dropdown-user-avatar" id="dropdown-user-avatar-initials">U</div>
+                            <div class="dropdown-user-info">
+                                <span class="dropdown-user-title">Active Profile</span>
+                                <span class="dropdown-user-name" id="selected-user-display">Loading...</span>
+                            </div>
+                        </div>
+                        <div class="dropdown-divider"></div>
+                        <div class="dropdown-section-title">Switch Profile</div>
+                        <div class="searchable-select-search-box">
+                            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                            <input type="text" id="user-search-input" placeholder="Search profiles..." autocomplete="off">
+                        </div>
+                        <div class="searchable-select-options" id="user-select-options-list">
+                            <!-- Populated dynamically -->
+                        </div>
+                        <div class="searchable-select-footer">
+                            <button type="button" class="btn btn-primary btn-create-user-trigger" id="btn-show-create-modal" style="width: 100%; justify-content: center; gap: 8px;">
+                                <i class="fa-solid fa-user-plus"></i> Add Profile
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <!-- TAB 1: DASHBOARD -->
             <section id="tab-dashboard" class="tab-pane active">
                 <header class="section-header">
@@ -137,7 +144,7 @@
                     <div class="charts-grid">
                         <div class="chart-card card-glass">
                             <h3 class="chart-title"><i class="fa-solid fa-chart-pie"></i> Email Status</h3>
-                            <div class="chart-wrap-sm">
+                            <div class="chart-wrap">
                                 <canvas id="emailStatusChart"></canvas>
                             </div>
                             <div class="chart-legend" id="email-status-legend"></div>
@@ -240,10 +247,10 @@
                     </div>
 
                     <!-- Charts Row -->
-                    <div class="charts-grid">
+                    <div class="charts-grid-equal">
                         <div class="chart-card card-glass">
                             <h3 class="chart-title"><i class="fa-solid fa-chart-pie"></i> Company Status Distribution</h3>
-                            <div class="chart-wrap-sm">
+                            <div class="chart-wrap">
                                 <canvas id="coStatusChart"></canvas>
                             </div>
                             <div class="chart-legend" id="co-status-legend"></div>
@@ -311,87 +318,116 @@
 
                 <div class="settings-wrapper">
                     <form id="profile-form" onsubmit="saveSettingsForm(event)">
-                        <div class="settings-grid">
-                            <div class="settings-card card-glass grid-span-2">
-                                <h3><i class="fa-solid fa-user glow-icon-purple"></i> Personal Information</h3>
-                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
-                                    <div class="form-group">
-                                        <label for="profile-first-name">First Name</label>
-                                        <input type="text" id="profile-first-name" placeholder="First Name">
+                        <div class="profile-layout-grid">
+                            <!-- Left Sidebar: Profile Summary & Resume -->
+                            <div class="profile-sidebar-col">
+                                <!-- Summary Card -->
+                                <div class="profile-summary-card card-glass">
+                                    <div class="profile-avatar-wrapper">
+                                        <div class="profile-avatar-circle" id="profile-avatar-circle">U</div>
                                     </div>
-                                    <div class="form-group">
-                                        <label for="profile-last-name">Last Name</label>
-                                        <input type="text" id="profile-last-name" placeholder="Last Name">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="profile-email">Email Address</label>
-                                        <input type="email" id="profile-email" placeholder="Candidate Email">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="profile-phone">Phone Number</label>
-                                        <input type="text" id="profile-phone" placeholder="e.g. +91 8971799691">
-                                    </div>
-                                </div>
-                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 10px;">
-                                    <div class="form-group">
-                                        <label for="profile-experience">Total Experience</label>
-                                        <input type="text" id="profile-experience" placeholder="e.g. 7+ Years">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="profile-linkedin-url">LinkedIn Profile URL</label>
-                                        <input type="url" id="profile-linkedin-url" placeholder="https://www.linkedin.com/in/username">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="profile-current-location">Current Location</label>
-                                        <input type="text" id="profile-current-location" placeholder="e.g. Bangalore, India">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="profile-locations">Preferred Locations</label>
-                                        <input type="text" id="profile-locations" placeholder="Bangalore, Karnataka, India">
-                                    </div>
-                                </div>
-                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 10px;">
-                                    <div class="form-group">
-                                        <label for="profile-current-ctc">Current CTC</label>
-                                        <input type="text" id="profile-current-ctc" placeholder="e.g. 15 LPA">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="profile-expected-ctc">Expected CTC</label>
-                                        <input type="text" id="profile-expected-ctc" placeholder="e.g. 22 LPA">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="settings-card card-glass">
-                                <h3><i class="fa-solid fa-file-pdf glow-icon-purple"></i> Resume Document</h3>
-                                <div class="form-group">
-                                    <label for="profile-resume-url">Online Resume URL Link</label>
-                                    <input type="url" id="profile-resume-url" placeholder="https://shorturl.at/...">
-                                </div>
-                                <div class="form-group" style="margin-top: 10px;">
-                                    <label>Local Uploaded Resume File</label>
-                                    <div class="resume-uploader-box">
-                                        <div class="resume-file-info" id="resume-filename-label">
-                                            <i class="fa-solid fa-paperclip"></i> No file uploaded
+                                    <h2 class="profile-display-name" id="profile-display-name">Active Candidate</h2>
+                                    <div class="profile-meta-items" style="margin-bottom: 15px;">
+                                        <div class="profile-meta-item">
+                                            <i class="fa-solid fa-location-dot"></i>
+                                            <span id="profile-display-loc-val">Location not set</span>
                                         </div>
-                                        <div id="resume-download-link-container"></div>
+                                        <div class="profile-meta-item">
+                                            <i class="fa-solid fa-briefcase"></i>
+                                            <span id="profile-display-exp-val">Experience not set</span>
+                                        </div>
                                     </div>
-                                    <div style="display: flex; gap: 10px; margin-top: 10px;">
-                                        <button type="button" class="btn btn-secondary btn-file-select" style="flex-grow: 1; justify-content: center;">
-                                            <i class="fa-solid fa-cloud-arrow-up"></i> Upload Resume
-                                            <input type="file" id="resume-file-input" accept=".pdf,.doc,.docx" onchange="uploadResumeFile()">
-                                        </button>
+                                    <button type="submit" class="btn btn-success" style="width: 100%; justify-content: center; margin-top: 15px;">
+                                        <i class="fa-solid fa-floppy-disk"></i> Save Profile
+                                    </button>
+                                    <div id="profile-save-status" class="save-status" style="margin-top: 10px; font-size: 0.78rem; text-align: center; min-height: 16px; display: block; font-weight: 500;"></div>
+                                </div>
+
+                                <!-- Resume Card -->
+                                <div class="settings-card card-glass">
+                                    <h3><i class="fa-solid fa-file-pdf glow-icon-purple"></i> Resume Document</h3>
+                                    <div class="form-group">
+                                        <label for="profile-resume-url">Online Resume URL Link</label>
+                                        <input type="url" id="profile-resume-url" placeholder="https://shorturl.at/...">
+                                    </div>
+                                    <div class="form-group" style="margin-top: 5px;">
+                                        <label>Local Uploaded Resume File</label>
+                                        <div class="resume-uploader-box">
+                                            <div class="resume-file-info" id="resume-filename-label">
+                                                <i class="fa-solid fa-paperclip"></i> No file uploaded
+                                            </div>
+                                            <div id="resume-download-link-container"></div>
+                                        </div>
+                                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                                            <button type="button" class="btn btn-secondary btn-file-select" style="flex-grow: 1; justify-content: center;">
+                                                <i class="fa-solid fa-cloud-arrow-up"></i> Upload Resume
+                                                <input type="file" id="resume-file-input" accept=".pdf,.doc,.docx" onchange="uploadResumeFile()">
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- Actions bar -->
-                        <div class="settings-actions" style="margin-top: 20px;">
-                            <button type="submit" class="btn btn-success">
-                                <i class="fa-solid fa-floppy-disk"></i> Save Profile
-                            </button>
-                            <span id="profile-save-status" class="save-status"></span>
+                            <!-- Right Main Form: Detailed Information -->
+                            <div class="profile-main-col">
+                                <div class="settings-card card-glass">
+                                    <h3><i class="fa-solid fa-user glow-icon-purple"></i> Candidate Identity</h3>
+                                    <div class="form-row-grid-2">
+                                        <div class="form-group">
+                                            <label for="profile-first-name">First Name</label>
+                                            <input type="text" id="profile-first-name" placeholder="First Name">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="profile-last-name">Last Name</label>
+                                            <input type="text" id="profile-last-name" placeholder="Last Name">
+                                        </div>
+                                    </div>
+                                    <div class="form-row-grid-2" style="margin-top: 12px;">
+                                        <div class="form-group">
+                                            <label for="profile-email">Email Address</label>
+                                            <input type="email" id="profile-email" placeholder="Candidate Email">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="profile-phone">Phone Number</label>
+                                            <input type="text" id="profile-phone" placeholder="e.g. +91 8971799691">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="settings-card card-glass" style="margin-top: 20px;">
+                                    <h3><i class="fa-solid fa-briefcase glow-icon-blue"></i> Career & Compensation</h3>
+                                    <div class="form-row-grid-2">
+                                        <div class="form-group">
+                                            <label for="profile-experience">Total Experience</label>
+                                            <input type="text" id="profile-experience" placeholder="e.g. 7+ Years">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="profile-linkedin-url">LinkedIn Profile URL</label>
+                                            <input type="url" id="profile-linkedin-url" placeholder="https://www.linkedin.com/in/username">
+                                        </div>
+                                    </div>
+                                    <div class="form-row-grid-2" style="margin-top: 12px;">
+                                        <div class="form-group">
+                                            <label for="profile-current-location">Current Location</label>
+                                            <input type="text" id="profile-current-location" placeholder="e.g. Bangalore, India">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="profile-locations">Preferred Locations</label>
+                                            <input type="text" id="profile-locations" placeholder="Bangalore, Karnataka, India">
+                                        </div>
+                                    </div>
+                                    <div class="form-row-grid-2" style="margin-top: 12px;">
+                                        <div class="form-group">
+                                            <label for="profile-current-ctc">Current CTC</label>
+                                            <input type="text" id="profile-current-ctc" placeholder="e.g. 15 LPA">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="profile-expected-ctc">Expected CTC</label>
+                                            <input type="text" id="profile-expected-ctc" placeholder="e.g. 22 LPA">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -409,96 +445,134 @@
                     <!-- Email Scraper Card -->
                     <div class="pipeline-card card-glass" id="card-scraper">
                         <div class="pipeline-header">
-                            <div>
-                                <h3>Email Scraper Pipeline</h3>
-                                <span class="pipeline-subtitle">Runs linkedin_scraper.py</span>
+                            <div class="pipeline-title-group">
+                                <div class="pipeline-icon-box blue-glow"><i class="fa-solid fa-envelope-open-text"></i></div>
+                                <div>
+                                    <h3>Email Scraper Pipeline</h3>
+                                    <span class="pipeline-subtitle">Automated Cold Outreach</span>
+                                </div>
                             </div>
                             <span class="status-badge status-idle" id="badge-scraper">Idle</span>
                         </div>
-                        <div class="pipeline-steps">
-                            <!-- Separate sub-phase triggers -->
-                            <div class="p-step-seq" data-step="1">
-                                <div class="step-info">
-                                    <span class="step-num" style="background: rgba(0, 176, 255, 0.15); color: var(--accent-cyan); font-size: 0.8rem;"><i class="fa-solid fa-envelope"></i></span>
-                                    <span class="step-title">Fetch Emails Only</span>
+                        
+                        <div class="pipeline-timeline">
+                            <!-- Step 1 -->
+                            <div class="timeline-item p-step-seq" data-step="1">
+                                <div class="timeline-marker">
+                                    <span class="marker-num">1</span>
+                                    <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
+                                    <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                </div>
+                                <div class="timeline-content">
+                                    <h4>Fetch Emails</h4>
+                                    <p>Scrapes hiring contact emails from LinkedIn feed posts</p>
                                 </div>
                                 <button class="btn-step-run" onclick="runScraperStep('phase1', event)" title="Run email fetching only">
                                     <i class="fa-solid fa-play"></i>
                                 </button>
                             </div>
-                            <div class="p-step-seq" data-step="2">
-                                <div class="step-info">
-                                    <span class="step-num" style="background: rgba(255, 179, 0, 0.15); color: var(--accent-yellow); font-size: 0.75rem;"><i class="fa-solid fa-paper-plane"></i></span>
-                                    <span class="step-title">Send Outreach Only</span>
+                            <!-- Step 2 -->
+                            <div class="timeline-item p-step-seq" data-step="2">
+                                <div class="timeline-marker">
+                                    <span class="marker-num">2</span>
+                                    <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
+                                    <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                </div>
+                                <div class="timeline-content">
+                                    <h4>Send Outreach</h4>
+                                    <p>Delivers personalized cold outreach emails via Gmail/SMTP</p>
                                 </div>
                                 <button class="btn-step-run" onclick="runScraperStep('phase2', event)" title="Run email sending only">
                                     <i class="fa-solid fa-play"></i>
                                 </button>
                             </div>
-
-                            <hr style="border: 0; border-top: 1px solid rgba(255, 255, 255, 0.05); margin: 8px 0;">
-
-                            <div class="p-step"><i class="fa-solid fa-circle-dot"></i> Log in to LinkedIn</div>
-                            <div class="p-step"><i class="fa-solid fa-circle-dot"></i> Search feed posts for email leads</div>
-                            <div class="p-step"><i class="fa-solid fa-circle-dot"></i> Extract, clean & save email rows</div>
-                            <div class="p-step"><i class="fa-solid fa-circle-dot"></i> Direct outreach via Gmail Automation</div>
                         </div>
+
                         <div class="pipeline-actions">
-                            <button class="btn btn-primary" id="btn-run-scraper">Run Full Pipeline</button>
-                            <button class="btn btn-danger hidden" id="btn-kill-scraper">Stop</button>
+                            <button class="btn btn-primary" id="btn-run-scraper">Run Complete Pipeline</button>
+                            <button class="btn btn-danger hidden" id="btn-kill-scraper">Stop Pipeline</button>
                         </div>
                     </div>
 
                     <!-- Referral Pipeline Card -->
                     <div class="pipeline-card card-glass" id="card-referral">
                         <div class="pipeline-header">
-                            <div>
-                                <h3>Referral Connection Pipeline</h3>
-                                <span class="pipeline-subtitle">Sequenced automation flow</span>
+                            <div class="pipeline-title-group">
+                                <div class="pipeline-icon-box teal-glow"><i class="fa-solid fa-network-wired"></i></div>
+                                <div>
+                                    <h3>Referral Connection Pipeline</h3>
+                                    <span class="pipeline-subtitle">Automating Warm Referrals</span>
+                                </div>
                             </div>
                             <span class="status-badge status-idle" id="badge-referral">Idle</span>
                         </div>
-                        <div class="pipeline-steps">
-                            <div class="p-step-seq" data-step="1">
-                                <div class="step-info">
-                                    <span class="step-num">1</span>
-                                    <span class="step-title">find_job.py</span>
+                        
+                        <div class="pipeline-timeline">
+                            <!-- Step 1 -->
+                            <div class="timeline-item p-step-seq" data-step="1">
+                                <div class="timeline-marker">
+                                    <span class="marker-num">1</span>
+                                    <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
+                                    <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                </div>
+                                <div class="timeline-content">
+                                    <h4>Find Relevant Jobs</h4>
+                                    <p>Searches LinkedIn for target job postings matching your profile</p>
                                 </div>
                                 <button class="btn-step-run" onclick="runSingleStep(1, event)" title="Run this step only">
                                     <i class="fa-solid fa-play"></i>
                                 </button>
                             </div>
-                            <div class="p-step-seq" data-step="2">
-                                <div class="step-info">
-                                    <span class="step-num">2</span>
-                                    <span class="step-title">review_for_referral.py</span>
+                            <!-- Step 2 -->
+                            <div class="timeline-item p-step-seq" data-step="2">
+                                <div class="timeline-marker">
+                                    <span class="marker-num">2</span>
+                                    <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
+                                    <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                </div>
+                                <div class="timeline-content">
+                                    <h4>Analyze Referral Opportunities</h4>
+                                    <p>Interactive review to evaluate potential referral contacts</p>
                                 </div>
                                 <button class="btn-step-run" onclick="runSingleStep(2, event)" title="Run this step only">
                                     <i class="fa-solid fa-play"></i>
                                 </button>
                             </div>
-                            <div class="p-step-seq" data-step="3">
-                                <div class="step-info">
-                                    <span class="step-num">3</span>
-                                    <span class="step-title">shorten_urls.py</span>
+                            <!-- Step 3 -->
+                            <div class="timeline-item p-step-seq" data-step="3">
+                                <div class="timeline-marker">
+                                    <span class="marker-num">3</span>
+                                    <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
+                                    <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                </div>
+                                <div class="timeline-content">
+                                    <h4>Prepare Referral Links</h4>
+                                    <p>Generates short, trackable career links for warm outreach</p>
                                 </div>
                                 <button class="btn-step-run" onclick="runSingleStep(3, event)" title="Run this step only">
                                     <i class="fa-solid fa-play"></i>
                                 </button>
                             </div>
-                            <div class="p-step-seq" data-step="4">
-                                <div class="step-info">
-                                    <span class="step-num">4</span>
-                                    <span class="step-title">linkedin_connect.py</span>
+                            <!-- Step 4 -->
+                            <div class="timeline-item p-step-seq" data-step="4">
+                                <div class="timeline-marker">
+                                    <span class="marker-num">4</span>
+                                    <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
+                                    <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                </div>
+                                <div class="timeline-content">
+                                    <h4>Send LinkedIn Connection Requests</h4>
+                                    <p>Automates warm connection requests & referral messages on LinkedIn</p>
                                 </div>
                                 <button class="btn-step-run" onclick="runSingleStep(4, event)" title="Run this step only">
                                     <i class="fa-solid fa-play"></i>
                                 </button>
                             </div>
                         </div>
+                        
                         <div class="pipeline-actions">
-                            <button class="btn btn-primary" id="btn-run-referral">Run Pipeline</button>
-                            <button class="btn btn-danger hidden" id="btn-kill-referral">Stop</button>
+                            <button class="btn btn-primary" id="btn-run-referral">Run Complete Pipeline</button>
+                            <button class="btn btn-danger hidden" id="btn-kill-referral">Stop Pipeline</button>
                         </div>
                     </div>
                 </div>
@@ -554,8 +628,8 @@
             <!-- TAB 3: SCRAPER DATABASE -->
             <section id="tab-db-scraper" class="tab-pane">
                 <header class="section-header">
-                    <h1>Scraped Feed Leads</h1>
-                    <p>Database of scraped hiring managers' emails loaded from job_tracker.xlsx.</p>
+                    <h1>Outreach Leads Directory</h1>
+                    <p>Manage scraped hiring manager and recruiter contacts gathered for email outreach.</p>
                 </header>
 
                 <div class="table-card card-glass">
@@ -604,8 +678,8 @@
             <!-- TAB 4: REFERRAL DATABASE -->
             <section id="tab-db-referral" class="tab-pane">
                 <header class="section-header">
-                    <h1>Referral Openings Tracker</h1>
-                    <p>Jobs scraped and their referral status loaded from LinkedIn_Job_Tracker.xlsx.</p>
+                    <h1>Referral Opportunities Directory</h1>
+                    <p>Track job opportunities, application status, and network referral connections.</p>
                 </header>
 
                 <div class="table-card card-glass">
@@ -632,32 +706,30 @@
                                 </select>
                             </div>
                         </div>
-                        <button class="btn btn-secondary" onclick="loadTableData('referral')">
-                            <i class="fa-solid fa-arrows-rotate"></i> Refresh
-                        </button>
                     </div>
                     <div class="table-responsive">
                         <table class="data-table" id="table-referral">
                             <thead>
                                 <tr>
-                                    <th>Job ID</th>
+                                    <th>ID</th>
                                     <th>Company Name</th>
                                     <th>Company URL</th>
                                     <th>Shorten URL</th>
                                     <th>Search Keyword</th>
                                     <th>Status</th>
-                                    <th>Referral Person</th>
                                     <th>Created Date</th>
                                     <th style="width: 100px; text-align: center;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td colspan="9" class="table-empty">Loading database records...</td>
+                                    <td colspan="8" class="table-empty">Loading database records...</td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
+                    <!-- Pagination Controls -->
+                    <div class="pagination-container" id="referral-pagination"></div>
                 </div>
             </section>
 
@@ -672,22 +744,23 @@
                     <!-- Sub Tabs Navigation Menu -->
                     <div class="settings-tabs-menu">
                         <button type="button" class="settings-tab-btn active" data-settings-tab="email-scraper">
-                            ✉️ Email Scraper
+                            <i class="fa-solid fa-square-envelope"></i> Outreach Engine
                         </button>
                         <button type="button" class="settings-tab-btn" data-settings-tab="linkedin-connect">
-                            🔗 LinkedIn Connect
+                            <i class="fa-solid fa-circle-nodes"></i> LinkedIn Automator
                         </button>
                     </div>
 
                     <form id="settings-form" onsubmit="saveSettingsForm(event)">
-                        <!-- SUB-TAB 2: EMAIL SCRAPER -->
+                        <!-- SUB-TAB 2: EMAIL SCRAPER (OUTREACH ENGINE) -->
                         <div class="settings-tab-pane active" id="subtab-email-scraper">
                             <div class="settings-grid">
                                 <div class="settings-card card-glass">
-                                    <h3><i class="fa-solid fa-envelope glow-icon-blue"></i> Scraper Outreach Settings</h3>
+                                    <h3><i class="fa-solid fa-gears glow-icon-blue"></i> Outreach Automation Control</h3>
+                                    <p class="card-subtitle">Configure search intervals and pipeline gates</p>
 
                                     <div class="form-group">
-                                        <label for="scraper-interval">Scraping Search Interval</label>
+                                        <label for="scraper-interval">Search Execution Frequency</label>
                                         <select id="scraper-interval">
                                             <option value="15">15 Seconds</option>
                                             <option value="30">30 Seconds</option>
@@ -700,8 +773,8 @@
                                     </div>
                                     <div class="form-group toggle-group">
                                         <span class="info-icon-wrapper">
-                                            <label for="scraper-review-mode" style="margin-bottom: 0;">Enable Review Mode</label>
-                                            <i class="fa-solid fa-circle-info info-tooltip-trigger" data-tooltip="Review Mode ON:&#10;The system extracts data but waits for user approval before sending emails.&#10;&#10;Review Mode OFF:&#10;The system automatically sends emails after successful extraction and validation."></i>
+                                            <label for="scraper-review-mode" style="margin-bottom: 0;">Outreach Quality Gate</label>
+                                            <i class="fa-solid fa-circle-info info-tooltip-trigger" data-tooltip="Outreach Quality Gate ON:&#10;The system extracts data but waits for your approval in the database tab before sending outreach emails.&#10;&#10;Outreach Quality Gate OFF:&#10;The system automatically sends emails after successful extraction and validation."></i>
                                         </span>
                                         <label class="switch">
                                             <input type="checkbox" id="scraper-review-mode">
@@ -711,9 +784,9 @@
                                 </div>
 
                                 <div class="settings-card card-glass grid-span-2">
-                                    <h3><i class="fa-solid fa-tags glow-icon-blue"></i> Search Keywords</h3>
+                                    <h3><i class="fa-solid fa-magnifying-glass glow-icon-blue"></i> Target Post Keywords</h3>
+                                    <p class="card-subtitle">Manage terms matched in LinkedIn hiring feed posts</p>
                                     <div class="form-group">
-                                        <label>Configure keywords used to search feed posts on LinkedIn:</label>
                                         <div class="tags-input-container" id="scraper-keywords-container">
                                             <!-- Keywords tags rendered by JS -->
                                             <input type="text" class="tag-input-field" id="scraper-tag-input" placeholder="Add keyword (press Enter)...">
@@ -738,52 +811,75 @@
 
                             <div style="margin-top: 20px;">
                                 <div class="form-group">
-                                    <label>Outreach Email Body Template</label>
-                                    <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:10px;">
-                                        This is the email body sent to hiring contacts. Use the variables below to personalise it dynamically.
-                                    </p>
-
-                                    <!-- Variable tokens reference -->
-                                    <div class="template-var-legend" style="flex-wrap: wrap; gap: 6px;">
-                                        <span class="tvar-title"><i class="fa-solid fa-brackets-curly"></i> Available Variables</span>
-                                        <span class="tvar-badge" onclick="insertToken('scraper', '{FIRST_NAME}')" style="cursor: pointer;" title="Click to insert">{FIRST_NAME}</span>
-                                        <span class="tvar-badge" onclick="insertToken('scraper', '{LAST_NAME}')" style="cursor: pointer;" title="Click to insert">{LAST_NAME}</span>
-                                        <span class="tvar-badge" onclick="insertToken('scraper', '{EMAIL}')" style="cursor: pointer;" title="Click to insert">{EMAIL}</span>
-                                        <span class="tvar-badge" onclick="insertToken('scraper', '{PHONE_NUMBER}')" style="cursor: pointer;" title="Click to insert">{PHONE_NUMBER}</span>
-                                        <span class="tvar-badge" onclick="insertToken('scraper', '{EXPERIENCE}')" style="cursor: pointer;" title="Click to insert">{EXPERIENCE}</span>
-                                        <span class="tvar-badge" onclick="insertToken('scraper', '{LINKEDIN_PROFILE_URL}')" style="cursor: pointer;" title="Click to insert">{LINKEDIN_PROFILE_URL}</span>
-                                        <span class="tvar-badge" onclick="insertToken('scraper', '{CURRENT_LOCATION}')" style="cursor: pointer;" title="Click to insert">{CURRENT_LOCATION}</span>
-                                        <span class="tvar-badge" onclick="insertToken('scraper', '{PREFERRED_LOCATIONS}')" style="cursor: pointer;" title="Click to insert">{PREFERRED_LOCATIONS}</span>
-                                        <span class="tvar-badge" onclick="insertToken('scraper', '{CURRENT_CTC}')" style="cursor: pointer;" title="Click to insert">{CURRENT_CTC}</span>
-                                        <span class="tvar-badge" onclick="insertToken('scraper', '{EXPECTED_CTC}')" style="cursor: pointer;" title="Click to insert">{EXPECTED_CTC}</span>
-                                        <button type="button" class="btn-reset-template" onclick="resetEmailTemplate()" title="Restore default template" style="margin-left: auto;">
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8px;">
+                                        <div>
+                                            <label style="margin-bottom: 2px;">Outreach Email Template Studio</label>
+                                            <p style="font-size:0.8rem;color:var(--text-secondary);">
+                                                Draft cold messages utilizing auto-expanding profile parameters.
+                                            </p>
+                                        </div>
+                                        <button type="button" class="btn-reset-template" onclick="resetEmailTemplate()" title="Restore default template">
                                             <i class="fa-solid fa-rotate-left"></i> Reset to Default
                                         </button>
                                     </div>
 
+                                    <!-- Variable tokens reference -->
+                                    <div class="template-var-legend" style="flex-wrap: wrap; gap: 6px;">
+                                        <span class="tvar-title"><i class="fa-solid fa-brackets-curly"></i> Click to Insert:</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{FIRST_NAME}')" title="Click to insert">{FIRST_NAME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{LAST_NAME}')" title="Click to insert">{LAST_NAME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{EMAIL}')" title="Click to insert">{EMAIL}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{PHONE_NUMBER}')" title="Click to insert">{PHONE_NUMBER}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{EXPERIENCE}')" title="Click to insert">{EXPERIENCE}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{LINKEDIN_PROFILE_URL}')" title="Click to insert">{LINKEDIN_PROFILE_URL}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{CURRENT_LOCATION}')" title="Click to insert">{CURRENT_LOCATION}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{PREFERRED_LOCATIONS}')" title="Click to insert">{PREFERRED_LOCATIONS}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{CURRENT_CTC}')" title="Click to insert">{CURRENT_CTC}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{EXPECTED_CTC}')" title="Click to insert">{EXPECTED_CTC}</span>
+                                    </div>
+
                                     <div class="template-editor-container">
                                         <div class="template-editor-header">
-                                            <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;"><i class="fa-solid fa-code"></i> Text Editor Mode</span>
+                                            <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;"><i class="fa-solid fa-pen-nib"></i> Draft Editor Mode</span>
                                             <div class="template-modes">
-                                                <button type="button" class="template-mode-btn active" id="btn-mode-edit-scraper" onclick="switchTemplateMode('scraper', 'edit')">Edit</button>
-                                                <button type="button" class="template-mode-btn" id="btn-mode-preview-scraper" onclick="switchTemplateMode('scraper', 'preview')">Preview</button>
+                                                <button type="button" class="template-mode-btn active" id="btn-mode-edit-scraper" onclick="switchTemplateMode('scraper', 'edit')">Draft Editor</button>
+                                                <button type="button" class="template-mode-btn" id="btn-mode-preview-scraper" onclick="switchTemplateMode('scraper', 'preview')">Real-time Preview</button>
                                             </div>
                                         </div>
                                         <textarea id="scraper-email-template" class="template-textarea" placeholder="Outreach email template content..."></textarea>
-                                        <div id="scraper-template-preview" class="template-preview-box hidden"></div>
+                                        
+                                        <!-- Mock Email Window Mockup -->
+                                        <div id="scraper-template-preview" class="email-mockup-window hidden">
+                                            <div class="email-mockup-header">
+                                                <div class="window-dots">
+                                                    <span class="dot red"></span>
+                                                    <span class="dot yellow"></span>
+                                                    <span class="dot green"></span>
+                                                </div>
+                                                <div class="email-mockup-title">Outreach Message Preview</div>
+                                            </div>
+                                            <div class="email-mockup-meta">
+                                                <div><span>To:</span> hiring.manager@company.com</div>
+                                                <div><span>Subject:</span> Application / Inquiry - Software Engineer</div>
+                                            </div>
+                                            <div class="email-mockup-body" id="scraper-preview-body-content">
+                                                <!-- Preview content gets rendered dynamically -->
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
 
-                        <!-- SUB-TAB 3: LINKEDIN CONNECT -->
+                        <!-- SUB-TAB 3: LINKEDIN CONNECT (LINKEDIN AUTOMATOR) -->
                         <div class="settings-tab-pane" id="subtab-linkedin-connect">
                             <div class="settings-grid">
                                 <div class="settings-card card-glass">
-                                    <h3><i class="fa-solid fa-circle-nodes glow-icon-teal"></i> Connect Automation Settings</h3>
+                                    <h3><i class="fa-solid fa-sliders glow-icon-teal"></i> Connection Automation Control</h3>
+                                    <p class="card-subtitle">Configure connection intervals and pipeline gates</p>
                                     <div class="form-group">
-                                        <label for="connect-interval">Connection Timing Interval</label>
+                                        <label for="connect-interval">Action Timing Delay</label>
                                         <select id="connect-interval">
                                             <option value="15">15 Seconds</option>
                                             <option value="30">30 Seconds</option>
@@ -796,8 +892,8 @@
                                     </div>
                                     <div class="form-group toggle-group">
                                         <span class="info-icon-wrapper">
-                                            <label for="connect-review-mode" style="margin-bottom: 0;">Enable Review Mode</label>
-                                            <i class="fa-solid fa-circle-info info-tooltip-trigger" data-tooltip="Review Mode ON:&#10;User reviews connection requests before they are sent.&#10;&#10;Review Mode OFF:&#10;Connection requests are sent automatically."></i>
+                                            <label for="connect-review-mode" style="margin-bottom: 0;">Invite Quality Gate</label>
+                                            <i class="fa-solid fa-circle-info info-tooltip-trigger" data-tooltip="Invite Quality Gate ON:&#10;You review connection invites in the referrals database tab before they are sent.&#10;&#10;Invite Quality Gate OFF:&#10;Connection invites are delivered automatically."></i>
                                         </span>
                                         <label class="switch">
                                             <input type="checkbox" id="connect-review-mode">
@@ -807,9 +903,9 @@
                                 </div>
 
                                 <div class="settings-card card-glass grid-span-2">
-                                    <h3><i class="fa-solid fa-magnifying-glass-location glow-icon-teal"></i> LinkedIn Search Keywords</h3>
+                                    <h3><i class="fa-solid fa-address-book glow-icon-teal"></i> Target Network Keywords</h3>
+                                    <p class="card-subtitle">Manage terms searched during connection routines</p>
                                     <div class="form-group">
-                                        <label>Configure keywords searched during connection routines:</label>
                                         <div class="tags-input-container" id="connect-keywords-container">
                                             <!-- Keywords tags rendered by JS -->
                                             <input type="text" class="tag-input-field" id="connect-tag-input" placeholder="Add keyword (press Enter)...">
@@ -834,45 +930,73 @@
 
                             <div style="margin-top: 20px;">
                                 <div class="form-group">
-                                    <label>Connection Request Message Template</label>
-                                    <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:10px;">
-                                        This is the note sent with LinkedIn connection requests. LinkedIn limits connection notes to <strong style="color:var(--accent-yellow)">300 characters</strong> — keep it concise.
-                                    </p>
-
-                                    <!-- Variable tokens reference -->
-                                    <div class="template-var-legend" style="flex-wrap: wrap; gap: 6px;">
-                                        <span class="tvar-title"><i class="fa-solid fa-brackets-curly"></i> Available Variables</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{FIRST_NAME}')" style="cursor: pointer;" title="Click to insert">{FIRST_NAME}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{LAST_NAME}')" style="cursor: pointer;" title="Click to insert">{LAST_NAME}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{EMAIL}')" style="cursor: pointer;" title="Click to insert">{EMAIL}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{PHONE_NUMBER}')" style="cursor: pointer;" title="Click to insert">{PHONE_NUMBER}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{EXPERIENCE}')" style="cursor: pointer;" title="Click to insert">{EXPERIENCE}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{LINKEDIN_PROFILE_URL}')" style="cursor: pointer;" title="Click to insert">{LINKEDIN_PROFILE_URL}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{CURRENT_LOCATION}')" style="cursor: pointer;" title="Click to insert">{CURRENT_LOCATION}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{PREFERRED_LOCATIONS}')" style="cursor: pointer;" title="Click to insert">{PREFERRED_LOCATIONS}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{CURRENT_CTC}')" style="cursor: pointer;" title="Click to insert">{CURRENT_CTC}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{EXPECTED_CTC}')" style="cursor: pointer;" title="Click to insert">{EXPECTED_CTC}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{company}')" style="cursor: pointer;" title="Click to insert">{company}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{job_url}')" style="cursor: pointer;" title="Click to insert">{job_url}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{resume}')" style="cursor: pointer;" title="Click to insert">{resume}</span>
-                                        <button type="button" class="btn-reset-template" onclick="resetConnectTemplate()" title="Restore default template" style="margin-left: auto;">
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8px;">
+                                        <div>
+                                            <label style="margin-bottom: 2px;">LinkedIn Invite Note Studio</label>
+                                            <p style="font-size:0.8rem;color:var(--text-secondary);">
+                                                LinkedIn restricts invitations notes to <strong style="color:var(--accent-yellow)">300 characters</strong> — keep your note highly concise.
+                                            </p>
+                                        </div>
+                                        <button type="button" class="btn-reset-template" onclick="resetConnectTemplate()" title="Restore default template">
                                             <i class="fa-solid fa-rotate-left"></i> Reset to Default
                                         </button>
                                     </div>
 
+                                    <!-- Variable tokens reference -->
+                                    <div class="template-var-legend" style="flex-wrap: wrap; gap: 6px;">
+                                        <span class="tvar-title"><i class="fa-solid fa-brackets-curly"></i> Click to Insert:</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{FIRST_NAME}')" title="Click to insert">{FIRST_NAME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{LAST_NAME}')" title="Click to insert">{LAST_NAME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{EMAIL}')" title="Click to insert">{EMAIL}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{PHONE_NUMBER}')" title="Click to insert">{PHONE_NUMBER}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{EXPERIENCE}')" title="Click to insert">{EXPERIENCE}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{LINKEDIN_PROFILE_URL}')" title="Click to insert">{LINKEDIN_PROFILE_URL}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{CURRENT_LOCATION}')" title="Click to insert">{CURRENT_LOCATION}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{PREFERRED_LOCATIONS}')" title="Click to insert">{PREFERRED_LOCATIONS}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{CURRENT_CTC}')" title="Click to insert">{CURRENT_CTC}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{EXPECTED_CTC}')" title="Click to insert">{EXPECTED_CTC}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{company}')" title="Click to insert">{company}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{job_url}')" title="Click to insert">{job_url}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{resume}')" title="Click to insert">{resume}</span>
+                                    </div>
+
                                     <div class="template-editor-container">
                                         <div class="template-editor-header">
-                                            <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;"><i class="fa-solid fa-comment-dots"></i> Connection Request Note</span>
-                                            <div style="display:flex;align-items:center;gap:10px;">
-                                                <span id="connect-char-count" style="font-size:0.78rem;color:var(--text-secondary);font-family:var(--font-mono);">0 / 300</span>
+                                            <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;"><i class="fa-solid fa-comment-dots"></i> Invitation Note Studio</span>
+                                            <div style="display:flex;align-items:center;gap:12px;">
+                                                <span id="connect-char-count" class="char-count-pill">0 / 300</span>
                                                 <div class="template-modes">
-                                                    <button type="button" class="template-mode-btn active" id="btn-mode-edit-connect" onclick="switchTemplateMode('connect', 'edit')">Edit</button>
-                                                    <button type="button" class="template-mode-btn" id="btn-mode-preview-connect" onclick="switchTemplateMode('connect', 'preview')">Preview</button>
+                                                    <button type="button" class="template-mode-btn active" id="btn-mode-edit-connect" onclick="switchTemplateMode('connect', 'edit')">Draft Editor</button>
+                                                    <button type="button" class="template-mode-btn" id="btn-mode-preview-connect" onclick="switchTemplateMode('connect', 'preview')">Real-time Preview</button>
                                                 </div>
                                             </div>
                                         </div>
                                         <textarea id="connect-message-template" class="template-textarea" placeholder="Connection request message..." maxlength="300" oninput="updateConnectCharCount()"></textarea>
-                                        <div id="connect-template-preview" class="template-preview-box hidden"></div>
+                                        
+                                        <!-- Mock LinkedIn Invitation Window -->
+                                        <div id="connect-template-preview" class="linkedin-mockup-window hidden">
+                                            <div class="linkedin-mockup-header">
+                                                <span>Connect with Hiring Manager</span>
+                                                <i class="fa-solid fa-xmark"></i>
+                                            </div>
+                                            <div class="linkedin-mockup-body">
+                                                <div class="linkedin-manager-avatar">HM</div>
+                                                <div class="linkedin-manager-info">
+                                                    <div class="name">Hiring Contact</div>
+                                                    <div class="title">Talent Specialist &amp; Technical Recruiter</div>
+                                                </div>
+                                                <div class="linkedin-invite-card">
+                                                    <p class="invite-header-text">You can include a personal note to introduce yourself:</p>
+                                                    <div class="linkedin-invite-bubble" id="connect-preview-body-content">
+                                                        <!-- Preview content gets rendered dynamically -->
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="linkedin-mockup-footer">
+                                                <button type="button" class="btn-mock-cancel">Cancel</button>
+                                                <button type="button" class="btn-mock-send">Send Invitation</button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -881,8 +1005,8 @@
 
                         <!-- Actions bar -->
                         <div class="settings-actions">
-                            <button type="submit" class="btn btn-success">
-                                <i class="fa-solid fa-floppy-disk"></i> Save Configurations
+                            <button type="submit" class="btn btn-success btn-glow-success">
+                                <i class="fa-solid fa-floppy-disk"></i> Save System Configurations
                             </button>
                             <span id="save-status" class="save-status"></span>
                         </div>

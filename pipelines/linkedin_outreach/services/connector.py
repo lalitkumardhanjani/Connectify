@@ -13,7 +13,7 @@ from config.settings import JOBS_JSON_FILE, AUDIT_JSON_FILE, LINKEDIN_CONNECT_LO
 from config.user_profiles import get_selected_user_config, get_global_settings, substitute_template_variables
 from config.email_templates import DEFAULT_CONNECTION_TEMPLATE
 from core.integrations.selenium_driver import get_driver
-from core.storage.database import load_jobs_for_referral, append_referral_person, update_status_by_id
+from core.storage.database import load_jobs_for_referral, update_status_by_id
 from core.logging.config import setup_logger
 
 # Configure a dedicated logger for LinkedIn connection automation
@@ -829,12 +829,8 @@ def run_connector():
                 navigation_success = True
 
             msg_count = 0
-            existing_referrals = job.get('ReferralPerson')
-            if existing_referrals:
-                success_count = len([n for n in str(existing_referrals).split(',') if n.strip()])
-            else:
-                success_count = 0
-            logger.info(f"Existing referrals already sent for this job: {success_count}/{max_apply}")
+            success_count = 0
+            logger.info(f"Starting outreach requests for this job: {success_count}/{max_apply}")
 
             # Send connect requests to new people
             if outreach_mode in ("connect_only", "both"):
@@ -868,8 +864,6 @@ def run_connector():
                             if send_connection_request(driver, person, message):
                                 success_count += 1
                                 try:
-                                    person_name = person.get('name') or 'Unknown'
-                                    append_referral_person(job_id, person_name)
                                     if success_count >= max_apply:
                                         update_status_by_id(job_id, 'Done')
                                     else:

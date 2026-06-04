@@ -29,6 +29,17 @@ navItems.forEach(item => {
     });
 });
 
+// Click logo to switch to dashboard
+const logoContainer = document.querySelector('.sidebar .logo');
+if (logoContainer) {
+    logoContainer.addEventListener('click', () => {
+        const dashboardTab = document.querySelector('.nav-menu .nav-item[data-tab="dashboard"]');
+        if (dashboardTab) {
+            dashboardTab.click();
+        }
+    });
+}
+
 // ChartJS Configuration
 let metricsChartInstance = null;
 function updateChart(stats) {
@@ -164,9 +175,11 @@ async function pollLogs() {
         if (data.status === 'running') {
             runBtn.classList.add('hidden');
             killBtn.classList.remove('hidden');
+            setGlobalPipelineLock(activeTaskId);
         } else {
             runBtn.classList.remove('hidden');
             killBtn.classList.add('hidden');
+            setGlobalPipelineLock(null);
             stopPolling();
             loadStats(); // Reload stats after completion
             if (typeof loadDashboardAnalytics === 'function') loadDashboardAnalytics();
@@ -233,6 +246,26 @@ function updateReferralPipelineSteps(taskData) {
     }
 }
 
+function setGlobalPipelineLock(runningTaskId) {
+    const buttonsToLock = document.querySelectorAll('#btn-run-scraper, #btn-run-referral, .btn-step-run');
+    if (runningTaskId) {
+        buttonsToLock.forEach(btn => {
+            btn.disabled = true;
+        });
+        
+        // Ensure the active task's stop button is enabled
+        const pipelinePrefix = runningTaskId.split('_')[0]; // 'scraper' or 'referral'
+        const activeKillBtn = document.getElementById(`btn-kill-${pipelinePrefix}`);
+        if (activeKillBtn) {
+            activeKillBtn.disabled = false;
+        }
+    } else {
+        buttonsToLock.forEach(btn => {
+            btn.disabled = false;
+        });
+    }
+}
+
 function startPolling(taskId) {
     stopPolling();
     activeTaskId = taskId;
@@ -241,6 +274,8 @@ function startPolling(taskId) {
     // Clear console logs
     const consoleLogs = document.getElementById('console-logs');
     consoleLogs.innerHTML = '';
+    
+    setGlobalPipelineLock(taskId);
     
     logPollInterval = setInterval(pollLogs, 1500);
 }
@@ -454,6 +489,10 @@ let dbData = { scraper: [], referral: [] };
 let scraperCurrentPage = 1;
 const scraperRecordsPerPage = 10;
 
+// Referral Pagination State
+let referralCurrentPage = 1;
+const referralRecordsPerPage = 10;
+
 async function loadTableData(type) {
     const url = type === 'scraper' ? '/api/data/job_tracker' : '/api/data/job_leads';
     try {
@@ -465,7 +504,7 @@ async function loadTableData(type) {
             populateKeywordDropdown();
             applyScraperFiltersAndRender();
         } else {
-            renderTable(type, data);
+            applyFilters('referral');
         }
     } catch (e) {
         console.error(`Failed to load ${type} data:`, e);
@@ -477,7 +516,7 @@ function renderTable(type, data) {
     tbody.innerHTML = '';
 
     if (data.length === 0) {
-        const cols = type === 'scraper' ? 6 : 9;
+        const cols = type === 'scraper' ? 6 : 8;
         tbody.innerHTML = `<tr><td colspan="${cols}" class="table-empty">No records found.</td></tr>`;
         return;
     }
@@ -516,7 +555,6 @@ function renderTable(type, data) {
                     </select>
                 </div>
             </td>
-            <td>${row.ReferralPerson || ""}</td>
             <td>${row.CreatedDateTime || ""}</td>
             <td style="text-align: center;">
                 <button class="table-action-btn btn-delete" onclick="deleteRow('referral', ${row.JobID})" title="Delete job">
@@ -537,6 +575,7 @@ function formatDisplayDate(ts) {
         return ts;
     }
 }
+
 
 function applyScraperFiltersAndRender() {
     const idFilter = document.getElementById('filter-col-id') ? document.getElementById('filter-col-id').value.toLowerCase().trim() : '';
@@ -562,11 +601,11 @@ function applyScraperFiltersAndRender() {
         return matchesId && matchesEmail && matchesStatus && matchesKeyword && matchesTimestamp;
     });
     
-    // 2. Sort (Newest first by Timestamp descending)
+    // 2. Sort by ID ascending (incremental by default)
     filtered.sort((a, b) => {
-        const dateA = a.Timestamp ? new Date(a.Timestamp) : 0;
-        const dateB = b.Timestamp ? new Date(b.Timestamp) : 0;
-        return dateB - dateA;
+        const idA = parseInt(a.ID) || 0;
+        const idB = parseInt(b.ID) || 0;
+        return idA - idB;
     });
     
     // 3. Render page chunk
@@ -676,6 +715,56 @@ function changeScraperPage(page) {
     applyScraperFiltersAndRender();
 }
 
+function renderReferralPaginationControls(totalRecords) {
+    const container = document.getElementById('referral-pagination');
+    if (!container) return;
+    
+    const totalPages = Math.ceil(totalRecords / referralRecordsPerPage) || 1;
+    
+    const startRecord = totalRecords === 0 ? 0 : (referralCurrentPage - 1) * referralRecordsPerPage + 1;
+    const endRecord = Math.min(referralCurrentPage * referralRecordsPerPage, totalRecords);
+    
+    let infoHtml = `<div class="pagination-info">Showing <strong>${startRecord}</strong> to <strong>${endRecord}</strong> of <strong>${totalRecords}</strong> records</div>`;
+    
+    let controlsHtml = `<div class="pagination-controls">`;
+    const prevDisabled = referralCurrentPage === 1 ? 'disabled' : '';
+    controlsHtml += `
+        <button class="pagination-btn" onclick="changeReferralPage(${referralCurrentPage - 1})" ${prevDisabled}>
+            <i class="fa-solid fa-chevron-left"></i> Prev
+        </button>
+    `;
+    
+    controlsHtml += `<div class="pagination-pages">`;
+    for (let i = 1; i <= totalPages; i++) {
+        if (totalPages <= 6 || i === 1 || i === totalPages || (i >= referralCurrentPage - 1 && i <= referralCurrentPage + 1)) {
+            const activeClass = i === referralCurrentPage ? 'active' : '';
+            controlsHtml += `<button class="pagination-page-btn ${activeClass}" onclick="changeReferralPage(${i})">${i}</button>`;
+        } else if (i === 2 && referralCurrentPage > 3) {
+            controlsHtml += `<span style="color: var(--text-secondary); padding: 0 4px;">...</span>`;
+            i = referralCurrentPage - 2;
+        } else if (i === referralCurrentPage + 2 && referralCurrentPage < totalPages - 2) {
+            controlsHtml += `<span style="color: var(--text-secondary); padding: 0 4px;">...</span>`;
+            i = totalPages - 1;
+        }
+    }
+    controlsHtml += `</div>`;
+    
+    const nextDisabled = referralCurrentPage === totalPages ? 'disabled' : '';
+    controlsHtml += `
+        <button class="pagination-btn" onclick="changeReferralPage(${referralCurrentPage + 1})" ${nextDisabled}>
+            Next <i class="fa-solid fa-chevron-right"></i>
+        </button>
+    `;
+    controlsHtml += `</div>`;
+    
+    container.innerHTML = infoHtml + controlsHtml;
+}
+
+function changeReferralPage(page) {
+    referralCurrentPage = page;
+    applyFilters('referral');
+}
+
 // In-place edits & deletions
 async function updateStatus(type, id, newStatus) {
     try {
@@ -726,9 +815,34 @@ async function deleteRow(type, id) {
 // Dynamic Multi-User & Settings Controllers
 let activeUser = "";
 let allUsers = [];
+let userDetails = {};
 let scraperKeywords = [];
 let connectKeywords = [];
 let cachedConfig = {};
+
+// Helper to get 1 or 2 initials from a username
+function getUserInitials(name) {
+    // If we have profile details loaded, use first/last name to calculate initials
+    if (name && userDetails[name]) {
+        const details = userDetails[name];
+        if (details.first_name || details.last_name) {
+            const first = details.first_name ? details.first_name.trim().charAt(0) : '';
+            const last = details.last_name ? details.last_name.trim().charAt(0) : '';
+            if (first || last) {
+                return (first + last).toUpperCase();
+            }
+        }
+    }
+    if (!name) return 'U';
+    const parts = name.trim().split(/[\s\._\-]+/);
+    const validParts = parts.filter(p => p.length > 0);
+    if (validParts.length === 0) return 'U';
+    if (validParts.length === 1) {
+        const word = validParts[0];
+        return word.length > 1 ? word.slice(0, 2).toUpperCase() : word.charAt(0).toUpperCase();
+    }
+    return (validParts[0].charAt(0) + validParts[validParts.length - 1].charAt(0)).toUpperCase();
+}
 
 // Searchable user dropdown triggers
 function toggleUserDropdown(event) {
@@ -755,8 +869,20 @@ function filterUserOptions() {
     
     filtered.forEach(user => {
         const option = document.createElement('div');
+        const initials = getUserInitials(user);
         option.className = `searchable-select-option ${user === activeUser ? 'selected' : ''}`;
-        option.innerHTML = `<i class="fa-solid fa-user-circle"></i> <span>${user}</span>`;
+        
+        let displayName = user;
+        if (userDetails[user]) {
+            const details = userDetails[user];
+            displayName = [details.first_name, details.last_name].filter(Boolean).join(' ').trim() || user;
+        }
+        
+        option.innerHTML = `
+            <div class="option-avatar-circle">${initials}</div>
+            <span>${displayName}</span>
+            ${user === activeUser ? '<i class="fa-solid fa-check option-check-icon"></i>' : ''}
+        `;
         option.addEventListener('click', () => {
             selectUser(user);
         });
@@ -837,8 +963,22 @@ async function loadUsers() {
         const data = await response.json();
         allUsers = data.users || [];
         activeUser = data.selected_user || "";
+        userDetails = data.user_details || {};
         
-        document.getElementById('selected-user-display').innerText = activeUser || 'Select Profile';
+        // Compute active user display name (full name if available)
+        let activeDisplayName = activeUser || 'Select Profile';
+        if (activeUser && userDetails[activeUser]) {
+            const details = userDetails[activeUser];
+            activeDisplayName = [details.first_name, details.last_name].filter(Boolean).join(' ').trim() || activeUser;
+        }
+        document.getElementById('selected-user-display').innerText = activeDisplayName;
+        
+        // Update initials on circular triggers and headers
+        const initials = getUserInitials(activeUser);
+        const initEl1 = document.getElementById('selected-user-display-initials');
+        if (initEl1) initEl1.textContent = initials;
+        const initEl2 = document.getElementById('dropdown-user-avatar-initials');
+        if (initEl2) initEl2.textContent = initials;
         
         // Populate options in dropdown
         filterUserOptions();
@@ -985,7 +1125,12 @@ function switchTemplateMode(type, mode) {
             .replace(/{company}/g, "Sample Company")
             .replace(/{job_url}/g, "https://linkedin.com/jobs/view/12345");
             
-        previewBox.innerText = previewHtml;
+        const bodyContent = document.getElementById(`${type}-preview-body-content`);
+        if (bodyContent) {
+            bodyContent.innerText = previewHtml;
+        } else {
+            previewBox.innerText = previewHtml;
+        }
     }
 }
 
@@ -1033,6 +1178,32 @@ function togglePasswordVisibility(id) {
     input.type = input.type === 'password' ? 'text' : 'password';
 }
 
+function updateProfileDisplayCard(profile, username) {
+    const fullName = [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim() || username || 'Active Candidate';
+    
+    // Calculate initials
+    let initials = 'U';
+    if (profile.first_name || profile.last_name) {
+        const first = profile.first_name ? profile.first_name.charAt(0) : '';
+        const last = profile.last_name ? profile.last_name.charAt(0) : '';
+        initials = (first + last).toUpperCase();
+    } else if (username) {
+        initials = username.charAt(0).toUpperCase();
+    }
+    
+    const nameEl = document.getElementById('profile-display-name');
+    if (nameEl) nameEl.textContent = fullName;
+    
+    const avatarEl = document.getElementById('profile-avatar-circle');
+    if (avatarEl) avatarEl.textContent = initials;
+    
+    const locEl = document.getElementById('profile-display-loc-val');
+    if (locEl) locEl.textContent = profile.current_location || 'Location not set';
+    
+    const expEl = document.getElementById('profile-display-exp-val');
+    if (expEl) expEl.textContent = profile.experience || 'Experience not set';
+}
+
 // Load configurations for selected user
 async function loadSettings() {
     try {
@@ -1070,6 +1241,26 @@ async function loadSettings() {
         setVal('profile-resume-url', profile.resume_url);
         setVal('profile-current-ctc', profile.current_ctc);
         setVal('profile-expected-ctc', profile.expected_ctc);
+        
+        // Update visual profile display card
+        updateProfileDisplayCard(profile, username);
+        
+        // Update cache and refresh top header switcher triggers/headers
+        if (username) {
+            userDetails[username] = {
+                first_name: profile.first_name || "",
+                last_name: profile.last_name || ""
+            };
+            const initials = getUserInitials(username);
+            const initEl1 = document.getElementById('selected-user-display-initials');
+            if (initEl1) initEl1.textContent = initials;
+            const initEl2 = document.getElementById('dropdown-user-avatar-initials');
+            if (initEl2) initEl2.textContent = initials;
+            
+            const fullName = [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim() || username || 'Active Candidate';
+            const nameEl = document.getElementById('selected-user-display');
+            if (nameEl) nameEl.textContent = fullName;
+        }
         
         // Resume file details
         const resumeFilename = profile.resume_name || '';
@@ -1251,7 +1442,7 @@ function applyFilters(type) {
     const statusVal = document.getElementById(`filter-status-${type}`).value.toLowerCase();
     const dateVal = document.getElementById(`filter-date-${type}`).value;
     
-    const originalData = dbData[type];
+    const originalData = dbData[type] || [];
     
     const filtered = originalData.filter(row => {
         // 1. Text Search
@@ -1259,12 +1450,10 @@ function applyFilters(type) {
         if (searchVal) {
             if (type === 'scraper') {
                 textMatch = (row.Email && row.Email.toLowerCase().includes(searchVal)) ||
-                            (row.Keyword && row.Keyword.toLowerCase().includes(searchVal)) ||
-                            (row['Referral Person'] && row['Referral Person'].toLowerCase().includes(searchVal));
+                            (row.Keyword && row.Keyword.toLowerCase().includes(searchVal));
             } else {
                 textMatch = (row.CompanyName && row.CompanyName.toLowerCase().includes(searchVal)) ||
-                            (row.SearchKeyword && row.SearchKeyword.toLowerCase().includes(searchVal)) ||
-                            (row.ReferralPerson && row.ReferralPerson.toLowerCase().includes(searchVal));
+                            (row.SearchKeyword && row.SearchKeyword.toLowerCase().includes(searchVal));
             }
         }
         
@@ -1303,16 +1492,48 @@ function applyFilters(type) {
         return textMatch && statusMatch && dateMatch;
     });
     
-    renderTable(type, filtered);
+    if (type === 'referral') {
+        // Sort referrals by JobID ascending (incremental by default)
+        filtered.sort((a, b) => {
+            const idA = parseInt(a.JobID) || 0;
+            const idB = parseInt(b.JobID) || 0;
+            return idA - idB;
+        });
+
+        const totalPages = Math.ceil(filtered.length / referralRecordsPerPage) || 1;
+        if (referralCurrentPage > totalPages) {
+            referralCurrentPage = totalPages;
+        }
+        if (referralCurrentPage < 1) {
+            referralCurrentPage = 1;
+        }
+
+        const startIndex = (referralCurrentPage - 1) * referralRecordsPerPage;
+        const pageData = filtered.slice(startIndex, startIndex + referralRecordsPerPage);
+
+        renderTable(type, pageData);
+        renderReferralPaginationControls(filtered.length);
+    } else {
+        renderTable(type, filtered);
+    }
 }
 
 // Bind listeners to Scraper column header filters
 bindScraperColumnFilters();
 
 // Bind listeners to Referral Database filters
-document.getElementById('search-referral').addEventListener('input', () => applyFilters('referral'));
-document.getElementById('filter-status-referral').addEventListener('change', () => applyFilters('referral'));
-document.getElementById('filter-date-referral').addEventListener('change', () => applyFilters('referral'));
+document.getElementById('search-referral').addEventListener('input', () => {
+    referralCurrentPage = 1;
+    applyFilters('referral');
+});
+document.getElementById('filter-status-referral').addEventListener('change', () => {
+    referralCurrentPage = 1;
+    applyFilters('referral');
+});
+document.getElementById('filter-date-referral').addEventListener('change', () => {
+    referralCurrentPage = 1;
+    applyFilters('referral');
+});
 
 // Check if any pipeline is running on startup to restore log viewer state
 async function checkActiveTasks() {
@@ -1330,10 +1551,12 @@ async function checkActiveTasks() {
         }
         
         if (!foundRunning) {
+            setGlobalPipelineLock(null);
             loadStats();
         }
     } catch (e) {
         console.error("Failed to check active processes:", e);
+        setGlobalPipelineLock(null);
         loadStats();
     }
 }
@@ -1573,4 +1796,23 @@ async function saveScraperEditForm(event) {
         console.error("Failed to save record:", e);
         alert("Failed to save changes. Please try again.");
     }
+}
+
+// ── Live Reload Helper (Development Only) ───────────────────────────────────
+if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+    const source = new EventSource('/api/dev-reload');
+    source.onerror = function() {
+        console.log("[Dev Reload] Connection lost. Server is restarting...");
+        const checkServer = setInterval(() => {
+            fetch('/api/users')
+                .then(res => {
+                    if (res.ok) {
+                        clearInterval(checkServer);
+                        console.log("[Dev Reload] Server is back online. Reloading...");
+                        location.reload();
+                    }
+                })
+                .catch(() => {});
+        }, 800);
+    };
 }

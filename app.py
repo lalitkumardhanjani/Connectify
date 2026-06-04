@@ -6,8 +6,8 @@ import subprocess
 import threading
 import signal
 from datetime import datetime
-from flask import Flask, jsonify, request, render_template, send_from_directory, send_file
-from werkzeug.utils import secure_filename
+from flask import Flask, jsonify, request, render_template, send_from_directory, send_file, Response
+import time
 import pandas as pd
 import openpyxl
 
@@ -172,17 +172,8 @@ def get_stats():
     
     total_leads = len(job_leads)
     
-    referral_requests_sent = 0
-    done_referrals = 0
-    for r in job_leads:
-        ref_person = r.get('ReferralPerson') or r.get('Referral Person')
-        if ref_person:
-            names = [n.strip() for n in str(ref_person).split(',') if n.strip()]
-            referral_requests_sent += len(names)
-        
-        status = str(r.get('Status')).strip().lower()
-        if status == 'done':
-            done_referrals += 1
+    referral_requests_sent = sum(1 for r in job_leads if str(r.get('Status')).strip().lower() in ('ask for referral', 'done'))
+    done_referrals = sum(1 for r in job_leads if str(r.get('Status')).strip().lower() == 'done')
 
     return jsonify({
         "total_emails_scraped": total_emails,
@@ -338,9 +329,20 @@ def get_users_list():
     config = load_all_configs()
     users = list(config.get("users", {}).keys())
     selected = config.get("selected_user", "")
+    
+    # Extract profile names for all users
+    user_details = {}
+    for username, data in config.get("users", {}).items():
+        profile = data.get("profile", {})
+        user_details[username] = {
+            "first_name": profile.get("first_name", ""),
+            "last_name": profile.get("last_name", "")
+        }
+        
     return jsonify({
         "users": users,
-        "selected_user": selected
+        "selected_user": selected,
+        "user_details": user_details
     })
 
 
@@ -678,11 +680,54 @@ def edit_table_row():
         return jsonify({"status": "error", "message": "Editing is only supported for Scraper Database"}), 400
 
 
+@app.route('/api/dev-reload')
+def dev_reload():
+    def event_stream():
+        while True:
+            time.sleep(10)
+            yield "data: ping\n\n"
+    return Response(event_stream(), mimetype="text/event-stream")
+
+
+def sanitize_excel_files():
+    # Loop over all users and sanitize their LinkedIn_Job_Tracker.xlsx file
+    config_dir = "users"
+    if os.path.exists(config_dir):
+        for user in os.listdir(config_dir):
+            user_path = os.path.join(config_dir, user)
+            if os.path.isdir(user_path):
+                excel_path = os.path.join(user_path, "data", "LinkedIn_Job_Tracker.xlsx")
+                if os.path.exists(excel_path):
+                    try:
+                        import openpyxl
+                        wb = openpyxl.load_workbook(excel_path)
+                        ws = wb.active
+                        col_indices = {cell.value: idx for idx, cell in enumerate(ws[1], start=1)}
+                        ref_col = col_indices.get('ReferralPerson')
+                        if ref_col:
+                            ws.delete_cols(ref_col)
+                            wb.save(excel_path)
+                            print(f"Sanitized: removed ReferralPerson column from {excel_path}")
+                    except Exception as e:
+                        print(f"Error sanitizing {excel_path}: {e}")
+
+
 if __name__ == '__main__':
     # Ensure standard directories exist
     os.makedirs("templates", exist_ok=True)
     os.makedirs("static/css", exist_ok=True)
     os.makedirs("static/js", exist_ok=True)
     
+    # Sanitize existing databases
+    sanitize_excel_files()
+    
+    # Watch templates and static files to trigger reloader
+    extra_files = []
+    for extra_dir in ["templates", "static"]:
+        if os.path.exists(extra_dir):
+            for root, dirs, files in os.walk(extra_dir):
+                for file in files:
+                    extra_files.append(os.path.join(root, file))
+    
     print("Connectify Automation Hub starting at http://127.0.0.1:5001")
-    app.run(host='127.0.0.1', port=5001, debug=True)
+    app.run(host='127.0.0.1', port=5001, debug=True, extra_files=extra_files)

@@ -445,8 +445,6 @@ def save_job(data, path=None):
                 row_data.append('No')
             elif header == 'ShortUrlCreated':
                 row_data.append('No')
-            elif header == 'ReferralPerson':
-                row_data.append('')
             elif header == 'Remarks':
                 row_data.append('')
             elif header == 'CreatedDateTime':
@@ -500,36 +498,7 @@ def load_jobs_for_referral(path=None, status_filter='Ask for referral'):
             rows.append(row_dict)
     return rows
 
-def append_referral_person(job_id, person_name, path=None):
-    """Appends details of contacts who agreed to refer the job."""
-    if path is None:
-        path = get_job_leads_file()
-    if not os.path.exists(path):
-        return False
-    wb = openpyxl.load_workbook(path)
-    ws = wb.active
-    col_indices = {cell.value: idx for idx, cell in enumerate(ws[1], start=1)}
-    id_col = col_indices.get('JobID')
-    referral_col = col_indices.get('ReferralPerson')
-    
-    if not id_col or not referral_col:
-        return False
-    for row in range(2, ws.max_row + 1):
-        if ws.cell(row=row, column=id_col).value == job_id:
-            existing = ws.cell(row=row, column=referral_col).value
-            if existing:
-                names = [n.strip() for n in existing.split(',')]
-                if person_name not in names:
-                    new_val = f"{existing}, {person_name}"
-                else:
-                    new_val = existing
-            else:
-                new_val = person_name
-            ws.cell(row=row, column=referral_col, value=new_val)
-            wb.save(path)
-            _trigger_mac_excel_reload(path)
-            return True
-    return False
+
 
 def update_status_by_id(job_id, status, path=None):
     """Updates status for a specific lead row identified by JobID."""

@@ -27,5 +27,5 @@ SCRAPER_HEADERS = ['ID', 'Email', 'Status', 'Timestamp', 'Keyword']
 
 JOB_LEADS_HEADERS = [
     'JobID', 'CompanyName', 'CompanyURL', 'ShortenURL', 'SearchKeyword', 'Status', 
-    'ReferralAsked', 'ShortUrlCreated', 'ReferralPerson', 'Remarks', 'CreatedDateTime'
+    'ReferralAsked', 'ShortUrlCreated', 'Remarks', 'CreatedDateTime'
 ]

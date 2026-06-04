@@ -108,8 +108,41 @@ Finds job listings and sends connection/direct message requests.
                                                                |
                                                      (Selenium Search People)
                                                                v
-[Send Connection / Note] --(Records Contact Name)--> [ReferralPerson column updated]
+[Send Connection / Note] --(Status marked Done/Sent)--> [Status column updated]
 ```
+
+---
+
+## 🖥️ Dashboard Database Tabs
+
+### Outreach Leads (Email Scraper Database)
+- Displays emails scraped from LinkedIn posts sorted by **ID ascending** (incremental).
+- Paginated view: **10 records per page** with dynamic ellipsis page controls.
+- Supports per-column filtering on ID, Email, Status, Keyword, and Timestamp.
+- In-place status update and record deletion from the UI.
+- Edit dialog for correcting email, status, or keyword inline.
+
+### Referral Opportunities (LinkedIn Job Tracker)
+- Displays job opportunities tracked for LinkedIn referral outreach, sorted by **ID ascending** (incremental).
+- Paginated view: **10 records per page** with dynamic ellipsis page controls.
+- Supports full-text search, status-based filtering, and date recency filters.
+- In-place status dropdown selector and delete action per row.
+
+---
+
+## ⚙️ Dashboard Settings Tabs
+
+### Outreach Engine (Email Scraper Settings)
+- **Search Execution Frequency**: Controls how frequently the scraper paginates LinkedIn feeds between post reads.
+- **Outreach Quality Gate**: When enabled, emails are held in the database for manual review before sending. When disabled, outreach is sent automatically after scraping.
+- **Target Post Keywords**: Tag-based keyword manager. Add or remove terms searched on LinkedIn content boards.
+- **Outreach Email Template Studio**: Rich text editor with clickable variable tokens (`{FIRST_NAME}`, `{EXPERIENCE}`, etc.) and a **Real-time Preview** mode that renders your template inside a mock email window.
+
+### LinkedIn Automator (LinkedIn Connect Settings)
+- **Action Timing Delay**: Controls wait time between LinkedIn browser automation steps.
+- **Invite Quality Gate**: When enabled, connection requests are staged in the Referral Opportunities database for review before being sent. When disabled, requests are sent automatically.
+- **Target Network Keywords**: Tag-based keyword manager. Add or remove terms used for LinkedIn people search during connection routines.
+- **LinkedIn Invite Note Studio**: Rich text editor with clickable variable tokens and character counter (300-char LinkedIn limit enforced). **Real-time Preview** renders your note inside a mock LinkedIn invitation modal.
 
 ---
 

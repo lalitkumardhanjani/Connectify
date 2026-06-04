@@ -122,10 +122,12 @@ Launch the web interface locally:
 python app.py
 ```
 Open your browser and navigate to **`http://127.0.0.1:5001`**. From here, you can:
-- Swap profile contexts (e.g. Yuvashree, Lalit).
-- Upload resumes.
-- Edit configurations dynamically.
-- Monitor execution logs and launch scraping/outreach jobs in real time.
+- Swap profile contexts (e.g. Yuvashree, Lalit) using the avatar switcher in the top-right corner.
+- Upload resumes and manage your candidate profile.
+- Edit configurations dynamically under the **Settings** tab.
+- Browse and search the **Outreach Leads** (email scraper) database with full pagination.
+- Browse and manage the **Referral Opportunities** (LinkedIn jobs) database with full pagination.
+- Monitor real-time execution logs and launch pipeline steps from the **Pipelines** tab.
 
 ### Option B: Running Pipelines Individually via Terminal
 You can run any pipeline or utility directly from the command line using the root wrapper scripts:
@@ -158,9 +160,24 @@ python run_linkedin_connect.py
 
 ---
 
+## 🖥️ Dashboard Overview
+
+### Settings Tab
+The Settings panel is split into two sub-sections:
+
+- **Outreach Engine**: Configure the email scraper pipeline — set the search execution frequency, enable/disable the Outreach Quality Gate (review mode), manage target post keywords, and compose your outreach email template with a real-time preview inside a mock email window.
+- **LinkedIn Automator**: Configure the LinkedIn connection pipeline — set the action timing delay, enable/disable the Invite Quality Gate (review mode), manage target network keywords, and compose your 300-character LinkedIn invite note with a live preview rendered in a mock LinkedIn invitation bubble.
+
+### Database Tabs
+- **Outreach Leads**: Displays emails scraped from LinkedIn posts. Records are sorted by ID (ascending). Supports per-column filtering, status-based filtering, keyword dropdown, and paginated browsing (10 records per page).
+- **Referral Opportunities**: Displays job opportunities tracked for LinkedIn referral outreach. Records are sorted by ID (ascending). Supports full-text search, status and date filters, and paginated browsing (10 records per page).
+
+---
+
 ## ⚠️ Troubleshooting & Browser Tips
 
 - **Windows Chrome & Chromedriver**: On Windows, the system automatically detects the OS, bypasses the Mac local binary check, and relies on `webdriver_manager` to download the matching Windows `chromedriver.exe` binary. No manual setup is needed.
 - **Mac Chrome Execution**: The driver is configured to automatically search for Google Chrome in the standard `/System/Volumes/Data/Volumes/Google Chrome/Google Chrome.app` path or default location.
 - **Mac Excel Sheet Reloads**: The system uses AppleScript to reload active Excel/Numbers sheets automatically if they are open while data is writing. If prompted, grant terminal permission to script applications.
 - **Google Sign-In**: Avoid choosing "Continue with Google" during automated sessions as Google security blocks automated login pages. Sign in directly using email and password.
+- **Empty Data for a New Profile**: Each user profile starts with an empty `data/` directory. Data files (`job_tracker.xlsx`, `LinkedIn_Job_Tracker.xlsx`) are automatically created the first time a pipeline is run under that profile.
