@@ -12,7 +12,9 @@ import pandas as pd
 import openpyxl
 
 # Connectify Consolidated Configurations and Core Imports
-from config.settings import BASE_DIR, JOB_TRACKER_FILE, JOB_LEADS_FILE, RESUMES_DIR
+from config.settings import (
+    BASE_DIR, get_job_tracker_file, get_job_leads_file, get_resumes_dir, get_active_user
+)
 from config.user_profiles import (
     load_all_configs, save_all_configs, get_selected_user_name,
     get_selected_user_config, get_global_settings, get_resume_file_path
@@ -162,8 +164,8 @@ def dashboard():
 
 @app.route('/api/stats')
 def get_stats():
-    job_tracker = get_excel_data(JOB_TRACKER_FILE)
-    job_leads = get_excel_data(JOB_LEADS_FILE)
+    job_tracker = get_excel_data(get_job_tracker_file())
+    job_leads = get_excel_data(get_job_leads_file())
 
     total_emails = len(job_tracker)
     emails_sent = sum(1 for r in job_tracker if str(r.get('Status')).strip().lower() == 'sent')
@@ -201,11 +203,11 @@ def company_stats():
 
 @app.route('/api/data/job_tracker')
 def job_tracker_data():
-    return jsonify(get_excel_data(JOB_TRACKER_FILE))
+    return jsonify(get_excel_data(get_job_tracker_file()))
 
 @app.route('/api/data/job_leads')
 def job_leads_data():
-    return jsonify(get_excel_data(JOB_LEADS_FILE))
+    return jsonify(get_excel_data(get_job_leads_file()))
 
 
 @app.route('/api/run/scraper', methods=['POST'])
@@ -446,9 +448,10 @@ def upload_user_resume():
     if file:
         filename = secure_filename(file.filename)
         username = get_selected_user_name()
-        os.makedirs(RESUMES_DIR, exist_ok=True)
-        new_filename = f"{username}_{filename}"
-        save_path = os.path.join(RESUMES_DIR, new_filename)
+        resumes_dir = get_resumes_dir()
+        os.makedirs(resumes_dir, exist_ok=True)
+        new_filename = filename
+        save_path = os.path.join(resumes_dir, new_filename)
         file.save(save_path)
         
         config = load_all_configs()
@@ -465,10 +468,11 @@ def download_user_resume(username):
     user_data = config.get("users", {}).get(username, {})
     resume_name = user_data.get("profile", {}).get("resume_name", "")
     
-    user_resume_path = os.path.join(RESUMES_DIR, resume_name) if resume_name else ""
+    resumes_dir = get_resumes_dir()
+    user_resume_path = os.path.join(resumes_dir, resume_name) if resume_name else ""
 
     if resume_name and os.path.exists(user_resume_path):
-        return send_from_directory(RESUMES_DIR, resume_name, as_attachment=False)
+        return send_from_directory(resumes_dir, resume_name, as_attachment=False)
 
     # Fall back to the default resume path
     default_path = get_resume_file_path(user_data.get("profile", {}))
@@ -565,7 +569,7 @@ def update_row_status():
         pass
         
     if db_type == "scraper":
-        path = JOB_TRACKER_FILE
+        path = get_job_tracker_file()
         if not os.path.exists(path):
             return jsonify({"status": "error", "message": "File not found"}), 404
         wb = openpyxl.load_workbook(path)
@@ -614,7 +618,7 @@ def delete_table_row():
     except ValueError:
         pass
         
-    path = JOB_TRACKER_FILE if db_type == "scraper" else JOB_LEADS_FILE
+    path = get_job_tracker_file() if db_type == "scraper" else get_job_leads_file()
     if not os.path.exists(path):
         return jsonify({"status": "error", "message": "File not found"}), 404
         
@@ -666,7 +670,7 @@ def edit_table_row():
         return jsonify({"status": "error", "message": "Invalid ID"}), 400
         
     if db_type == "scraper":
-        success = edit_row(row_id, email, status, keyword, JOB_TRACKER_FILE)
+        success = edit_row(row_id, email, status, keyword, get_job_tracker_file())
         if success:
             return jsonify({"status": "success"})
         return jsonify({"status": "error", "message": "ID not found"}), 404

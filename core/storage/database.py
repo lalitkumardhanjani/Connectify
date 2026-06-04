@@ -4,7 +4,7 @@ import openpyxl
 from datetime import datetime
 from openpyxl.worksheet.table import Table, TableStyleInfo
 from config.settings import (
-    BASE_DIR, DATA_DIR, JOB_TRACKER_FILE, JOB_LEADS_FILE, JOBS_JSON_FILE, AUDIT_JSON_FILE
+    BASE_DIR, get_data_dir, get_job_tracker_file, get_job_leads_file, get_jobs_json_file, get_audit_json_file
 )
 from config.constants import SCRAPER_HEADERS, JOB_LEADS_HEADERS
 from core.logging.config import logger
@@ -14,12 +14,17 @@ from core.utils.url_utils import is_valid_external_url, normalize_external_url
 seen_external_urls = set()
 
 def migrate_old_data_files():
-    """Migrates existing tracking databases from the root directory to the new data/ directory."""
+    """Migrates existing tracking databases from the root directory to the active user's data/ directory."""
+    from config.settings import get_active_user
+    active_user = get_active_user()
+    if not active_user:
+        return
+        
     old_files = {
-        "job_tracker.xlsx": JOB_TRACKER_FILE,
-        "LinkedIn_Job_Tracker.xlsx": JOB_LEADS_FILE,
-        "linkedin_jobs.json": JOBS_JSON_FILE,
-        "linkedin_jobs_audit.json": AUDIT_JSON_FILE
+        "job_tracker.xlsx": get_job_tracker_file(),
+        "LinkedIn_Job_Tracker.xlsx": get_job_leads_file(),
+        "linkedin_jobs.json": get_jobs_json_file(),
+        "linkedin_jobs_audit.json": get_audit_json_file()
     }
     for old_name, new_path in old_files.items():
         old_path = os.path.join(BASE_DIR, old_name)
@@ -86,8 +91,10 @@ def _trigger_mac_excel_reload(path):
 # 1. Email Scraper Database Operations (job_tracker.xlsx)
 # =========================================================================
 
-def init_scraper_store(path=JOB_TRACKER_FILE):
+def init_scraper_store(path=None):
     """Initializes the scraper database Excel sheet if it does not exist."""
+    if path is None:
+        path = get_job_tracker_file()
     if not os.path.exists(path):
         wb = openpyxl.Workbook()
         ws = wb.active
@@ -111,8 +118,10 @@ def init_scraper_store(path=JOB_TRACKER_FILE):
     trim_scraper_excel_to_schema(path)
     migrate_pending_to_new(path)
 
-def trim_scraper_excel_to_schema(path=JOB_TRACKER_FILE):
+def trim_scraper_excel_to_schema(path=None):
     """Enforces scraper Excel headers conform to standard schema."""
+    if path is None:
+        path = get_job_tracker_file()
     if not os.path.exists(path):
         return
     wb = openpyxl.load_workbook(path)
@@ -152,8 +161,10 @@ def trim_scraper_excel_to_schema(path=JOB_TRACKER_FILE):
     wb.save(path)
     _trigger_mac_excel_reload(path)
 
-def append_email(email, keyword='', path=JOB_TRACKER_FILE):
+def append_email(email, keyword='', path=None):
     """Appends extracted email to the job tracker if it's unique."""
+    if path is None:
+        path = get_job_tracker_file()
     init_scraper_store(path)
     wb = openpyxl.load_workbook(path)
     ws = wb.active
@@ -189,8 +200,10 @@ def append_email(email, keyword='', path=JOB_TRACKER_FILE):
     _trigger_mac_excel_reload(path)
     return True
 
-def update_status(email, status, path=JOB_TRACKER_FILE):
+def update_status(email, status, path=None):
     """Updates status for a specific scraped email row."""
+    if path is None:
+        path = get_job_tracker_file()
     init_scraper_store(path)
     wb = openpyxl.load_workbook(path)
     ws = wb.active
@@ -213,8 +226,10 @@ def update_status(email, status, path=JOB_TRACKER_FILE):
         _trigger_mac_excel_reload(path)
     return updated
 
-def count_unique_emails(path=JOB_TRACKER_FILE):
+def count_unique_emails(path=None):
     """Counts unique emails processed in the scraper sheet."""
+    if path is None:
+        path = get_job_tracker_file()
     if not os.path.exists(path):
         return 0
     wb = openpyxl.load_workbook(path)
@@ -228,8 +243,10 @@ def count_unique_emails(path=JOB_TRACKER_FILE):
             unique_emails.add(str(val).strip().lower())
     return len(unique_emails)
 
-def edit_row(row_id, email, status, keyword, path=JOB_TRACKER_FILE):
+def edit_row(row_id, email, status, keyword, path=None):
     """Modifies details of an existing scraper log by row ID."""
+    if path is None:
+        path = get_job_tracker_file()
     init_scraper_store(path)
     wb = openpyxl.load_workbook(path)
     ws = wb.active
@@ -256,8 +273,10 @@ def edit_row(row_id, email, status, keyword, path=JOB_TRACKER_FILE):
         _trigger_mac_excel_reload(path)
     return updated
 
-def migrate_pending_to_new(path=JOB_TRACKER_FILE):
+def migrate_pending_to_new(path=None):
     """Legacy helper converting old 'Pending' labels to standard 'New'."""
+    if path is None:
+        path = get_job_tracker_file()
     if not os.path.exists(path):
         return
     wb = openpyxl.load_workbook(path)
@@ -281,8 +300,10 @@ def migrate_pending_to_new(path=JOB_TRACKER_FILE):
 # 2. LinkedIn Outreach Database Operations (LinkedIn_Job_Tracker.xlsx)
 # =========================================================================
 
-def init_job_leads_store(path=JOB_LEADS_FILE):
+def init_job_leads_store(path=None):
     """Ensures the job search leads database exists and contains standard headers."""
+    if path is None:
+        path = get_job_leads_file()
     if not os.path.exists(path):
         try:
             wb = openpyxl.Workbook()
@@ -323,8 +344,10 @@ def update_job_leads_table(ws):
     tab.tableStyleInfo = style
     ws.add_table(tab)
 
-def load_saved_jobs(path=JOB_LEADS_FILE):
+def load_saved_jobs(path=None):
     """Loads all saved job applications into memory."""
+    if path is None:
+        path = get_job_leads_file()
     jobs = []
     normalized_urls = set()
 
@@ -359,8 +382,10 @@ def load_saved_jobs(path=JOB_LEADS_FILE):
 
     return jobs, normalized_urls
 
-def save_job(data, path=JOB_LEADS_FILE):
+def save_job(data, path=None):
     """Saves a discovered external apply job to the Excel leads sheet."""
+    if path is None:
+        path = get_job_leads_file()
     url = (data.get("url") or "").strip()
     company = (data.get("company") or "").strip()
     search_keyword = (data.get("search_keyword") or "").strip()
@@ -456,8 +481,10 @@ def save_job(data, path=JOB_LEADS_FILE):
         logger.error(f"Error saving job to Excel tracker: {str(e)}")
         return False
 
-def load_jobs_for_referral(path=JOB_LEADS_FILE, status_filter='Ask for referral'):
+def load_jobs_for_referral(path=None, status_filter='Ask for referral'):
     """Loads all lead row dictionaries filtered by status."""
+    if path is None:
+        path = get_job_leads_file()
     if not os.path.exists(path):
         return []
     wb = openpyxl.load_workbook(path)
@@ -473,8 +500,10 @@ def load_jobs_for_referral(path=JOB_LEADS_FILE, status_filter='Ask for referral'
             rows.append(row_dict)
     return rows
 
-def append_referral_person(job_id, person_name, path=JOB_LEADS_FILE):
+def append_referral_person(job_id, person_name, path=None):
     """Appends details of contacts who agreed to refer the job."""
+    if path is None:
+        path = get_job_leads_file()
     if not os.path.exists(path):
         return False
     wb = openpyxl.load_workbook(path)
@@ -502,8 +531,10 @@ def append_referral_person(job_id, person_name, path=JOB_LEADS_FILE):
             return True
     return False
 
-def update_status_by_id(job_id, status, path=JOB_LEADS_FILE):
+def update_status_by_id(job_id, status, path=None):
     """Updates status for a specific lead row identified by JobID."""
+    if path is None:
+        path = get_job_leads_file()
     if not os.path.exists(path):
         return False
     wb = openpyxl.load_workbook(path)

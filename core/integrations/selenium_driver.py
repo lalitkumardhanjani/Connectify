@@ -4,14 +4,15 @@ import time
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
-from config.settings import CHROME_PROFILE_DIR, MAC_CHROME_BINARY, CHROMEDRIVER_PATH
+from config.settings import get_chrome_profile_dir, MAC_CHROME_BINARY, CHROMEDRIVER_PATH
 from core.logging.config import logger
 
 def get_driver():
     """Initializes and returns a Selenium webdriver.Chrome instance with the configured profile and options."""
     options = Options()
     options.add_argument("--remote-debugging-port=9222")
-    options.add_argument(f"--user-data-dir={CHROME_PROFILE_DIR}")
+    chrome_profile_dir = get_chrome_profile_dir()
+    options.add_argument(f"--user-data-dir={chrome_profile_dir}")
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument("--disable-popup-blocking")
     options.add_experimental_option("excludeSwitches", ["enable-automation"])

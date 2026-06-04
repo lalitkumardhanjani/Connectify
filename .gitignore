@@ -1,6 +1,8 @@
 # Credentials & Settings
 .env
 users_config.json
+users/
+
 
 # Local database Excel files (holds processed candidate run data)
 *.xlsx

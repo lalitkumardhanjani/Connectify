@@ -833,8 +833,16 @@ async function loadUsers() {
         // Populate options in dropdown
         filterUserOptions();
         
-        // Load configurations for active user
-        await loadSettings();
+        // Handle onboarding: if there are no users, force profile creation
+        const cancelBtn = document.getElementById('btn-cancel-create-user');
+        if (allUsers.length === 0) {
+            if (cancelBtn) cancelBtn.style.display = 'none';
+            showCreateUserModal();
+        } else {
+            if (cancelBtn) cancelBtn.style.display = 'inline-block';
+            // Load configurations for active user
+            await loadSettings();
+        }
     } catch (e) {
         console.error("Failed to load profiles list:", e);
     }

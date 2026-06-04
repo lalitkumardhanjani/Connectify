@@ -46,19 +46,20 @@ Connectify follows clean architectural principles by separating cross-cutting co
 ## 🛠️ Module Breakdowns
 
 ### 1. Configuration Package (`config/`)
-Centralizes all settings parameters and resolves paths relative to the root directory.
-- **`settings.py`**: Resolves local environment setups, file pathways, and creates runtime directories (`data/`, `logs/`, `resumes/`) on startup.
+Centralizes all settings parameters, user profile sandboxes, and handles active user contexts.
+- **`settings.py`**: Resolves sandbox pathways dynamically at call time based on the active profile, ensuring setting folders (`users/<username>/data/`, `users/<username>/logs/`, `users/<username>/resumes/`) exist and are dynamically isolated. Implements PEP 562 `__getattr__` module hooks for backward-compatible lookups.
 - **`constants.py`**: Keeps static database schemas, Excel column header orders, and standard search keywords.
-- **`user_profiles.py`**: Interacts with `users_config.json` to fetch and store details for the active user (e.g. experience, template parameters, resumes).
+- **`user_profiles.py`**: Interacts with individual user configuration files (`users/<username>/config.json`) and active user state (`users/active_user.json`). Handles dynamic loading, dictionary rebuilding in memory, and legacy file migrations.
 - **`email_templates.py`**: Holds default message fallbacks.
 
 ### 2. Core Library Package (`core/`)
 Abstracts shared utility layers so pipelines remain focused solely on execution flows.
-- **`storage/database.py`**: Coordinates openpyxl and JSON file reads/writes under the `data/` directory. Automatically handles duplicate checks, incrementing primary IDs, and trigger sheet re-loads on macOS using AppleScript.
-- **`integrations/selenium_driver.py`**: Consolidates browser profile setups. Sets remote debugging ports, maximizes windows, configures Darwin application binaries, and manages UI overlays.
+- **`storage/database.py`**: Coordinates openpyxl and JSON file reads/writes under the active user's sandboxed `data/` directory (`users/<username>/data/`). Automatically handles duplicate checks, incrementing primary IDs, and triggers sheet reloads on macOS using AppleScript.
+- **`integrations/selenium_driver.py`**: Consolidates browser profile setups. Sets remote debugging ports, maximizes windows, configures Darwin application binaries, and dynamically isolates Chrome profiles under `users/<username>/chrome-profile/`.
 - **`integrations/url_shortener.py`**: Connects to TinyURL API GET endpoints to shorten company URLs.
+- **`logging/config.py`**: Implements `DynamicUserFileHandler` to route log lines into the active user's log folder dynamically at record write-time.
 - **`utils/`**: Split into `string_utils.py` (regex expressions for email parsing) and `url_utils.py` (handles URL normalization, decoding safety redirects, and parsing job IDs).
-- **`analytics/metrics.py`**: Processes Excel/JSON tracking files into standard dashboard stats.
+- **`analytics/metrics.py`**: Processes sandboxed Excel/JSON tracking files into standard dashboard stats.
 
 ### 3. Pipelines Package (`pipelines/`)
 Dedicated workflows that implement browser manipulation and scraper logic.
@@ -83,30 +84,30 @@ Finds job listings and sends connection/direct message requests.
 ### 1. Email Scraper Pipeline Data Flow
 ```
 [LinkedIn Content Boards] --(Selenium Scrapes Text)--> [Scraped Content]
-                                                              |
-                                                    (extracts via regex)
-                                                              v
+                                                               |
+                                                     (extracts via regex)
+                                                               v
                                                        [Email Addresses]
-                                                              |
-                                                        (database check)
-                                                              v
-[SMTP Server / Gmail UI] <--(Send Mail Compose)-- [data/job_tracker.xlsx]
+                                                               |
+                                                         (database check)
+                                                               v
+[SMTP Server / Gmail UI] <--(Send Mail Compose)-- [users/<user>/data/job_tracker.xlsx]
 ```
 
 ### 2. LinkedIn Job & Connect Pipeline Data Flow
 ```
 [LinkedIn Search Jobs] --(Discovers Job Card)--> [External Apply Button]
-                                                              |
-                                                      (decodes redirect)
-                                                              v
-[Review Option (CLI)] <--(Presents NEW Job)-- [data/LinkedIn_Job_Tracker.xlsx]
+                                                               |
+                                                       (decodes redirect)
+                                                               v
+[Review Option (CLI)] <--(Presents NEW Job)-- [users/<user>/data/LinkedIn_Job_Tracker.xlsx]
           |
      (Sets status)
           v
 [Ask For Referral] --(TinyURL shortens links)--> [ShortenURL column updated]
-                                                              |
-                                                    (Selenium Search People)
-                                                              v
+                                                               |
+                                                     (Selenium Search People)
+                                                               v
 [Send Connection / Note] --(Records Contact Name)--> [ReferralPerson column updated]
 ```
 
@@ -116,7 +117,7 @@ Finds job listings and sends connection/direct message requests.
 
 ### Adding a new Configuration Variable
 1. If the setting is system-wide, add it to `config/settings.py` (if it loads from environment variables) or `config/constants.py` (if it is a static configuration constant).
-2. If it is user-specific, add it to the default user dictionaries in `config/user_profiles.py` inside `load_all_configs()`. This ensures that new user profiles created via the dashboard will inherit the parameter.
+2. If it is user-specific, add it to the default user profile initializer dictionary inside `create_user_profile()` in `app.py` and the fallback dictionary inside `load_all_configs()` in `config/user_profiles.py`. This ensures that new user profiles created via the dashboard will inherit the parameter inside their isolated `config.json`.
 
 ### Adding a new Outreach Pipeline
 1. Create a subfolder under `pipelines/` (e.g., `pipelines/new_platform_outreach/`).
@@ -124,3 +125,4 @@ Finds job listings and sends connection/direct message requests.
 3. Expose a central `run_pipeline()` entrypoint in `pipelines/new_platform_outreach/pipeline.py`.
 4. Create a corresponding thin wrapper script in the root directory (e.g. `run_new_outreach.py`) that imports and calls your runner function.
 5. In `app.py`, update `SubprocessRunner` commands to support triggering the new wrapper script.
+6. Ensure that inside your scraper or database operations, you resolve file paths by importing and calling the settings getter functions (e.g. `get_job_leads_file()`) instead of importing static constants.

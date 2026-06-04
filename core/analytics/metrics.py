@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 from datetime import datetime, timedelta
-from config.settings import JOB_TRACKER_FILE, JOB_LEADS_FILE
+from config.settings import get_job_tracker_file, get_job_leads_file
 
 def _load_excel(path):
     """Utility to load an Excel file into a pandas DataFrame.
@@ -29,7 +29,7 @@ def _find_col(df, *candidates):
 
 def get_email_metrics():
     """Compute email-scraper analytics from job_tracker.xlsx."""
-    df = _load_excel(JOB_TRACKER_FILE)
+    df = _load_excel(get_job_tracker_file())
 
     empty_result = {
         "total_emails": 0,
@@ -133,7 +133,7 @@ def get_email_metrics():
 
 def get_company_metrics():
     """Compute company-scraper analytics from LinkedIn_Job_Tracker.xlsx."""
-    df = _load_excel(JOB_LEADS_FILE)
+    df = _load_excel(get_job_leads_file())
 
     empty_result = {
         "total_companies": 0,

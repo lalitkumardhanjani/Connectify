@@ -11,21 +11,21 @@ Connectify/
 ├── app.py                         # Web dashboard server (Flask)
 │
 ├── config/                        # Dynamic profile & settings configuration
-│   ├── settings.py                # Environment & directory mappings (.env loading)
+│   ├── settings.py                # Runtime dynamic user path resolution
 │   ├── constants.py               # Central schema definitions and default keywords
-│   ├── user_profiles.py           # Loads/saves profiles from users_config.json
+│   ├── user_profiles.py           # Sandboxed profile management & upgrade scripts
 │   └── email_templates.py         # Static fallback outreach templates
 │
 ├── core/                          # Shared library & support package
 │   ├── analytics/
-│   │   └── metrics.py             # Dashboard statistics calculator
+│   │   └── metrics.py             # Sandboxed stats calculator
 │   ├── storage/
 │   │   └── database.py            # Unified openpyxl Excel read/write CRUD database
 │   ├── integrations/
 │   │   ├── selenium_driver.py     # Centralized Chrome WebDriver configurations
 │   │   └── url_shortener.py       # TinyURL shortening service
 │   ├── logging/
-│   │   └── config.py              # Log setup mapping to logs/ folder
+│   │   └── config.py              # DynamicUserFileHandler (sandboxed logger)
 │   └── utils/
 │       ├── string_utils.py        # Email address extraction regex
 │       └── url_utils.py           # URL normalization, decoding, and parsing
@@ -38,17 +38,23 @@ Connectify/
 │   │   └── pipeline.py            # Phase 1 & 2 coordinator
 │   │
 │   └── linkedin_outreach/         # Pipeline 2: LinkedIn Job Search & Connect
-│       ├── services/
-│       │   ├── job_finder.py      # Scrapes external job postings
-│       │   ├── reviewer.py        # Terminal CLI reviewer for new jobs
-│       │   └── connector.py       # Connects and messages referral targets
-│       └── pipeline.py            # Outreach step coordinator
+│   │   ├── services/
+│   │   │   ├── job_finder.py      # Scrapes external job postings
+│   │   │   ├── reviewer.py        # Terminal CLI reviewer for new jobs
+│   │   │   └── connector.py       # Connects and messages referral targets
+│   │   └── pipeline.py            # Outreach step coordinator
+│   │
+│   └── [GIT IGNORED] users/       # Local sandboxed profile data (NEVER committed)
+│       ├── active_user.json       # Tracks active user profile key
+│       └── <username>/            # Dedicated sandbox directory per user
+│           ├── config.json        # Profile credentials, keywords, settings
+│           ├── data/              # job_tracker.xlsx, LinkedIn_Job_Tracker.xlsx
+│           ├── logs/              # private automation.log, linkedin_connect.log
+│           ├── resumes/           # private uploaded applicant resumes
+│           └── chrome-profile/    # private isolated Chrome Selenium profiles
 │
-├── data/                          # Spreadsheets and JSON tracking files
-├── logs/                          # System log output files (*.log)
 ├── static/                        # CSS/JS dashboard assets
 ├── templates/                     # Flask dashboard view templates
-├── resumes/                       # Uploaded applicant resumes
 │
 ├── run_email_outreach.py          # Pipeline 1 runner
 ├── run_job_search.py              # Pipeline 2 runner: Find job opportunities
@@ -91,24 +97,20 @@ cd Connectify
   ```
 *Note: Pip will install Selenium, Flask, openpyxl, pandas, requests, python-dotenv, and webdriver-manager.*
 
-### Step 4: Configure Settings
-1. Copy the example configuration files:
+### Step 4: Configure Settings & Onboarding
+1. Copy the example configuration file:
    - **On macOS / Linux**:
      ```bash
      cp .env.example .env
-     cp users_config.json.example users_config.json
      ```
    - **On Windows (Command Prompt or PowerShell)**:
      ```cmd
      copy .env.example .env
-     copy users_config.json.example users_config.json
      ```
-2. Update the `.env` file with your LinkedIn login credentials:
-   ```env
-   LINKEDIN_EMAIL=your_email@gmail.com
-   LINKEDIN_PASSWORD=your_secure_password
-   ```
-3. Place your resume PDF in the `resumes/` folder, and customize your search terms or messages inside `users_config.json`.
+2. Update the `.env` file with default environment fallbacks if needed (e.g. `SMTP_SERVER`). Note: LinkedIn credentials and user settings are now handled dynamically on a per-profile basis in the dashboard!
+3. **Launch Onboarding**:
+   - There is no need to copy `users_config.json` manually! On your first launch, the web dashboard will guide you through profile creation.
+   - **Legacy Upgrades**: If you have a legacy `users_config.json` from a previous version, placing it at the project root before launching will trigger a one-time automated migration, sandboxing your old profiles, databases, and Chrome profiles under `users/` automatically.
 
 ---
 
