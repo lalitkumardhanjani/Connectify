@@ -776,6 +776,11 @@ async function selectUser(username) {
         if (data.status === 'success') {
             document.getElementById('user-select-dropdown').classList.add('hidden');
             await loadUsers();
+            // Automatically navigate to the dashboard tab
+            const dashboardTab = document.querySelector('.nav-menu .nav-item[data-tab="dashboard"]');
+            if (dashboardTab) {
+                dashboardTab.click();
+            }
         } else {
             alert(`Error selecting profile: ${data.message}`);
         }
@@ -812,6 +817,11 @@ async function confirmCreateUser() {
         if (data.status === 'success') {
             hideCreateUserModal();
             await loadUsers();
+            // Automatically navigate to the dashboard tab
+            const dashboardTab = document.querySelector('.nav-menu .nav-item[data-tab="dashboard"]');
+            if (dashboardTab) {
+                dashboardTab.click();
+            }
         } else {
             alert(`Error creating profile: ${data.message}`);
         }
