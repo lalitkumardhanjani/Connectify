@@ -21,12 +21,14 @@ def _cleanup_chrome_locks(profile_dir):
 
 
 def _kill_stale_chrome_processes():
-    """On Windows, kills any lingering chrome.exe or chromedriver.exe processes before launching a new session."""
+    """On Windows, kills any lingering chromedriver.exe processes before launching a new session.
+    Note: We intentionally do NOT kill chrome.exe to avoid closing the user's personal browser.
+    Stale Chrome profile locks are handled separately by _cleanup_chrome_locks().
+    """
     if sys.platform == 'win32':
-        for proc in ["chrome.exe", "chromedriver.exe"]:
-            result = os.system(f"taskkill /F /IM {proc} /T >nul 2>&1")
-            if result == 0:
-                logger.info(f"Killed stale process: {proc}")
+        result = os.system("taskkill /F /IM chromedriver.exe /T >nul 2>&1")
+        if result == 0:
+            logger.info("Killed stale chromedriver.exe process.")
 
 
 def get_driver():
