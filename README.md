@@ -23,7 +23,8 @@ Connectify/
 │   │   └── database.py            # Unified openpyxl Excel read/write CRUD database
 │   ├── integrations/
 │   │   ├── selenium_driver.py     # Centralized Chrome WebDriver configurations
-│   │   └── url_shortener.py       # TinyURL shortening service
+│   │   ├── url_shortener.py       # TinyURL shortening service
+│   │   └── gemini_service.py      # Gemini AI integration service
 │   ├── logging/
 │   │   └── config.py              # DynamicUserFileHandler (sandboxed logger)
 │   └── utils/
@@ -39,7 +40,7 @@ Connectify/
 │   │
 │   └── linkedin_outreach/         # Pipeline 2: LinkedIn Job Search & Connect
 │   │   ├── services/
-│   │   │   ├── job_finder.py      # Scrapes external job postings
+│   │   │   ├── job_finder.py      # Scrapes external job postings (location-aware)
 │   │   │   ├── reviewer.py        # Terminal CLI reviewer for new jobs
 │   │   │   └── connector.py       # Connects and messages referral targets
 │   │   └── pipeline.py            # Outreach step coordinator
@@ -47,7 +48,7 @@ Connectify/
 │   └── [GIT IGNORED] users/       # Local sandboxed profile data (NEVER committed)
 │       ├── active_user.json       # Tracks active user profile key
 │       └── <username>/            # Dedicated sandbox directory per user
-│           ├── config.json        # Profile credentials, keywords, settings
+│           ├── config.json        # Profile credentials, keywords, preferred locations
 │           ├── data/              # job_tracker.xlsx, LinkedIn_Job_Tracker.xlsx
 │           ├── logs/              # private automation.log, linkedin_connect.log
 │           ├── resumes/           # private uploaded applicant resumes
@@ -56,11 +57,11 @@ Connectify/
 ├── static/                        # CSS/JS dashboard assets
 ├── templates/                     # Flask dashboard view templates
 │
-├── run_email_outreach.py          # Pipeline 1 runner
-├── run_job_search.py              # Pipeline 2 runner: Find job opportunities
-├── run_referral_review.py         # Pipeline 2 runner: CLI job evaluator
-├── run_linkedin_connect.py        # Pipeline 2 runner: Outreach & messaging
-└── run_url_shortener.py           # Utility runner to shorten job URLs
+├── run_email_outreach.py          # Pipeline 1 runner (graceful SIGTERM handling)
+├── run_job_search.py              # Pipeline 2 runner: Find job opportunities (graceful SIGTERM handling)
+├── run_referral_review.py         # Pipeline 2 runner: CLI job evaluator (graceful SIGTERM handling)
+├── run_linkedin_connect.py        # Pipeline 2 runner: Outreach & messaging (graceful SIGTERM handling)
+└── run_url_shortener.py           # Utility runner to shorten job URLs (graceful SIGTERM handling)
 ```
 
 ---
@@ -124,10 +125,10 @@ python app.py
 Open your browser and navigate to **`http://127.0.0.1:5001`**. From here, you can:
 - Swap profile contexts (e.g. Yuvashree, Lalit) using the avatar switcher in the top-right corner.
 - Upload resumes and manage your candidate profile.
-- Edit configurations dynamically under the **Settings** tab.
+- Edit configurations dynamically under the **Settings** tab — keyword changes apply immediately to the JSON config.
 - Browse and search the **Outreach Leads** (email scraper) database with full pagination.
 - Browse and manage the **Referral Opportunities** (LinkedIn jobs) database with full pagination.
-- Monitor real-time execution logs and launch pipeline steps from the **Pipelines** tab.
+- Monitor real-time execution logs and launch or stop pipeline steps from the **Pipelines** tab.
 
 ### Option B: Running Pipelines Individually via Terminal
 You can run any pipeline or utility directly from the command line using the root wrapper scripts:
@@ -158,6 +159,8 @@ python run_url_shortener.py
 python run_linkedin_connect.py
 ```
 
+> **Note:** All pipeline runners support graceful termination — pressing `Ctrl+C` or clicking Stop in the dashboard will cleanly shut down the Chrome browser and save all in-progress data before exiting.
+
 ---
 
 ## 🖥️ Dashboard Overview
@@ -165,12 +168,32 @@ python run_linkedin_connect.py
 ### Settings Tab
 The Settings panel is split into two sub-sections:
 
-- **Outreach Engine**: Configure the email scraper pipeline — set the search execution frequency, enable/disable the Outreach Quality Gate (review mode), manage target post keywords, and compose your outreach email template with a real-time preview inside a mock email window.
-- **LinkedIn Automator**: Configure the LinkedIn connection pipeline — set the action timing delay, enable/disable the Invite Quality Gate (review mode), manage target network keywords, and compose your 300-character LinkedIn invite note with a live preview rendered in a mock LinkedIn invitation bubble.
+- **Outreach Engine**: Configure the email scraper pipeline — set the search execution frequency, enable/disable the Outreach Quality Gate (review mode), manage target post keywords (changes save instantly to your profile config), and compose your outreach email template with a real-time preview inside a mock email window.
+- **LinkedIn Automator**: Configure the LinkedIn connection pipeline — set the action timing delay, enable/disable the Invite Quality Gate (review mode), manage target network keywords (changes save instantly to your profile config), and compose your 300-character LinkedIn invite note with a live preview rendered in a mock LinkedIn invitation bubble.
+
+### Preferred Location Support
+Each user profile supports a **Preferred Location** field in the User Profile section. When set:
+- The **Email Scraper** automatically appends each location to your search keywords (e.g. `"SQL DBA Bangalore"`), expanding reach across all configured locations.
+- The **LinkedIn Job Finder** filters job postings by each preferred location automatically.
+- **Multiple locations** (comma-separated) are fully supported — the pipeline repeats the search for each location independently.
 
 ### Database Tabs
 - **Outreach Leads**: Displays emails scraped from LinkedIn posts. Records are sorted by ID (ascending). Supports per-column filtering, status-based filtering, keyword dropdown, and paginated browsing (10 records per page).
 - **Referral Opportunities**: Displays job opportunities tracked for LinkedIn referral outreach. Records are sorted by ID (ascending). Supports full-text search, status and date filters, and paginated browsing (10 records per page).
+
+### Pipelines Tab
+- Start or stop any of the 6 individual pipeline steps directly from the UI.
+- **Real-time log streaming**: The console panel streams live output from the running process until the pipeline completes or is manually stopped.
+- **Graceful stop**: Clicking Stop sends a termination signal to the pipeline subprocess, which cleanly quits the Chrome driver before exiting. The status correctly reflects `stopped` — it will never incorrectly show `failed` after a manual stop.
+- **Smart scroll detection**: The email scraper automatically moves to the next keyword as soon as it reaches the end of available posts, without waiting for the full timeout window.
+
+### Company Analytics Dashboard
+The **Company Analytics** panel in the Dashboard tab shows status breakdowns for your tracked companies:
+- 🔵 **New** — Blue badge: Companies newly added, not yet actioned.
+- 🟢 **Done** — Teal/green badge: Companies where outreach has been completed.
+- 🔴 **Not Interested** — Red badge: Companies marked as not relevant.
+
+Status colors are consistent across KPI cards, the status pie chart, the keyword-vs-status table, and the column header pills.
 
 ---
 
@@ -181,3 +204,4 @@ The Settings panel is split into two sub-sections:
 - **Mac Excel Sheet Reloads**: The system uses AppleScript to reload active Excel/Numbers sheets automatically if they are open while data is writing. If prompted, grant terminal permission to script applications.
 - **Google Sign-In**: Avoid choosing "Continue with Google" during automated sessions as Google security blocks automated login pages. Sign in directly using email and password.
 - **Empty Data for a New Profile**: Each user profile starts with an empty `data/` directory. Data files (`job_tracker.xlsx`, `LinkedIn_Job_Tracker.xlsx`) are automatically created the first time a pipeline is run under that profile.
+- **urllib3 SSL Warning**: If you see a `NotOpenSSLWarning` from urllib3, this is a known macOS LibreSSL compatibility notice and is automatically suppressed in all pipeline runners — it has no effect on functionality.
