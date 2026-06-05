@@ -30,16 +30,43 @@ def get_driver():
 
     # Windows Chrome Binary check
     if sys.platform == 'win32':
-        win_paths = [
-            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
-            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
-            os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe")
-        ]
-        for path in win_paths:
-            if os.path.exists(path):
-                options.binary_location = path
-                logger.info(f"Using custom Chrome binary location: {path}")
-                break
+        chrome_path = None
+        try:
+            import winreg
+            reg_paths = [
+                (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe"),
+                (winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe")
+            ]
+            for hkey, subkey in reg_paths:
+                try:
+                    with winreg.OpenKey(hkey, subkey) as key:
+                        val, _ = winreg.QueryValueEx(key, "")
+                        if val and os.path.exists(val):
+                            chrome_path = val
+                            break
+                except OSError:
+                    continue
+        except ImportError:
+            pass
+
+        # Fallback to hardcoded standard drive-independent paths
+        if not chrome_path:
+            system_drive = os.environ.get("SystemDrive", "C:")
+            win_paths = [
+                os.path.join(system_drive, "\\Program Files\\Google\\Chrome\\Application\\chrome.exe"),
+                os.path.join(system_drive, "\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"),
+                os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
+                r"E:\Program Files\Google\Chrome\Application\chrome.exe",
+                r"E:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
+            ]
+            for path in win_paths:
+                if os.path.exists(path):
+                    chrome_path = path
+                    break
+
+        if chrome_path:
+            options.binary_location = chrome_path
+            logger.info(f"Using custom Chrome binary location: {chrome_path}")
 
     # Chromedriver setup
     if os.path.exists(CHROMEDRIVER_PATH):
