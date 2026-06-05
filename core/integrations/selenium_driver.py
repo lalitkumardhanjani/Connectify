@@ -28,6 +28,19 @@ def get_driver():
         options.binary_location = MAC_CHROME_BINARY
         logger.info(f"Using custom Chrome binary location: {MAC_CHROME_BINARY}")
 
+    # Windows Chrome Binary check
+    if sys.platform == 'win32':
+        win_paths = [
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+            os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe")
+        ]
+        for path in win_paths:
+            if os.path.exists(path):
+                options.binary_location = path
+                logger.info(f"Using custom Chrome binary location: {path}")
+                break
+
     # Chromedriver setup
     if os.path.exists(CHROMEDRIVER_PATH):
         logger.info(f"Using local chromedriver binary: {CHROMEDRIVER_PATH}")
