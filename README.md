@@ -108,7 +108,11 @@ cd Connectify
      copy .env.example .env
      ```
 2. Update the `.env` file with default environment fallbacks if needed (e.g. `SMTP_SERVER`). Note: LinkedIn credentials and user settings are now handled dynamically on a per-profile basis in the dashboard!
-3. **Launch Onboarding**:
+3. **LinkedIn Credentials & Manual Login**:
+   - You do **not** need to pre-configure your LinkedIn email and password in settings.
+   - If credentials are left blank, or if auto-login triggers security verification / Two-Factor Authentication (2FA), the automation pipeline will output a warning in the console log and pause for up to **5 minutes (300 seconds)**.
+   - Simply log in manually in the opened Chrome browser window, and the pipeline will automatically resume running once it detects you have successfully signed in.
+4. **Launch Onboarding**:
    - There is no need to copy `users_config.json` manually! On your first launch, the web dashboard will guide you through profile creation.
    - **Legacy Upgrades**: If you have a legacy `users_config.json` from a previous version, placing it at the project root before launching will trigger a one-time automated migration, sandboxing your old profiles, databases, and Chrome profiles under `users/` automatically.
 
