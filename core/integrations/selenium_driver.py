@@ -35,6 +35,7 @@ def get_driver():
             import winreg
             reg_paths = [
                 (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe"),
+                (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe"),
                 (winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe")
             ]
             for hkey, subkey in reg_paths:
@@ -49,16 +50,16 @@ def get_driver():
         except ImportError:
             pass
 
-        # Fallback to hardcoded standard drive-independent paths
+        # Fallback to multi-drive search
         if not chrome_path:
-            system_drive = os.environ.get("SystemDrive", "C:")
-            win_paths = [
-                os.path.join(system_drive, "\\Program Files\\Google\\Chrome\\Application\\chrome.exe"),
-                os.path.join(system_drive, "\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"),
-                os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
-                r"E:\Program Files\Google\Chrome\Application\chrome.exe",
-                r"E:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
-            ]
+            win_paths = []
+            for drive in ["C", "D", "E", "F", "G", "H"]:
+                win_paths.extend([
+                    f"{drive}:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+                    f"{drive}:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
+                ])
+            win_paths.append(os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"))
+            
             for path in win_paths:
                 if os.path.exists(path):
                     chrome_path = path
@@ -67,6 +68,8 @@ def get_driver():
         if chrome_path:
             options.binary_location = chrome_path
             logger.info(f"Using custom Chrome binary location: {chrome_path}")
+        else:
+            logger.warning("Google Chrome binary not found in standard registry or program paths! Selenium will rely on default system path resolution.")
 
     # Chromedriver setup
     if os.path.exists(CHROMEDRIVER_PATH):
