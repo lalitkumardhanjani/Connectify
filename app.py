@@ -1,5 +1,13 @@
 import warnings
 warnings.filterwarnings('ignore', message='.*urllib3 v2 only supports OpenSSL.*')
+import logging
+
+class NoDevServerWarningFilter(logging.Filter):
+    def filter(self, record):
+        msg = record.getMessage()
+        return "development server" not in msg and "production deployment" not in msg
+
+logging.getLogger("werkzeug").addFilter(NoDevServerWarningFilter())
 import os
 import sys
 import json
