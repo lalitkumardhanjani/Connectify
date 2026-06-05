@@ -42,7 +42,6 @@ def get_driver():
     options.add_argument("--disable-gpu")
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-features=RendererCodeIntegrity,VizDisplayCompositor")
-    options.add_argument("--remote-debugging-port=9222")
     options.add_argument("--start-maximized")
 
     # --- Anti-detection & behaviour flags ---
