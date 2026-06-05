@@ -35,7 +35,7 @@ def get_driver():
     else:
         logger.info("Local chromedriver not found, installing via webdriver_manager...")
         from webdriver_manager.chrome import ChromeDriverManager
-        service = Service(ChromeDriverManager(driver_version="148.0.7778.216").install())
+        service = Service(ChromeDriverManager().install())
 
     driver = webdriver.Chrome(service=service, options=options)
     driver.maximize_window()

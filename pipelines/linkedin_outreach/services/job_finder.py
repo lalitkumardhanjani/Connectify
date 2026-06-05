@@ -263,14 +263,32 @@ def run_job_finder(target_url=None):
             global_conf = get_global_settings()
             email = global_conf.get("linkedin_email")
             password = global_conf.get("linkedin_password")
-            try:
-                driver.find_element(By.ID, "username").send_keys(email or "")
-                driver.find_element(By.ID, "password").send_keys(password or "")
-                driver.find_element(By.XPATH, "//button[@type='submit']").click()
-                if not wait_until_logged_in(driver, timeout_seconds=30):
-                    logger.info("Manual login required – complete in the browser.")
-            except Exception as e:
-                logger.warning(f"Auto-login failed: {e}")
+            if email and password:
+                logger.info("Attempting auto-login...")
+                try:
+                    driver.find_element(By.ID, "username").send_keys(email)
+                    driver.find_element(By.ID, "password").send_keys(password)
+                    driver.find_element(By.XPATH, "//button[@type='submit']").click()
+                    if wait_until_logged_in(driver, timeout_seconds=20):
+                        logger.info("Auto-login successful!")
+                    else:
+                        logger.warning("Auto-login failed or security verification required. Waiting up to 300 seconds for manual login...")
+                        if not wait_until_logged_in(driver, timeout_seconds=300):
+                            logger.error("Login timeout. Exiting.")
+                            driver.quit()
+                            return
+                except Exception as e:
+                    logger.warning(f"Auto-login failed: {e}. Waiting up to 300 seconds for manual login...")
+                    if not wait_until_logged_in(driver, timeout_seconds=300):
+                        logger.error("Login timeout. Exiting.")
+                        driver.quit()
+                        return
+            else:
+                logger.warning("LinkedIn credentials missing in config. Waiting up to 300 seconds for manual login...")
+                if not wait_until_logged_in(driver, timeout_seconds=300):
+                    logger.error("Login timeout. Exiting.")
+                    driver.quit()
+                    return
 
         inject_runtime_overlay(driver)
         main_handle = driver.current_window_handle

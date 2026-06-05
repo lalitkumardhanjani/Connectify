@@ -218,87 +218,111 @@ def review_and_confirm_message(templates_func, label, *args, **kwargs):
 
 # ============== SELENIUM HELPERS ==============
 
+def wait_until_logged_in(driver, timeout_seconds=300):
+    start = time.time()
+    search_bar_selectors = [
+        "input[placeholder*='Search']",
+        ".search-global-typeahead__input",
+        "input[role='combobox']"
+    ]
+    while time.time() - start < timeout_seconds:
+        try:
+            for selector in search_bar_selectors:
+                try:
+                    search_bar = driver.find_element(By.CSS_SELECTOR, selector)
+                    if search_bar.is_displayed():
+                        logger.info("Login detected.")
+                        return True
+                except NoSuchElementException:
+                    continue
+        except Exception:
+            pass
+        time.sleep(2)
+    return False
+
 def login_to_linkedin(driver, email, password):
     """Handle LinkedIn login if needed"""
     logger.info("Checking if already logged in...")
-    try:
-        search_bar_selectors = [
-            "input[placeholder*='Search']",
-            ".search-global-typeahead__input",
-            "input[role='combobox']"
-        ]
+    if wait_until_logged_in(driver, timeout_seconds=5):
+        logger.info("Already logged in!")
+        return True
 
-        for selector in search_bar_selectors:
-            try:
-                search_bar = WebDriverWait(driver, 2).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, selector))
-                )
-                if search_bar:
-                    logger.info("Already logged in! (Search bar found)")
-                    return
-            except TimeoutException:
-                continue
-        logger.info("Not logged in. Attempting login...")
-    except Exception as e:
-        logger.warning(f"Error checking for search bar: {str(e)}")
-
-    try:
-        email_selectors = [
-            "input[id*='username']",
-            "input[name='session_key']",
-            "input[type='email']",
-            "#username"
-        ]
-
-        email_input = None
-        for selector in email_selectors:
-            try:
-                email_input = WebDriverWait(driver, 3).until(
-                    EC.visibility_of_element_located((By.CSS_SELECTOR, selector))
-                )
-                break
-            except TimeoutException:
-                continue
-
-        if email_input:
-            logger.info("Login required. Attempting to log in...")
-            email_input.send_keys(email)
-
-            password_selectors = [
-                "input[id*='password']",
-                "input[name='session_password']",
-                "input[type='password']",
-                "#password"
+    logger.info("Not logged in. Attempting login...")
+    if email and password:
+        try:
+            email_selectors = [
+                "input[id*='username']",
+                "input[name='session_key']",
+                "input[type='email']",
+                "#username"
             ]
-
-            for selector in password_selectors:
+            email_input = None
+            for selector in email_selectors:
                 try:
-                    password_input = driver.find_element(By.CSS_SELECTOR, selector)
-                    password_input.send_keys(password)
+                    email_input = WebDriverWait(driver, 3).until(
+                        EC.visibility_of_element_located((By.CSS_SELECTOR, selector))
+                    )
                     break
-                except NoSuchElementException:
+                except TimeoutException:
                     continue
 
-            button_selectors = [
-                "button[type='submit']",
-                "button[data-litms-control-urn*='sign-in']",
-                ".btn__primary--large"
-            ]
+            if email_input:
+                logger.info("Login form found. Typing credentials...")
+                email_input.send_keys(email)
 
-            for selector in button_selectors:
-                try:
-                    driver.find_element(By.CSS_SELECTOR, selector).click()
-                    break
-                except NoSuchElementException:
-                    continue
+                password_selectors = [
+                    "input[id*='password']",
+                    "input[name='session_password']",
+                    "input[type='password']",
+                    "#password"
+                ]
+                for selector in password_selectors:
+                    try:
+                        password_input = driver.find_element(By.CSS_SELECTOR, selector)
+                        password_input.send_keys(password)
+                        break
+                    except NoSuchElementException:
+                        continue
 
-            time.sleep(5)
-            logger.info("Login successful!")
+                button_selectors = [
+                    "button[type='submit']",
+                    "button[data-litms-control-urn*='sign-in']",
+                    ".btn__primary--large"
+                ]
+                for selector in button_selectors:
+                    try:
+                        driver.find_element(By.CSS_SELECTOR, selector).click()
+                        break
+                    except NoSuchElementException:
+                        continue
+
+                if wait_until_logged_in(driver, timeout_seconds=20):
+                    logger.info("Login successful!")
+                    return True
+                else:
+                    logger.warning("Auto-login failed or security verification required. Waiting up to 300 seconds for manual login...")
+                    if wait_until_logged_in(driver, timeout_seconds=300):
+                        return True
+                    else:
+                        logger.error("Login timeout. Exiting.")
+                        return False
+            else:
+                logger.info("No login form found - assuming already logged in")
+                return True
+        except Exception as e:
+            logger.error(f"Login error: {str(e)}")
+            logger.info("Waiting up to 300 seconds for manual login...")
+            if wait_until_logged_in(driver, timeout_seconds=300):
+                return True
+            else:
+                return False
+    else:
+        logger.warning("LinkedIn credentials missing in config. Waiting up to 300 seconds for manual login in the Chrome window...")
+        if wait_until_logged_in(driver, timeout_seconds=300):
+            return True
         else:
-            logger.info("No login form found - assuming already logged in")
-    except Exception as e:
-        logger.error(f"Login error: {str(e)}")
-        logger.info("Continuing anyway - might already be logged in")
+            logger.error("Login timeout. Exiting.")
+            return False
 
 def search_company(driver, company_name):
     """Search for a company on LinkedIn"""

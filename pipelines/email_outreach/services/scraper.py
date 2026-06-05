@@ -85,7 +85,22 @@ class LinkedInScraper:
             password = global_conf.get("linkedin_password")
             
             if not email or not password:
-                logger.error("LinkedIn credentials missing in config.")
+                logger.warning("LinkedIn credentials missing in config. Waiting up to 300 seconds for manual login in the browser window...")
+                start_time = time.time()
+                while time.time() - start_time < 300:
+                    try:
+                        for selector in search_bar_selectors:
+                            try:
+                                search_bar = self.driver.find_element(By.CSS_SELECTOR, selector)
+                                if search_bar.is_displayed():
+                                    logger.info("Manual login detected!")
+                                    return True
+                            except NoSuchElementException:
+                                continue
+                    except Exception:
+                        pass
+                    time.sleep(2)
+                logger.error("Manual login timeout. Exiting.")
                 return False
                 
             email_selectors = [
@@ -121,10 +136,56 @@ class LinkedInScraper:
                     except NoSuchElementException:
                         continue
                 time.sleep(5)
-                logger.info("Login successful!")
-                return True
+                
+                # Check if logged in
+                logged_in_after_auto = False
+                for selector in search_bar_selectors:
+                    try:
+                        search_bar = self.driver.find_element(By.CSS_SELECTOR, selector)
+                        if search_bar.is_displayed():
+                            logged_in_after_auto = True
+                            break
+                    except NoSuchElementException:
+                        continue
+                        
+                if logged_in_after_auto:
+                    logger.info("Login successful!")
+                    return True
+                else:
+                    logger.warning("Auto-login failed or security check (2FA) required. Waiting up to 300 seconds for manual login...")
+                    start_time = time.time()
+                    while time.time() - start_time < 300:
+                        try:
+                            for selector in search_bar_selectors:
+                                try:
+                                    search_bar = self.driver.find_element(By.CSS_SELECTOR, selector)
+                                    if search_bar.is_displayed():
+                                        logger.info("Manual login completed!")
+                                        return True
+                                except NoSuchElementException:
+                                    continue
+                        except Exception:
+                            pass
+                        time.sleep(2)
+                    logger.error("Manual login timeout. Exiting.")
+                    return False
         except Exception as e:
             logger.error(f"Login error: {str(e)}")
+            logger.info("Waiting up to 300 seconds for manual login...")
+            start_time = time.time()
+            while time.time() - start_time < 300:
+                try:
+                    for selector in search_bar_selectors:
+                        try:
+                            search_bar = self.driver.find_element(By.CSS_SELECTOR, selector)
+                            if search_bar.is_displayed():
+                                logger.info("Manual login completed!")
+                                return True
+                        except NoSuchElementException:
+                            continue
+                except Exception:
+                    pass
+                time.sleep(2)
             return False
 
     def search_for_keyword(self, keyword):
