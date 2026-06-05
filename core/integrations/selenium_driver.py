@@ -43,6 +43,9 @@ def get_driver():
                     with winreg.OpenKey(hkey, subkey) as key:
                         val, _ = winreg.QueryValueEx(key, "")
                         if val and os.path.exists(val):
+                            # Skip if Edge has hijacked the Chrome registry key
+                            if "edge" in val.lower() or "msedge" in val.lower():
+                                continue
                             chrome_path = val
                             break
                 except OSError:
@@ -62,6 +65,8 @@ def get_driver():
             
             for path in win_paths:
                 if os.path.exists(path):
+                    if "edge" in path.lower() or "msedge" in path.lower():
+                        continue
                     chrome_path = path
                     break
 
