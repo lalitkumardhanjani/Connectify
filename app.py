@@ -9,7 +9,6 @@ import threading
 import signal
 from datetime import datetime
 from flask import Flask, jsonify, request, render_template, send_from_directory, send_file, Response
-import time
 import pandas as pd
 import openpyxl
 

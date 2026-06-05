@@ -33,7 +33,7 @@ Connectify follows clean architectural principles by separating cross-cutting co
 +-------------------------------------------------------------+
 |                       Core package                          |
 |  - storage/database.py       - integrations/selenium_driver |
-|  - analytics/metrics.py      - integrations/gemini_service  |
+|  - analytics/metrics.py      - integrations/url_shortener   |
 |  - utils/string_utils.py     - utils/url_utils              |
 +------------------------------+------------------------------+
                                | configures
@@ -60,7 +60,6 @@ Abstracts shared utility layers so pipelines remain focused solely on execution 
 - **`storage/database.py`**: Coordinates openpyxl and JSON file reads/writes under the active user's sandboxed `data/` directory (`users/<username>/data/`). Automatically handles duplicate checks, incrementing primary IDs, and triggers sheet reloads on macOS using AppleScript. Column headings are always coerced to strings to prevent openpyxl `UserWarning`.
 - **`integrations/selenium_driver.py`**: Consolidates browser profile setups. Sets remote debugging ports, maximizes windows, configures Darwin application binaries, and dynamically isolates Chrome profiles under `users/<username>/chrome-profile/`.
 - **`integrations/url_shortener.py`**: Connects to TinyURL API GET endpoints to shorten company URLs.
-- **`integrations/gemini_service.py`**: Provides an integration layer with the Google Gemini AI API for AI-assisted features.
 - **`logging/config.py`**: Implements `DynamicUserFileHandler` to route log lines into the active user's log folder dynamically at record write-time.
 - **`utils/`**: Split into `string_utils.py` (regex expressions for email parsing) and `url_utils.py` (handles URL normalization, decoding safety redirects, and parsing job IDs).
 - **`analytics/metrics.py`**: Processes sandboxed Excel/JSON tracking files into standard dashboard stats.

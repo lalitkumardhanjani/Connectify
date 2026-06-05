@@ -23,8 +23,7 @@ Connectify/
 │   │   └── database.py            # Unified openpyxl Excel read/write CRUD database
 │   ├── integrations/
 │   │   ├── selenium_driver.py     # Centralized Chrome WebDriver configurations
-│   │   ├── url_shortener.py       # TinyURL shortening service
-│   │   └── gemini_service.py      # Gemini AI integration service
+│   │   └── url_shortener.py       # TinyURL shortening service
 │   ├── logging/
 │   │   └── config.py              # DynamicUserFileHandler (sandboxed logger)
 │   └── utils/
