@@ -15,6 +15,8 @@ from core.integrations.selenium_driver import get_driver, wait_for_page, inject_
 from core.utils.url_utils import decode_apply_redirect, normalize_external_url, extract_job_id, is_valid_external_url
 from core.storage.database import load_saved_jobs, save_job, init_job_leads_store, seen_external_urls
 from core.logging.config import logger
+from core.utils.string_utils import parse_preferred_locations
+
 
 def is_already_saved(url):
     """Check if job URL already exists in Excel tracking list."""
@@ -283,30 +285,44 @@ def run_job_finder(target_url=None):
         global_conf = get_global_settings()
         
         keywords = user_conf.get("linkedin_connect", {}).get("keywords", LINKEDIN_CONNECT_KEYWORDS_DEFAULT)
-        search_location = global_conf.get("search_location", "Bangalore, Karnataka, India")
         search_time_range = global_conf.get("search_time_range", "r604800")
         
-        search_urls = [build_search_url(k, search_location, search_time_range) for k in keywords]
+        # Retrieve preferred locations from profile
+        profile = user_conf.get("profile", {})
+        pref_location_str = profile.get("preferred_locations", "")
+        locations = parse_preferred_locations(pref_location_str)
+        if not locations:
+            # Fallback to global search location
+            global_loc = global_conf.get("search_location", "Bangalore, Karnataka, India")
+            locations = parse_preferred_locations(global_loc)
+            if not locations:
+                locations = ["Bangalore, Karnataka, India"]
+        
+        search_combinations = []
+        for loc in locations:
+            for kw in keywords:
+                url = build_search_url(kw, loc, search_time_range)
+                search_combinations.append((kw, loc, url))
         
         try:
             max_duration = int(global_conf.get("max_run_duration_seconds", 120))
         except ValueError:
             max_duration = 120
 
-        logger.info(f"Time limit per keyword: {max_duration} seconds")
+        logger.info(f"Time limit per combination: {max_duration} seconds")
         total_saved = 0
         session_lost = False
         processed_signatures = load_processed_signatures_from_json()
         processed_job_ids = set()
 
-        for kw_i, (keyword, search_url) in enumerate(zip(keywords, search_urls), start=1):
+        for comb_i, (keyword, loc, search_url) in enumerate(search_combinations, start=1):
             if session_lost:
                 break
 
-            logger.info(f"\n[KEYWORD {kw_i}/{len(keywords)}] {keyword}")
+            logger.info(f"\n[COMBINATION {comb_i}/{len(search_combinations)}] Keyword: '{keyword}' in '{loc}'")
             try:
                 driver.get(search_url)
-                logger.info("Loading search results...")
+                logger.info(f"Loading search results for keyword '{keyword}' in '{loc}'...")
                 wait_for_page(8)
                 wait_for_search_results(driver, timeout=20)
                 wait_for_page(2)

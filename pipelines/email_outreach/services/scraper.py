@@ -204,7 +204,8 @@ class LinkedInScraper:
         start_time = time.time()
         processed_ids = set()
         last_height = self.driver.execute_script("return document.body.scrollHeight")
-        no_new_posts = 0
+        no_posts_found_count = 0
+        no_scroll_change_count = 0
         
         user_conf = get_selected_user_config()
         email_scraper = user_conf.get("email_scraper", {})
@@ -218,9 +219,12 @@ class LinkedInScraper:
                 posts = self._find_post_containers()
                 if not posts:
                     logger.warning("No posts found on the current page.")
-                    no_new_posts += 1
+                    no_posts_found_count += 1
+                    if no_posts_found_count >= 3:
+                        logger.info("No posts found for 3 consecutive checks – exiting search loop.")
+                        break
                 else:
-                    no_new_posts = 0
+                    no_posts_found_count = 0
                 for post in posts:
                     post_id = post.get_attribute("data-urn") or str(hash(post.text))
                     if post_id in processed_ids:
@@ -245,11 +249,11 @@ class LinkedInScraper:
             time.sleep(random.uniform(2, 3))
             new_height = self.driver.execute_script("return document.body.scrollHeight")
             if new_height == last_height:
-                no_new_posts += 1
-                logger.info(f"No new posts loaded (attempt {no_new_posts}/3)")
-                if no_new_posts >= 3:
+                no_scroll_change_count += 1
+                logger.info(f"No new posts loaded / scroll height unchanged (attempt {no_scroll_change_count}/3)")
+                if no_scroll_change_count >= 3:
                     logger.info("Reached bottom of page – exiting scroll loop.")
                     break
             else:
-                no_new_posts = 0
+                no_scroll_change_count = 0
             last_height = new_height

@@ -338,7 +338,7 @@ async function loadCompanyDashboard() {
     // Status Pie Chart
     const coStatusLabels = ['New', 'Done', 'Not Interested'];
     const coStatusData   = [d.new||0, d.done||0, d.not_interested||0];
-    const coStatusColors = [PALETTE.green, PALETTE.teal, PALETTE.red];
+    const coStatusColors = [PALETTE.cyan, PALETTE.teal, PALETTE.red];
 
     if (coStatusChartInst) coStatusChartInst.destroy();
     coStatusChartInst = makePieChart('coStatusChart', coStatusLabels, coStatusData, coStatusColors);
@@ -386,7 +386,7 @@ async function loadCompanyDashboard() {
         ksEntries.slice(0, 15).forEach(([kw, s]) => {
             ksTbody.appendChild(mkRow(
                 `<strong>${kw}</strong>`,
-                `<span class="count-value" style="color:var(--accent-green)">${fmt(s.new||0)}</span>`,
+                `<span class="count-value" style="color:var(--accent-cyan)">${fmt(s.new||0)}</span>`,
                 `<span class="count-value" style="color:var(--accent-teal)">${fmt(s.done||0)}</span>`,
                 `<span class="count-value" style="color:var(--accent-red)">${fmt(s.not_interested||0)}</span>`
             ));

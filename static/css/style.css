@@ -2308,7 +2308,7 @@ body {
     font-size: 0.75rem;
     font-weight: 600;
 }
-.status-pill.new  { background: rgba(0,230,118,0.12); color: var(--accent-green); }
+.status-pill.new  { background: rgba(0,176,255,0.12); color: var(--accent-cyan); }
 .status-pill.done { background: rgba(44,182,125,0.12); color: var(--accent-teal); }
 .status-pill.ni   { background: rgba(255,61,0,0.12);   color: var(--accent-red); }
 

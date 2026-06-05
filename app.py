@@ -1,3 +1,5 @@
+import warnings
+warnings.filterwarnings('ignore', message='.*urllib3 v2 only supports OpenSSL.*')
 import os
 import sys
 import json
@@ -106,12 +108,14 @@ class SubprocessRunner:
             
             if return_code != 0:
                 self.log(f"Script {script} exited with non-zero status code: {return_code}")
-                self.status = "failed"
+                if self.status != "killed":
+                    self.status = "failed"
                 return
             
             self.log(f"Step {self.current_step} completed successfully.")
 
-        self.status = "success"
+        if self.status != "killed":
+            self.status = "success"
 
     def send_input(self, text):
         if self.process and self.process.stdin:
@@ -434,6 +438,27 @@ def save_user_configuration():
     config["users"][username]["email_scraper"] = email_scraper
     config["users"][username]["linkedin_connect"] = linkedin_connect
     config["global_settings"] = global_settings
+    
+    save_all_configs(config)
+    return jsonify({"status": "success"})
+
+
+@app.route('/api/users/config/keywords', methods=['POST'])
+def save_user_keywords():
+    body = request.get_json() or {}
+    kws_type = body.get("type")
+    keywords = body.get("keywords", [])
+    
+    if kws_type not in ("scraper", "connect"):
+        return jsonify({"status": "error", "message": "Invalid keywords type"}), 400
+        
+    config = load_all_configs()
+    username = get_selected_user_name()
+    if username not in config.get("users", {}):
+        return jsonify({"status": "error", "message": f"User {username} not found"}), 404
+        
+    target_key = "email_scraper" if kws_type == "scraper" else "linkedin_connect"
+    config["users"][username][target_key]["keywords"] = [k.strip() for k in keywords if str(k).strip()]
     
     save_all_configs(config)
     return jsonify({"status": "success"})

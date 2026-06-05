@@ -332,7 +332,8 @@ def update_job_leads_table(ws):
     """Updates formatting on the openpyxl job leads worksheet."""
     ws._tables.clear()
     max_row = max(ws.max_row, 1)
-    ref_range = f"A1:K{max_row}"
+    col_letter = chr(64 + len(JOB_LEADS_HEADERS))
+    ref_range = f"A1:{col_letter}{max_row}"
     tab = Table(displayName="JobTrackerTable", ref=ref_range)
     style = TableStyleInfo(
         name="TableStyleLight9", 

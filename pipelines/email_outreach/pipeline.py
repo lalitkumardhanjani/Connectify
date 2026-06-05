@@ -6,6 +6,7 @@ from config.constants import DBA_KEYWORDS_DEFAULT
 from core.integrations.selenium_driver import get_driver
 from core.storage.database import init_scraper_store, update_status
 from core.logging.config import logger
+from core.utils.string_utils import parse_preferred_locations
 
 from pipelines.email_outreach.services.scraper import LinkedInScraper
 from pipelines.email_outreach.services.sender import send_email_via_gmail
@@ -17,12 +18,21 @@ def run_phase_one(scraper):
     email_scraper_conf = user_conf.get("email_scraper", {})
     keywords = email_scraper_conf.get("keywords", DBA_KEYWORDS_DEFAULT)
     
-    for kw in keywords:
-        logger.info(f"=== Processing keyword: '{kw}' ===")
-        if scraper.search_for_keyword(kw):
-            scraper.process_keyword(kw, timeout_seconds=60)
-        else:
-            logger.warning(f"Skipping keyword '{kw}' due to navigation failure.")
+    # Retrieve preferred locations from candidate profile
+    profile = user_conf.get("profile", {})
+    pref_location = profile.get("preferred_locations", "")
+    locations = parse_preferred_locations(pref_location)
+    if not locations:
+        locations = [""]
+    
+    for loc in locations:
+        for kw in keywords:
+            search_query = f"{kw} {loc}".strip() if loc else kw
+            logger.info(f"=== Processing keyword: '{kw}' at location: '{loc}' (Search query: '{search_query}') ===")
+            if scraper.search_for_keyword(search_query):
+                scraper.process_keyword(kw, timeout_seconds=60)
+            else:
+                logger.warning(f"Skipping query '{search_query}' due to navigation failure.")
 
 def run_phase_two(scraper, review_mode=None):
     """Executes composing and sending emails via Selenium browser to discovered addresses."""

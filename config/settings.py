@@ -1,5 +1,7 @@
 import os
 import json
+import warnings
+warnings.filterwarnings('ignore', message='.*urllib3 v2 only supports OpenSSL.*')
 from dotenv import load_dotenv
 
 # Load .env file from the root directory

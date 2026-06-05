@@ -1035,6 +1035,36 @@ function renderKeywords(type) {
     });
 }
 
+// Immediately save keywords to backend JSON files
+async function saveKeywordsToBackend(type) {
+    const keywordsList = type === 'scraper' ? scraperKeywords : connectKeywords;
+    try {
+        const response = await fetch('/api/users/config/keywords', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                type: type,
+                keywords: keywordsList
+            })
+        });
+        const res = await response.json();
+        if (res.status === 'success') {
+            console.log(`Keywords updated successfully for ${type}`);
+            if (cachedConfig && cachedConfig.config) {
+                const targetKey = type === 'scraper' ? 'email_scraper' : 'linkedin_connect';
+                if (!cachedConfig.config[targetKey]) {
+                    cachedConfig.config[targetKey] = {};
+                }
+                cachedConfig.config[targetKey].keywords = [...keywordsList];
+            }
+        } else {
+            console.error('Failed to save keywords:', res.message);
+        }
+    } catch (e) {
+        console.error('Error saving keywords:', e);
+    }
+}
+
 function addKeyword(type) {
     const inputField = document.getElementById(`${type}-tag-input`);
     const value = inputField.value.trim();
@@ -1044,6 +1074,7 @@ function addKeyword(type) {
     if (!keywordsList.includes(value)) {
         keywordsList.push(value);
         renderKeywords(type);
+        saveKeywordsToBackend(type);
     }
     inputField.value = '';
 }
@@ -1052,6 +1083,7 @@ function removeKeyword(type, index) {
     const keywordsList = type === 'scraper' ? scraperKeywords : connectKeywords;
     keywordsList.splice(index, 1);
     renderKeywords(type);
+    saveKeywordsToBackend(type);
 }
 
 // Inline Bulk paste keywords
@@ -1076,6 +1108,7 @@ function applyBulkKeywords(type) {
     }
     renderKeywords(type);
     toggleBulkPaste(type);
+    saveKeywordsToBackend(type);
 }
 
 // Switch email/connect templates between preview and edit mode
