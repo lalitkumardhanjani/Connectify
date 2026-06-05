@@ -714,7 +714,7 @@ def dev_reload():
 
 
 def sanitize_excel_files():
-    # Loop over all users and sanitize their LinkedIn_Job_Tracker.xlsx file
+    # Loop over all users and sanitize their LinkedIn_Job_Tracker.xlsx file to match the latest schema
     config_dir = "users"
     if os.path.exists(config_dir):
         for user in os.listdir(config_dir):
@@ -723,15 +723,9 @@ def sanitize_excel_files():
                 excel_path = os.path.join(user_path, "data", "LinkedIn_Job_Tracker.xlsx")
                 if os.path.exists(excel_path):
                     try:
-                        import openpyxl
-                        wb = openpyxl.load_workbook(excel_path)
-                        ws = wb.active
-                        col_indices = {cell.value: idx for idx, cell in enumerate(ws[1], start=1)}
-                        ref_col = col_indices.get('ReferralPerson')
-                        if ref_col:
-                            ws.delete_cols(ref_col)
-                            wb.save(excel_path)
-                            print(f"Sanitized: removed ReferralPerson column from {excel_path}")
+                        from core.storage.database import trim_job_leads_excel_to_schema
+                        trim_job_leads_excel_to_schema(excel_path)
+                        print(f"Sanitized: aligned {excel_path} to latest schema")
                     except Exception as e:
                         print(f"Error sanitizing {excel_path}: {e}")
 

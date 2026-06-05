@@ -26,6 +26,6 @@ LINKEDIN_CONNECT_KEYWORDS_DEFAULT = [
 SCRAPER_HEADERS = ['ID', 'Email', 'Status', 'Timestamp', 'Keyword']
 
 JOB_LEADS_HEADERS = [
-    'JobID', 'CompanyName', 'CompanyURL', 'ShortenURL', 'SearchKeyword', 'Status', 
-    'ReferralAsked', 'ShortUrlCreated', 'Remarks', 'CreatedDateTime'
+    'JobID', 'JobTitle', 'CompanyName', 'CompanyURL', 'ShortenURL', 'SearchKeyword', 'Status', 
+    'ShortUrlCreated', 'CreatedDateTime'
 ]

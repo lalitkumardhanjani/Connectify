@@ -30,6 +30,7 @@ chromedriver.exe
 debug_screenshot_*
 debug_html_*
 *.png
+!static/connectify_logo.png
 *.html
 !templates/*.html
 

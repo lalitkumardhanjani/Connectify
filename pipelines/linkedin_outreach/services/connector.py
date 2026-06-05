@@ -9,7 +9,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
-from config.settings import JOBS_JSON_FILE, AUDIT_JSON_FILE, LINKEDIN_CONNECT_LOG_FILE
+from config.settings import LINKEDIN_CONNECT_LOG_FILE
 from config.user_profiles import get_selected_user_config, get_global_settings, substitute_template_variables
 from config.email_templates import DEFAULT_CONNECTION_TEMPLATE
 from core.integrations.selenium_driver import get_driver
@@ -45,78 +45,6 @@ def save_debug_info(driver, step_name):
     except Exception as e:
         logger.warning(f"Could not save debug info: {str(e)}")
 
-
-def load_job_data(filename=JOBS_JSON_FILE):
-    """Load jobs from unified JSON file - supports multiple formats"""
-    try:
-        with open(filename, 'r') as f:
-            data = json.load(f)
-        
-        jobs = []
-        for job in data:
-            if "position" in job and "company" in job:
-                if job.get("status") == "Will Apply":
-                    jobs.append(job)
-            elif "company" in job and "url" in job:
-                jobs.append({
-                    "company": job["company"],
-                    "position": "Target Position",
-                    "job_id": job.get("url", ""),
-                    "max_apply": job.get("max_apply", 5),
-                    "linkedin_id": "",
-                    "url": job["url"],
-                    "status": job.get("status", "")
-                })
-        return jobs
-    except FileNotFoundError:
-        logger.error(f"JSON file '{filename}' not found!")
-        return []
-    except json.JSONDecodeError:
-        logger.error(f"Invalid JSON format in '{filename}'!")
-        return []
-
-def save_json_file(filename, data):
-    try:
-        with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-        logger.info(f"Saved JSON file: {filename}")
-    except Exception as e:
-        logger.error(f"Failed to save JSON file {filename}: {str(e)}")
-
-def append_audit_entry(entry):
-    audit_data = []
-    try:
-        if os.path.exists(AUDIT_JSON_FILE):
-            with open(AUDIT_JSON_FILE, 'r', encoding='utf-8') as f:
-                audit_data = json.load(f)
-    except Exception:
-        logger.warning(f"Could not read audit file {AUDIT_JSON_FILE}, creating fresh audit file")
-
-    audit_data.append(entry)
-    save_json_file(AUDIT_JSON_FILE, audit_data)
-
-def remove_job_from_json(job, filename=JOBS_JSON_FILE):
-    try:
-        with open(filename, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-    except Exception as e:
-        logger.error(f"Failed to read {filename} for removal: {str(e)}")
-        return False
-
-    def matches(entry):
-        company_match = entry.get('company') == job.get('company')
-        job_url = job.get('ShortenURL') or job.get('CompanyURL') or job.get('url', '')
-        entry_url = entry.get('url', '')
-        return company_match and entry_url == job_url
-
-    filtered = [entry for entry in data if not matches(entry)]
-
-    if len(filtered) == len(data):
-        logger.warning(f"Could not find job to remove from {filename}: {job.get('company')}")
-        return False
-
-    save_json_file(filename, filtered)
-    return True
 
 # ============== MESSAGING ==============
 
@@ -876,14 +804,19 @@ def run_connector():
                         if success_count >= max_apply:
                             break
                         try:
-                            first_name = person['name'].split()[0] if person['name'] else "there"
-                            message = get_message(
+                            first_name = person.get('name', 'unknown').split()[0] if person.get('name') else "there"
+                            message = review_and_confirm_message(
+                                get_message,
+                                f"CONNECT NOTE — {person.get('name', 'unknown')}",
                                 position=position,
                                 company=company,
                                 first_name=first_name,
                                 job_url=job_url,
                                 resume_link=resume_link,
                             )
+                            if message is None:
+                                logger.info(f"Skipping connect request to {person.get('name', 'unknown')}")
+                                continue
                             
                             if send_connection_request(driver, person, message):
                                 success_count += 1
@@ -905,20 +838,6 @@ def run_connector():
                     if not go_to_next_page(driver):
                         break
                     page_number += 1
-
-                if success_count >= max_apply and success_count > 0:
-                    remove_job_from_json(job)
-                    audit_entry = {
-                        "company": company,
-                        "position": position,
-                        "job_id": job_id,
-                        "job_url": job_url,
-                        "max_apply": max_apply,
-                        "success_count": success_count,
-                        "removed_at": datetime.now().isoformat(),
-                    }
-                    append_audit_entry(audit_entry)
-                    logger.info(f"Removed completed job from JSON leads: {company}")
 
             # Message already connected
             if outreach_mode in ("message_only", "both"):

@@ -8,7 +8,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-from config.settings import JOBS_JSON_FILE
 from config.user_profiles import get_selected_user_config, get_global_settings
 from config.constants import LINKEDIN_CONNECT_KEYWORDS_DEFAULT
 from core.integrations.selenium_driver import get_driver, wait_for_page, inject_runtime_overlay, remove_runtime_overlay
@@ -29,52 +28,19 @@ def is_already_saved(url):
     except Exception:
         return False
 
-def is_job_already_processed_json(company, position):
-    """Check if job signature (company|position) already exists in JSON file."""
+def is_job_already_processed_excel(company, position):
+    """Check if job signature (company|position) already exists in Excel tracker."""
     try:
-        if not os.path.exists(JOBS_JSON_FILE):
-            return False
-        with open(JOBS_JSON_FILE, 'r', encoding="utf-8") as f:
-            existing_jobs = json.load(f)
-        
+        jobs, _ = load_saved_jobs()
         job_signature = f"{company.lower().strip()}|{position.lower().strip()}"
-        for job in existing_jobs:
+        for job in jobs:
             existing_sig = f"{job.get('company', '').lower().strip()}|{job.get('position', '').lower().strip()}"
             if existing_sig == job_signature:
                 return True
         return False
     except Exception as e:
-        logger.error(f"Error checking duplicates in JSON: {str(e)}")
+        logger.error(f"Error checking duplicates in Excel: {str(e)}")
         return False
-
-def save_job_json(company, url, position):
-    """Save the external job opportunity details to JSON output file."""
-    jobs = []
-    # Ensure data directory exists
-    os.makedirs(os.path.dirname(JOBS_JSON_FILE), exist_ok=True)
-    
-    if os.path.exists(JOBS_JSON_FILE):
-        try:
-            with open(JOBS_JSON_FILE, "r", encoding="utf-8") as f:
-                jobs = json.load(f)
-        except Exception:
-            jobs = []
-            
-    existing_urls = [j.get("url") for j in jobs if j.get("url")]
-    if url not in existing_urls:
-        jobs.append({
-            "type": "external_apply",
-            "url": url,
-            "company": company,
-            "position": position,
-            "saved_at": datetime.now().isoformat(),
-            "status": "Pending"
-        })
-        with open(JOBS_JSON_FILE, "w", encoding="utf-8") as f:
-            json.dump(jobs, f, indent=4)
-        logger.info(f"  [SAVED JSON] saved to {JOBS_JSON_FILE}: {url}")
-    else:
-        logger.info("  [INFO] Job already exists in JSON. Skipping JSON save.")
 
 def is_title_matching_keywords(title, keyword_list):
     """Check if the job title matches any keyword from the configured keyword list."""
@@ -84,20 +50,18 @@ def is_title_matching_keywords(title, keyword_list):
             return True
     return False
 
-def load_processed_signatures_from_json():
-    """Load all processed job signatures (company|position) from JSON to populate session tracking."""
+def load_processed_signatures_from_excel():
+    """Load all processed job signatures (company|position) from Excel to populate session tracking."""
     sigs = set()
-    if os.path.exists(JOBS_JSON_FILE):
-        try:
-            with open(JOBS_JSON_FILE, "r", encoding="utf-8") as f:
-                jobs = json.load(f)
-            for j in jobs:
-                comp = j.get("company", "").lower().strip()
-                pos = j.get("position", "").lower().strip()
-                if comp and pos:
-                    sigs.add(f"{comp}|{pos}")
-        except Exception as e:
-            logger.error(f"Error loading signatures: {e}")
+    try:
+        jobs, _ = load_saved_jobs()
+        for j in jobs:
+            comp = j.get("company", "").lower().strip()
+            pos = j.get("position", "").lower().strip()
+            if comp and pos:
+                sigs.add(f"{comp}|{pos}")
+    except Exception as e:
+        logger.error(f"Error loading signatures from Excel: {e}")
     return sigs
 
 def get_left_pane_container(driver):
@@ -330,7 +294,7 @@ def run_job_finder(target_url=None):
         logger.info(f"Time limit per combination: {max_duration} seconds")
         total_saved = 0
         session_lost = False
-        processed_signatures = load_processed_signatures_from_json()
+        processed_signatures = load_processed_signatures_from_excel()
         processed_job_ids = set()
 
         for comb_i, (keyword, loc, search_url) in enumerate(search_combinations, start=1):
@@ -458,8 +422,8 @@ def run_job_finder(target_url=None):
                                 if job_id:
                                     processed_job_ids.add(job_id)
                                 continue
-                            if is_job_already_processed_json(company, position):
-                                logger.info("  [SKIP] Job already processed (JSON signature check).")
+                            if is_job_already_processed_excel(company, position):
+                                logger.info("  [SKIP] Job already processed (Excel signature check).")
                                 processed_signatures.add(sig)
                                 if job_id:
                                     processed_job_ids.add(job_id)
@@ -594,11 +558,11 @@ def run_job_finder(target_url=None):
                                 continue
 
                             if is_title_matching_keywords(position, keywords):
-                                save_job_json(company, external_url, position)
                                 try:
                                     if save_job({
                                         "url": external_url,
                                         "company": company,
+                                        "position": position,
                                         "search_keyword": keyword
                                     }):
                                         total_saved += 1

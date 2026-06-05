@@ -4,7 +4,7 @@ import openpyxl
 from datetime import datetime
 from openpyxl.worksheet.table import Table, TableStyleInfo
 from config.settings import (
-    BASE_DIR, get_data_dir, get_job_tracker_file, get_job_leads_file, get_jobs_json_file, get_audit_json_file
+    BASE_DIR, get_data_dir, get_job_tracker_file, get_job_leads_file
 )
 from config.constants import SCRAPER_HEADERS, JOB_LEADS_HEADERS
 from core.logging.config import logger
@@ -22,9 +22,7 @@ def migrate_old_data_files():
         
     old_files = {
         "job_tracker.xlsx": get_job_tracker_file(),
-        "LinkedIn_Job_Tracker.xlsx": get_job_leads_file(),
-        "linkedin_jobs.json": get_jobs_json_file(),
-        "linkedin_jobs_audit.json": get_audit_json_file()
+        "LinkedIn_Job_Tracker.xlsx": get_job_leads_file()
     }
     for old_name, new_path in old_files.items():
         old_path = os.path.join(BASE_DIR, old_name)
@@ -317,16 +315,52 @@ def init_job_leads_store(path=None):
             logger.error(f"Unable to initialize Excel tracker: {str(e)}")
     else:
         try:
-            wb = openpyxl.load_workbook(path)
-            ws = wb.active
-            if ws.max_row == 0 or ws.cell(row=1, column=1).value != 'JobID':
-                ws.insert_rows(1)
-                for col_idx, header in enumerate(JOB_LEADS_HEADERS, start=1):
-                    ws.cell(row=1, column=col_idx, value=header)
-            update_job_leads_table(ws)
-            wb.save(path)
-        except Exception:
-            pass
+            trim_job_leads_excel_to_schema(path)
+        except Exception as e:
+            logger.error(f"Error trimming job leads Excel: {e}")
+
+def trim_job_leads_excel_to_schema(path=None):
+    """Enforces job leads Excel headers conform to standard schema."""
+    if path is None:
+        path = get_job_leads_file()
+    if not os.path.exists(path):
+        return
+    wb = openpyxl.load_workbook(path)
+    ws = wb.active
+    current_headers = [cell.value for cell in ws[1]]
+    needed = JOB_LEADS_HEADERS
+    header_map = {h: i+1 for i, h in enumerate(current_headers) if h in needed}
+    
+    for h in needed:
+        if h not in header_map:
+            ws.cell(row=1, column=len(current_headers)+1, value=h)
+            header_map[h] = len(current_headers)+1
+            current_headers.append(h)
+            
+    for target_idx, h in enumerate(needed, start=1):
+        src_idx = header_map[h]
+        if src_idx != target_idx:
+            for row in range(1, ws.max_row + 1):
+                ws.cell(row=row, column=target_idx, value=ws.cell(row=row, column=src_idx).value)
+                
+    max_col = ws.max_column
+    if max_col > len(needed):
+        ws.delete_cols(len(needed)+1, max_col - len(needed))
+        
+    ws._tables.clear()
+    ref = f"A1:{chr(64+len(needed))}{ws.max_row}"
+    tab = Table(displayName="JobTrackerTable", ref=ref)
+    style = TableStyleInfo(
+        name="TableStyleLight9",
+        showFirstColumn=False,
+        showLastColumn=False,
+        showRowStripes=True,
+        showColumnStripes=False,
+    )
+    tab.tableStyleInfo = style
+    ws.add_table(tab)
+    wb.save(path)
+    _trigger_mac_excel_reload(path)
 
 def update_job_leads_table(ws):
     """Updates formatting on the openpyxl job leads worksheet."""
@@ -362,6 +396,7 @@ def load_saved_jobs(path=None):
             company_col = col_indices.get('CompanyName')
             job_id_col = col_indices.get('JobID')
             keyword_col = col_indices.get('SearchKeyword')
+            job_title_col = col_indices.get('JobTitle')
 
             if company_url_col:
                 for row in ws.iter_rows(min_row=2, values_only=True):
@@ -376,7 +411,8 @@ def load_saved_jobs(path=None):
                             "url": company_url_str,
                             "company": str(row[company_col - 1]).strip() if company_col and row[company_col - 1] else "",
                             "job_id": int(row[job_id_col - 1]) if job_id_col and row[job_id_col - 1] else None,
-                            "keyword": str(row[keyword_col - 1]).strip() if keyword_col and row[keyword_col - 1] else ""
+                            "keyword": str(row[keyword_col - 1]).strip() if keyword_col and row[keyword_col - 1] else "",
+                            "position": str(row[job_title_col - 1]).strip() if job_title_col and row[job_title_col - 1] else ""
                         })
         except Exception as e:
             logger.error(f"Error loading tracker Excel file: {str(e)}")
@@ -390,6 +426,7 @@ def save_job(data, path=None):
     url = (data.get("url") or "").strip()
     company = (data.get("company") or "").strip()
     search_keyword = (data.get("search_keyword") or "").strip()
+    job_title = (data.get("position") or data.get("job_title") or "").strip()
 
     if not url or not is_valid_external_url(url):
         return False
@@ -432,6 +469,8 @@ def save_job(data, path=None):
         for header in JOB_LEADS_HEADERS:
             if header == 'JobID':
                 row_data.append(new_job_id)
+            elif header == 'JobTitle':
+                row_data.append(job_title)
             elif header == 'CompanyName':
                 row_data.append(company)
             elif header == 'CompanyURL':
@@ -442,12 +481,8 @@ def save_job(data, path=None):
                 row_data.append(search_keyword)
             elif header == 'Status':
                 row_data.append('NEW')
-            elif header == 'ReferralAsked':
-                row_data.append('No')
             elif header == 'ShortUrlCreated':
                 row_data.append('No')
-            elif header == 'Remarks':
-                row_data.append('')
             elif header == 'CreatedDateTime':
                 row_data.append(created_time)
 

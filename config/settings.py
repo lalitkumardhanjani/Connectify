@@ -63,11 +63,6 @@ def get_job_tracker_file():
 def get_job_leads_file():
     return os.path.join(get_data_dir(), "LinkedIn_Job_Tracker.xlsx")
 
-def get_jobs_json_file():
-    return os.path.join(get_data_dir(), "linkedin_jobs.json")
-
-def get_audit_json_file():
-    return os.path.join(get_data_dir(), "linkedin_jobs_audit.json")
 
 def get_log_file():
     return os.path.join(get_logs_dir(), "automation.log")
@@ -101,10 +96,7 @@ def __getattr__(name):
         return get_job_tracker_file()
     elif name == "JOB_LEADS_FILE":
         return get_job_leads_file()
-    elif name == "JOBS_JSON_FILE":
-        return get_jobs_json_file()
-    elif name == "AUDIT_JSON_FILE":
-        return get_audit_json_file()
+
     elif name == "LOG_FILE":
         return get_log_file()
     elif name == "LINKEDIN_CONNECT_LOG_FILE":
