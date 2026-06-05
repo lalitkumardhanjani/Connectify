@@ -34,7 +34,14 @@ from core.storage.database import _trigger_mac_excel_reload, update_status_by_id
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
-PYTHON_BIN = os.path.join(os.getcwd(), ".venv", "bin", "python")
+if sys.platform == 'win32':
+    PYTHON_BIN = os.path.join(os.getcwd(), ".venv", "Scripts", "python.exe")
+    if not os.path.exists(PYTHON_BIN):
+        PYTHON_BIN = "python"
+else:
+    PYTHON_BIN = os.path.join(os.getcwd(), ".venv", "bin", "python")
+    if not os.path.exists(PYTHON_BIN):
+        PYTHON_BIN = "python3"
 
 # Active task tracking
 active_tasks = {}
