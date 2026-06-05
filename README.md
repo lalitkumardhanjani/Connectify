@@ -203,6 +203,10 @@ Status colors are consistent across KPI cards, the status pie chart, the keyword
 ## ⚠️ Troubleshooting & Browser Tips
 
 - **Windows Chrome & Chromedriver**: On Windows, the system automatically detects the OS, bypasses the Mac local binary check, and relies on `webdriver_manager` to download the matching Windows `chromedriver.exe` binary. No manual setup is needed.
+- **Unrecognized Chrome Version / Microsoft Edge Launching**: If you experience browser version errors (e.g., `SessionNotCreatedException: unrecognized Chrome version: Edg/...`), Microsoft Edge may have hijacked the default `chrome` app execution alias on Windows. To fix this, add the absolute path of your actual Google Chrome installation to your `.env` file using the `CHROME_BINARY_PATH` environment variable:
+  ```env
+  CHROME_BINARY_PATH=C:\Program Files\Google\Chrome\Application\chrome.exe
+  ```
 - **Mac Chrome Execution**: The driver is configured to automatically search for Google Chrome in the standard `/System/Volumes/Data/Volumes/Google Chrome/Google Chrome.app` path or default location.
 - **Mac Excel Sheet Reloads**: The system uses AppleScript to reload active Excel/Numbers sheets automatically if they are open while data is writing. If prompted, grant terminal permission to script applications.
 - **Google Sign-In**: Avoid choosing "Continue with Google" during automated sessions as Google security blocks automated login pages. Sign in directly using email and password.
