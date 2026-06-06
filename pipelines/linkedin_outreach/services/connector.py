@@ -941,7 +941,7 @@ def run_connector():
                                 continue
                             elif sent == "quit":
                                 logger.info("Quitting connect requests loop as requested by user.")
-                                break
+                                return
                             elif sent:
                                 success_count += 1
                                 try:
