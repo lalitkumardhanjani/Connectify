@@ -37,7 +37,7 @@ def run_phase_one(scraper):
 def run_phase_two(scraper, review_mode=None):
     """Executes composing and sending emails via Selenium browser to discovered addresses."""
     if not os.path.exists(JOB_TRACKER_FILE):
-        logger.warning(f"Excel database '{JOB_TRACKER_FILE}' not found – nothing to send.")
+        logger.warning(f"Excel database '{JOB_TRACKER_FILE}' not found – nothing to send. Please run Phase 1 (Fetch Emails) first to scrape contact leads.")
         return
         
     wb = openpyxl.load_workbook(JOB_TRACKER_FILE)
@@ -50,6 +50,7 @@ def run_phase_two(scraper, review_mode=None):
         logger.error("Excel schema missing required columns.")
         return
         
+    pending_rows = []
     for row in range(2, ws.max_row + 1):
         status = (ws.cell(row=row, column=status_col).value or '').strip().lower()
         if status == 'sent':
@@ -57,6 +58,14 @@ def run_phase_two(scraper, review_mode=None):
         email = ws.cell(row=row, column=email_col).value
         if not email:
             continue
+        pending_rows.append((row, email))
+        
+    if not pending_rows:
+        logger.info(f"No pending or unsent emails found in '{JOB_TRACKER_FILE}'. All scraped email records are already sent or the file is empty.")
+        return
+        
+    logger.info(f"Found {len(pending_rows)} pending emails to process.")
+    for row, email in pending_rows:
             
         logger.info(f"Processing email outreach for {email} (row {row})")
         sent = send_email_via_gmail(scraper.driver, email, review_mode=review_mode)
