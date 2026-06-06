@@ -868,11 +868,13 @@ def run_connector():
         driver = get_driver()
     except Exception as e:
         logger.error(f"Error starting Chrome: {e}")
-        return
+        sys.exit(1)
 
     try:
         driver.get("https://www.linkedin.com/feed/")
-        login_to_linkedin(driver, email, password)
+        if not login_to_linkedin(driver, email, password):
+            logger.error("Failed to login to LinkedIn. Exiting...")
+            sys.exit(1)
 
         for job in job_data:
             company = job.get('CompanyName') or ''
@@ -1001,6 +1003,7 @@ def run_connector():
         logger.exception("Fatal error in connector script")
         if sys.stdin.isatty():
             input("\nFatal error occurred. Press Enter to exit...")
+        sys.exit(1)
     finally:
         logger.info("Closing browser...")
         driver.quit()

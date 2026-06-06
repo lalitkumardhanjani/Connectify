@@ -34,5 +34,7 @@ if __name__ == "__main__":
     )
     parser.set_defaults(review=None)
     args = parser.parse_args()
-    run_pipeline(phase=args.phase, review_mode=args.review)
+    success = run_pipeline(phase=args.phase, review_mode=args.review)
+    if not success:
+        sys.exit(1)
 

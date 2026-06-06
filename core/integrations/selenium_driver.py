@@ -31,10 +31,30 @@ def _kill_stale_chrome_processes():
             logger.info("Killed stale chromedriver.exe process.")
 
 
+def _kill_lingering_chrome_instances(profile_dir):
+    """On Windows, kills any lingering chrome.exe processes that are using our specific profile directory."""
+    if sys.platform != 'win32':
+        return
+        
+    try:
+        norm_path = os.path.abspath(profile_dir).replace('\\', '\\\\')
+        import subprocess
+        # Query and kill chrome processes matching our custom profile directory path
+        ps_cmd = f'Get-CimInstance Win32_Process -Filter "name = \'chrome.exe\'" | Where-Object {{ $_.CommandLine -like \'*{norm_path}*\' -or $_.CommandLine -like \'*chrome-profile*\' }} | ForEach-Object {{ Stop-Process -Id $_.ProcessId -Force }}'
+        cmd = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_cmd]
+        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        logger.info(f"Cleaned up lingering Chrome processes using profile: {profile_dir}")
+    except Exception as e:
+        logger.warning(f"Could not check/kill lingering Chrome processes: {e}")
+
+
 def get_driver():
     """Initializes and returns a Selenium webdriver.Chrome instance with the configured profile and options."""
+    chrome_profile_dir = get_chrome_profile_dir()
+
     # Kill any lingering Chrome/ChromeDriver processes (Windows only)
     _kill_stale_chrome_processes()
+    _kill_lingering_chrome_instances(chrome_profile_dir)
 
     options = Options()
 
@@ -58,7 +78,6 @@ def get_driver():
     options.add_experimental_option("prefs", prefs)
 
     # --- Chrome profile setup (clean stale locks first) ---
-    chrome_profile_dir = get_chrome_profile_dir()
     _cleanup_chrome_locks(chrome_profile_dir)
     options.add_argument(f"--user-data-dir={chrome_profile_dir}")
 
