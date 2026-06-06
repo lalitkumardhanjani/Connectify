@@ -184,10 +184,13 @@ async function pollLogs() {
             loadStats(); // Reload stats after completion
             if (typeof loadDashboardAnalytics === 'function') loadDashboardAnalytics();
             
-            // Clear scraper steps visual active/completed state on stop/finish
+            // Clear active steps, but keep completed steps visible
             if (activeTaskId === 'scraper_pipeline') {
                 const steps = document.querySelectorAll('#card-scraper .p-step-seq');
-                steps.forEach(el => el.classList.remove('active', 'completed'));
+                steps.forEach(el => el.classList.remove('active'));
+            } else if (activeTaskId === 'referral_pipeline') {
+                const steps = document.querySelectorAll('#card-referral .p-step-seq');
+                steps.forEach(el => el.classList.remove('active'));
             }
         }
 
@@ -231,10 +234,10 @@ function updateReferralPipelineSteps(taskData) {
     if (!activeStepName) return;
 
     let activeStepIdx = 0;
-    if (activeStepName.includes("linkedin_find_job.py")) activeStepIdx = 1;
-    else if (activeStepName.includes("review_for_referral.py")) activeStepIdx = 2;
-    else if (activeStepName.includes("shorten_urls.py")) activeStepIdx = 3;
-    else if (activeStepName.includes("linkdin_connect.py")) activeStepIdx = 4;
+    if (activeStepName.includes("linkedin_find_job.py") || activeStepName.includes("run_job_search.py")) activeStepIdx = 1;
+    else if (activeStepName.includes("review_for_referral.py") || activeStepName.includes("run_referral_review.py")) activeStepIdx = 2;
+    else if (activeStepName.includes("shorten_urls.py") || activeStepName.includes("run_url_shortener.py")) activeStepIdx = 3;
+    else if (activeStepName.includes("linkdin_connect.py") || activeStepName.includes("run_linkedin_connect.py")) activeStepIdx = 4;
 
     if (activeStepIdx > 0) {
         if (isSingle) {
