@@ -439,6 +439,7 @@ def create_user_profile():
             "message_template": "Hi {first_name}, let's connect! I saw you handle Talent Acquisition at {company}. I am interested in opportunities there. My resume: {resume}",
             "interval": "120",
             "daily_limit": "5",
+            "target_count": "2",
             "review_mode": True
         }
     }
@@ -472,11 +473,13 @@ def save_user_configuration():
     user_profile = body.get("profile", {})
     email_scraper = body.get("email_scraper", {})
     linkedin_connect = body.get("linkedin_connect", {})
+    recruiter_outreach = body.get("recruiter_outreach", {})
     global_settings = body.get("global_settings", {})
     
     config["users"][username]["profile"] = user_profile
     config["users"][username]["email_scraper"] = email_scraper
     config["users"][username]["linkedin_connect"] = linkedin_connect
+    config["users"][username]["recruiter_outreach"] = recruiter_outreach
     config["global_settings"] = global_settings
     
     save_all_configs(config)

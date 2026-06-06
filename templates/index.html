@@ -441,171 +441,190 @@
                     <p>Trigger workflows, monitor outputs, and interact with scripts in real-time.</p>
                 </header>
 
-                <div class="pipelines-grid">
-                    <!-- Email Scraper Card -->
-                    <div class="pipeline-card card-glass" id="card-scraper">
-                        <div class="pipeline-header">
-                            <div class="pipeline-title-group">
-                                <div class="pipeline-icon-box blue-glow"><i class="fa-solid fa-envelope-open-text"></i></div>
-                                <div>
-                                    <h3>Email Scraper Pipeline</h3>
-                                    <span class="pipeline-subtitle">Automated Cold Outreach</span>
-                                </div>
-                            </div>
-                            <span class="status-badge status-idle" id="badge-scraper">Idle</span>
-                        </div>
-                        
-                        <div class="pipeline-timeline">
-                            <!-- Step 1 -->
-                            <div class="timeline-item p-step-seq" data-step="1">
-                                <div class="timeline-marker">
-                                    <span class="marker-num">1</span>
-                                    <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
-                                    <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
-                                </div>
-                                <div class="timeline-content">
-                                    <h4>Fetch Emails</h4>
-                                    <p>Scrapes hiring contact emails from LinkedIn feed posts</p>
-                                </div>
-                                <button class="btn-step-run" onclick="runScraperStep('phase1', event)" title="Run email fetching only">
-                                    <i class="fa-solid fa-play"></i>
-                                </button>
-                            </div>
-                            <!-- Step 2 -->
-                            <div class="timeline-item p-step-seq" data-step="2">
-                                <div class="timeline-marker">
-                                    <span class="marker-num">2</span>
-                                    <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
-                                    <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
-                                </div>
-                                <div class="timeline-content">
-                                    <h4>Send Outreach</h4>
-                                    <p>Delivers personalized cold outreach emails via Gmail/SMTP</p>
-                                </div>
-                                <button class="btn-step-run" onclick="runScraperStep('phase2', event)" title="Run email sending only">
-                                    <i class="fa-solid fa-play"></i>
-                                </button>
-                            </div>
-                        </div>
+                <!-- Sub Tabs Navigation Menu -->
+                <div class="settings-tabs-menu">
+                    <button type="button" class="pipeline-tab-btn active" data-pipeline-tab="email-scraper">
+                        <i class="fa-solid fa-square-envelope"></i> Email Scraper
+                    </button>
+                    <button type="button" class="pipeline-tab-btn" data-pipeline-tab="referral-connect">
+                        <i class="fa-solid fa-circle-nodes"></i> Referral Connect
+                    </button>
+                    <button type="button" class="pipeline-tab-btn" data-pipeline-tab="recruiter-outreach">
+                        <i class="fa-solid fa-user-tie"></i> Recruiter Outreach
+                    </button>
+                </div>
 
-                        <div class="pipeline-actions">
-                            <button class="btn btn-primary" id="btn-run-scraper">Run Complete Pipeline</button>
-                            <button class="btn btn-danger hidden" id="btn-kill-scraper">Stop Pipeline</button>
+                <div class="pipelines-wrapper">
+                    <!-- Tab Pane 1: Email Scraper -->
+                    <div class="pipeline-tab-pane active" id="pane-email-scraper">
+                        <div class="pipeline-card card-glass" id="card-scraper" style="max-width: 800px; margin: 0 auto;">
+                            <div class="pipeline-header">
+                                <div class="pipeline-title-group">
+                                    <div class="pipeline-icon-box blue-glow"><i class="fa-solid fa-envelope-open-text"></i></div>
+                                    <div>
+                                        <h3>Email Scraper Pipeline</h3>
+                                        <span class="pipeline-subtitle">Automated Cold Outreach</span>
+                                    </div>
+                                </div>
+                                <span class="status-badge status-idle" id="badge-scraper">Idle</span>
+                            </div>
+                            
+                            <div class="pipeline-timeline">
+                                <!-- Step 1 -->
+                                <div class="timeline-item p-step-seq" data-step="1">
+                                    <div class="timeline-marker">
+                                        <span class="marker-num">1</span>
+                                        <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
+                                        <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                    </div>
+                                    <div class="timeline-content">
+                                        <h4>Fetch Emails</h4>
+                                        <p>Scrapes hiring contact emails from LinkedIn feed posts</p>
+                                    </div>
+                                    <button class="btn-step-run" onclick="runScraperStep('phase1', event)" title="Run email fetching only">
+                                        <i class="fa-solid fa-play"></i>
+                                    </button>
+                                </div>
+                                <!-- Step 2 -->
+                                <div class="timeline-item p-step-seq" data-step="2">
+                                    <div class="timeline-marker">
+                                        <span class="marker-num">2</span>
+                                        <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
+                                        <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                    </div>
+                                    <div class="timeline-content">
+                                        <h4>Send Outreach</h4>
+                                        <p>Delivers personalized cold outreach emails via Gmail/SMTP</p>
+                                    </div>
+                                    <button class="btn-step-run" onclick="runScraperStep('phase2', event)" title="Run email sending only">
+                                        <i class="fa-solid fa-play"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="pipeline-actions">
+                                <button class="btn btn-primary" id="btn-run-scraper">Run Complete Pipeline</button>
+                                <button class="btn btn-danger hidden" id="btn-kill-scraper">Stop Pipeline</button>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Referral Pipeline Card -->
-                    <div class="pipeline-card card-glass" id="card-referral">
-                        <div class="pipeline-header">
-                            <div class="pipeline-title-group">
-                                <div class="pipeline-icon-box teal-glow"><i class="fa-solid fa-network-wired"></i></div>
-                                <div>
-                                    <h3>Referral Connection Pipeline</h3>
-                                    <span class="pipeline-subtitle">Automating Warm Referrals</span>
+                    <!-- Tab Pane 2: Referral Connect -->
+                    <div class="pipeline-tab-pane" id="pane-referral-connect">
+                        <div class="pipeline-card card-glass" id="card-referral" style="max-width: 800px; margin: 0 auto;">
+                            <div class="pipeline-header">
+                                <div class="pipeline-title-group">
+                                    <div class="pipeline-icon-box teal-glow"><i class="fa-solid fa-network-wired"></i></div>
+                                    <div>
+                                        <h3>Referral Connection Pipeline</h3>
+                                        <span class="pipeline-subtitle">Automating Warm Referrals</span>
+                                    </div>
+                                </div>
+                                <span class="status-badge status-idle" id="badge-referral">Idle</span>
+                            </div>
+                            
+                            <div class="pipeline-timeline">
+                                <!-- Step 1 -->
+                                <div class="timeline-item p-step-seq" data-step="1">
+                                    <div class="timeline-marker">
+                                        <span class="marker-num">1</span>
+                                        <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
+                                        <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                    </div>
+                                    <div class="timeline-content">
+                                        <h4>Find Relevant Jobs</h4>
+                                        <p>Searches LinkedIn for target job postings matching your profile</p>
+                                    </div>
+                                    <button class="btn-step-run" onclick="runSingleStep(1, event)" title="Run this step only">
+                                        <i class="fa-solid fa-play"></i>
+                                    </button>
+                                </div>
+                                <!-- Step 2 -->
+                                <div class="timeline-item p-step-seq" data-step="2">
+                                    <div class="timeline-marker">
+                                        <span class="marker-num">2</span>
+                                        <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
+                                        <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                    </div>
+                                    <div class="timeline-content">
+                                        <h4>Analyze Referral Opportunities</h4>
+                                        <p>Interactive review to evaluate potential referral contacts</p>
+                                    </div>
+                                    <button class="btn-step-run" onclick="runSingleStep(2, event)" title="Run this step only">
+                                        <i class="fa-solid fa-play"></i>
+                                    </button>
+                                </div>
+                                <!-- Step 3 -->
+                                <div class="timeline-item p-step-seq" data-step="3">
+                                    <div class="timeline-marker">
+                                        <span class="marker-num">3</span>
+                                        <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
+                                        <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                    </div>
+                                    <div class="timeline-content">
+                                        <h4>Prepare Referral Links</h4>
+                                        <p>Generates short, trackable career links for warm outreach</p>
+                                    </div>
+                                    <button class="btn-step-run" onclick="runSingleStep(3, event)" title="Run this step only">
+                                        <i class="fa-solid fa-play"></i>
+                                    </button>
+                                </div>
+                                <!-- Step 4 -->
+                                <div class="timeline-item p-step-seq" data-step="4">
+                                    <div class="timeline-marker">
+                                        <span class="marker-num">4</span>
+                                        <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
+                                        <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                    </div>
+                                    <div class="timeline-content">
+                                        <h4>Send LinkedIn Connection Requests</h4>
+                                        <p>Automates warm connection requests & referral messages on LinkedIn</p>
+                                    </div>
+                                    <button class="btn-step-run" onclick="runSingleStep(4, event)" title="Run this step only">
+                                        <i class="fa-solid fa-play"></i>
+                                    </button>
                                 </div>
                             </div>
-                            <span class="status-badge status-idle" id="badge-referral">Idle</span>
-                        </div>
-                        
-                        <div class="pipeline-timeline">
-                            <!-- Step 1 -->
-                            <div class="timeline-item p-step-seq" data-step="1">
-                                <div class="timeline-marker">
-                                    <span class="marker-num">1</span>
-                                    <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
-                                    <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
-                                </div>
-                                <div class="timeline-content">
-                                    <h4>Find Relevant Jobs</h4>
-                                    <p>Searches LinkedIn for target job postings matching your profile</p>
-                                </div>
-                                <button class="btn-step-run" onclick="runSingleStep(1, event)" title="Run this step only">
-                                    <i class="fa-solid fa-play"></i>
-                                </button>
+                            
+                            <div class="pipeline-actions">
+                                <button class="btn btn-primary" id="btn-run-referral">Run Complete Pipeline</button>
+                                <button class="btn btn-danger hidden" id="btn-kill-referral">Stop Pipeline</button>
                             </div>
-                            <!-- Step 2 -->
-                            <div class="timeline-item p-step-seq" data-step="2">
-                                <div class="timeline-marker">
-                                    <span class="marker-num">2</span>
-                                    <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
-                                    <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
-                                </div>
-                                <div class="timeline-content">
-                                    <h4>Analyze Referral Opportunities</h4>
-                                    <p>Interactive review to evaluate potential referral contacts</p>
-                                </div>
-                                <button class="btn-step-run" onclick="runSingleStep(2, event)" title="Run this step only">
-                                    <i class="fa-solid fa-play"></i>
-                                </button>
-                            </div>
-                            <!-- Step 3 -->
-                            <div class="timeline-item p-step-seq" data-step="3">
-                                <div class="timeline-marker">
-                                    <span class="marker-num">3</span>
-                                    <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
-                                    <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
-                                </div>
-                                <div class="timeline-content">
-                                    <h4>Prepare Referral Links</h4>
-                                    <p>Generates short, trackable career links for warm outreach</p>
-                                </div>
-                                <button class="btn-step-run" onclick="runSingleStep(3, event)" title="Run this step only">
-                                    <i class="fa-solid fa-play"></i>
-                                </button>
-                            </div>
-                            <!-- Step 4 -->
-                            <div class="timeline-item p-step-seq" data-step="4">
-                                <div class="timeline-marker">
-                                    <span class="marker-num">4</span>
-                                    <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
-                                    <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
-                                </div>
-                                <div class="timeline-content">
-                                    <h4>Send LinkedIn Connection Requests</h4>
-                                    <p>Automates warm connection requests & referral messages on LinkedIn</p>
-                                </div>
-                                <button class="btn-step-run" onclick="runSingleStep(4, event)" title="Run this step only">
-                                    <i class="fa-solid fa-play"></i>
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <div class="pipeline-actions">
-                            <button class="btn btn-primary" id="btn-run-referral">Run Complete Pipeline</button>
-                            <button class="btn btn-danger hidden" id="btn-kill-referral">Stop Pipeline</button>
                         </div>
                     </div>
 
-                    <!-- Recruiter Outreach Card -->
-                    <div class="pipeline-card card-glass" id="card-recruiter">
-                        <div class="pipeline-header">
-                            <div class="pipeline-title-group">
-                                <div class="pipeline-icon-box purple-glow"><i class="fa-solid fa-user-tie"></i></div>
-                                <div>
-                                    <h3>Recruiter Outreach Pipeline</h3>
-                                    <span class="pipeline-subtitle">Automating Recruiter Connections</span>
+                    <!-- Tab Pane 3: Recruiter Outreach -->
+                    <div class="pipeline-tab-pane" id="pane-recruiter-outreach">
+                        <div class="pipeline-card card-glass" id="card-recruiter" style="max-width: 800px; margin: 0 auto;">
+                            <div class="pipeline-header">
+                                <div class="pipeline-title-group">
+                                    <div class="pipeline-icon-box purple-glow"><i class="fa-solid fa-user-tie"></i></div>
+                                    <div>
+                                        <h3>Recruiter Outreach Pipeline</h3>
+                                        <span class="pipeline-subtitle">Automating Recruiter Connections</span>
+                                    </div>
+                                </div>
+                                <span class="status-badge status-idle" id="badge-recruiter">Idle</span>
+                            </div>
+                            
+                            <div class="pipeline-timeline">
+                                <div class="timeline-item p-step-seq" data-step="1">
+                                    <div class="timeline-marker">
+                                        <span class="marker-num">1</span>
+                                        <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
+                                        <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                    </div>
+                                    <div class="timeline-content">
+                                        <h4>Recruiter Outreach</h4>
+                                        <p>Finds talent acquisition professionals & sends connection requests</p>
+                                    </div>
                                 </div>
                             </div>
-                            <span class="status-badge status-idle" id="badge-recruiter">Idle</span>
-                        </div>
-                        
-                        <div class="pipeline-timeline">
-                            <div class="timeline-item p-step-seq" data-step="1">
-                                <div class="timeline-marker">
-                                    <span class="marker-num">1</span>
-                                    <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
-                                    <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
-                                </div>
-                                <div class="timeline-content">
-                                    <h4>Recruiter Outreach</h4>
-                                    <p>Finds talent acquisition professionals & sends connection requests</p>
-                                </div>
-                            </div>
-                        </div>
 
-                        <div class="pipeline-actions">
-                            <button class="btn btn-primary" id="btn-run-recruiter">Run Pipeline</button>
-                            <button class="btn btn-danger hidden" id="btn-kill-recruiter">Stop Pipeline</button>
+                            <div class="pipeline-actions">
+                                <button class="btn btn-primary" id="btn-run-recruiter">Run Pipeline</button>
+                                <button class="btn btn-danger hidden" id="btn-kill-recruiter">Stop Pipeline</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1108,10 +1127,12 @@
 
                         <!-- SUB-TAB 4: RECRUITER OUTREACH -->
                         <div class="settings-tab-pane" id="subtab-recruiter-outreach">
-                            <div class="settings-grid">
+                            <div class="settings-column">
+                                <!-- Row 1: Recruiter Automation Control Card -->
                                 <div class="settings-card card-glass">
                                     <h3><i class="fa-solid fa-user-plus glow-icon-teal"></i> Recruiter Automation Control</h3>
-                                    <p class="card-subtitle">Configure connection intervals, limits, and pipeline gates</p>
+                                    <p class="card-subtitle">Configure connection intervals, limits, target recruiters, and pipeline gates</p>
+                                    
                                     <div class="form-group">
                                         <label for="recruiter-interval">Action Timing Delay</label>
                                         <select id="recruiter-interval">
@@ -1128,6 +1149,10 @@
                                         <label for="recruiter-daily-limit">Daily Invites Limit</label>
                                         <input type="number" id="recruiter-daily-limit" min="1" max="100" value="5" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--glass-border); background:rgba(0,0,0,0.4); color:var(--text-primary);">
                                     </div>
+                                    <div class="form-group" style="margin-bottom: 16px;">
+                                        <label for="recruiter-target-count">Target Recruiters per Company</label>
+                                        <input type="number" id="recruiter-target-count" min="1" max="100" value="2" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--glass-border); background:rgba(0,0,0,0.4); color:var(--text-primary);">
+                                    </div>
                                     <div class="form-group toggle-group">
                                         <span class="info-icon-wrapper">
                                             <label for="recruiter-review-mode" style="margin-bottom: 0;">Invite Quality Gate</label>
@@ -1140,78 +1165,68 @@
                                     </div>
                                 </div>
 
-                                <div class="settings-card card-glass grid-span-2">
-                                    <div class="form-group">
-                                        <label style="margin-bottom: 2px;">Available Recruiter Note Tokens</label>
-                                        <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:8px;">
-                                            Click a token below to insert it at your cursor position inside the Recruiter Note Studio:
-                                        </p>
-                                        <div class="template-var-legend" style="flex-wrap: wrap; gap: 6px;">
-                                            <span class="tvar-title"><i class="fa-solid fa-brackets-curly"></i> Click to Insert:</span>
-                                            <span class="tvar-badge" onclick="insertToken('recruiter', '{FIRST_NAME}')" title="Click to insert">{FIRST_NAME}</span>
-                                            <span class="tvar-badge" onclick="insertToken('recruiter', '{LAST_NAME}')" title="Click to insert">{LAST_NAME}</span>
-                                            <span class="tvar-badge" onclick="insertToken('recruiter', '{EMAIL}')" title="Click to insert">{EMAIL}</span>
-                                            <span class="tvar-badge" onclick="insertToken('recruiter', '{PHONE_NUMBER}')" title="Click to insert">{PHONE_NUMBER}</span>
-                                            <span class="tvar-badge" onclick="insertToken('recruiter', '{EXPERIENCE}')" title="Click to insert">{EXPERIENCE}</span>
-                                            <span class="tvar-badge" onclick="insertToken('recruiter', '{LINKEDIN_PROFILE_URL}')" title="Click to insert">{LINKEDIN_PROFILE_URL}</span>
-                                            <span class="tvar-badge" onclick="insertToken('recruiter', '{CURRENT_LOCATION}')" title="Click to insert">{CURRENT_LOCATION}</span>
-                                            <span class="tvar-badge" onclick="insertToken('recruiter', '{PREFERRED_LOCATIONS}')" title="Click to insert">{PREFERRED_LOCATIONS}</span>
-                                            <span class="tvar-badge" onclick="insertToken('recruiter', '{CURRENT_CTC}')" title="Click to insert">{CURRENT_CTC}</span>
-                                            <span class="tvar-badge" onclick="insertToken('recruiter', '{EXPECTED_CTC}')" title="Click to insert">{EXPECTED_CTC}</span>
-                                            <span class="tvar-badge" onclick="insertToken('recruiter', '{company}')" title="Click to insert">{company}</span>
-                                            <span class="tvar-badge" onclick="insertToken('recruiter', '{resume}')" title="Click to insert">{resume}</span>
-                                            <span class="tvar-badge" onclick="insertToken('recruiter', '{first_name}')" title="Click to insert">{first_name}</span>
-                                        </div>
+                                <!-- Row 2: Available Recruiter Tokens Card -->
+                                <div class="settings-card card-glass">
+                                    <h3><i class="fa-solid fa-brackets-curly glow-icon-purple"></i> Available Recruiter Note Tokens</h3>
+                                    <p class="card-subtitle">Click a token below to insert it at your cursor position inside the Recruiter Note Studio:</p>
+                                    <div class="template-var-legend" style="flex-wrap: wrap; gap: 6px; margin-top: 10px;">
+                                        <span class="tvar-title"><i class="fa-solid fa-brackets-curly"></i> Click to Insert:</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{FIRST_NAME}')" title="Click to insert">{FIRST_NAME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{LAST_NAME}')" title="Click to insert">{LAST_NAME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{EMAIL}')" title="Click to insert">{EMAIL}</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{PHONE_NUMBER}')" title="Click to insert">{PHONE_NUMBER}</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{EXPERIENCE}')" title="Click to insert">{EXPERIENCE}</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{LINKEDIN_PROFILE_URL}')" title="Click to insert">{LINKEDIN_PROFILE_URL}</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{CURRENT_LOCATION}')" title="Click to insert">{CURRENT_LOCATION}</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{PREFERRED_LOCATIONS}')" title="Click to insert">{PREFERRED_LOCATIONS}</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{CURRENT_CTC}')" title="Click to insert">{CURRENT_CTC}</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{EXPECTED_CTC}')" title="Click to insert">{EXPECTED_CTC}</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{company}')" title="Click to insert">{company}</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{resume}')" title="Click to insert">{resume}</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{first_name}')" title="Click to insert">{first_name}</span>
                                     </div>
+                                </div>
 
-                                    <div style="margin-top: 20px;">
-                                        <div class="form-group">
-                                            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8px;">
-                                                <div>
-                                                    <label style="margin-bottom: 2px;">LinkedIn Recruiter Invite Note Studio</label>
-                                                    <p style="font-size:0.8rem;color:var(--text-secondary);">
-                                                        LinkedIn restricts invitations notes to <strong style="color:var(--accent-yellow)">300 characters</strong>.
-                                                    </p>
+                                <!-- Row 3: LinkedIn Recruiter Invite Note Studio Card -->
+                                <div class="settings-card card-glass">
+                                    <h3><i class="fa-solid fa-comment-dots glow-icon-blue"></i> LinkedIn Recruiter Invite Note Studio</h3>
+                                    <p class="card-subtitle">LinkedIn restricts invitations notes to <strong style="color:var(--accent-yellow)">300 characters</strong>.</p>
+                                    
+                                    <div class="template-editor-container" style="margin-top: 10px;">
+                                        <div class="template-editor-header">
+                                            <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;"><i class="fa-solid fa-comment-dots"></i> Recruiter Note Studio</span>
+                                            <div style="display:flex;align-items:center;gap:12px;">
+                                                <span id="recruiter-char-count" class="char-count-pill">0 / 300</span>
+                                                <div class="template-modes">
+                                                    <button type="button" class="template-mode-btn active" id="btn-mode-edit-recruiter" onclick="switchTemplateMode('recruiter', 'edit')">Draft Editor</button>
+                                                    <button type="button" class="template-mode-btn" id="btn-mode-preview-recruiter" onclick="switchTemplateMode('recruiter', 'preview')">Real-time Preview</button>
                                                 </div>
                                             </div>
-
-                                            <div class="template-editor-container">
-                                                <div class="template-editor-header">
-                                                    <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;"><i class="fa-solid fa-comment-dots"></i> Recruiter Note Studio</span>
-                                                    <div style="display:flex;align-items:center;gap:12px;">
-                                                        <span id="recruiter-char-count" class="char-count-pill">0 / 300</span>
-                                                        <div class="template-modes">
-                                                            <button type="button" class="template-mode-btn active" id="btn-mode-edit-recruiter" onclick="switchTemplateMode('recruiter', 'edit')">Draft Editor</button>
-                                                            <button type="button" class="template-mode-btn" id="btn-mode-preview-recruiter" onclick="switchTemplateMode('recruiter', 'preview')">Real-time Preview</button>
-                                                        </div>
+                                        </div>
+                                        <textarea id="recruiter-message-template" class="template-textarea" placeholder="Recruiter connection request message..." maxlength="300" oninput="updateRecruiterCharCount()"></textarea>
+                                        
+                                        <!-- Mock Recruiter Invitation Window -->
+                                        <div id="recruiter-template-preview" class="linkedin-mockup-window hidden">
+                                            <div class="linkedin-mockup-header">
+                                                <span>Connect with Recruiter</span>
+                                                <i class="fa-solid fa-xmark"></i>
+                                            </div>
+                                            <div class="linkedin-mockup-body">
+                                                <div class="linkedin-manager-avatar" style="background: var(--accent-purple); color: white;">TA</div>
+                                                <div class="linkedin-manager-info">
+                                                    <div class="name">Recruiting Contact</div>
+                                                    <div class="title">Talent Acquisition &amp; Technical Recruiter</div>
+                                                </div>
+                                                <div class="linkedin-invite-card">
+                                                    <p class="invite-header-text">You can include a personal note to introduce yourself:</p>
+                                                    <div class="linkedin-invite-bubble" id="recruiter-preview-body-content">
+                                                        <!-- Preview content gets rendered dynamically -->
                                                     </div>
                                                 </div>
-                                                <textarea id="recruiter-message-template" class="template-textarea" placeholder="Recruiter connection request message..." maxlength="300" oninput="updateRecruiterCharCount()"></textarea>
-                                                
-                                                <!-- Mock Recruiter Invitation Window -->
-                                                <div id="recruiter-template-preview" class="linkedin-mockup-window hidden">
-                                                    <div class="linkedin-mockup-header">
-                                                        <span>Connect with Recruiter</span>
-                                                        <i class="fa-solid fa-xmark"></i>
-                                                    </div>
-                                                    <div class="linkedin-mockup-body">
-                                                        <div class="linkedin-manager-avatar" style="background: var(--accent-purple); color: white;">TA</div>
-                                                        <div class="linkedin-manager-info">
-                                                            <div class="name">Recruiting Contact</div>
-                                                            <div class="title">Talent Acquisition &amp; Technical Recruiter</div>
-                                                        </div>
-                                                        <div class="linkedin-invite-card">
-                                                            <p class="invite-header-text">You can include a personal note to introduce yourself:</p>
-                                                            <div class="linkedin-invite-bubble" id="recruiter-preview-body-content">
-                                                                <!-- Preview content gets rendered dynamically -->
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div class="linkedin-mockup-footer">
-                                                        <button type="button" class="btn-mock-cancel">Cancel</button>
-                                                        <button type="button" class="btn-mock-send">Send Invitation</button>
-                                                    </div>
-                                                </div>
+                                            </div>
+                                            <div class="linkedin-mockup-footer">
+                                                <button type="button" class="btn-mock-cancel">Cancel</button>
+                                                <button type="button" class="btn-mock-send">Send Invitation</button>
                                             </div>
                                         </div>
                                     </div>

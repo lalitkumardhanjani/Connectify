@@ -61,6 +61,7 @@ def run_recruiter_connector():
     review_mode = recruiter_conf.get("review_mode", True)
     daily_limit = int(recruiter_conf.get("daily_limit") or 5)
     interval = int(recruiter_conf.get("interval") or 120)
+    target_count = int(recruiter_conf.get("target_count") or 2)
     
     email = global_conf.get("linkedin_email")
     password = global_conf.get("linkedin_password")
@@ -69,6 +70,7 @@ def run_recruiter_connector():
     logger.info(f"REVIEW_MODE  : {review_mode}")
     logger.info(f"DAILY_LIMIT  : {daily_limit}")
     logger.info(f"INTERVAL     : {interval}")
+    logger.info(f"TARGET_COUNT : {target_count}")
     logger.info("=" * 60)
 
     job_data = load_jobs_for_referral(status_filter='Asked for Referral')
@@ -115,7 +117,7 @@ def run_recruiter_connector():
             # Send connect requests to recruiters found in search results
             page_number = 1
             company_requests_sent = 0
-            max_recruiters_per_company = 3
+            max_recruiters_per_company = target_count
 
             while company_requests_sent < max_recruiters_per_company and total_requests_sent < daily_limit:
                 logger.info(f"\nProcessing search page {page_number} for recruiters")
@@ -167,12 +169,15 @@ def run_recruiter_connector():
                     break
                 page_number += 1
 
-            # Mark this job as Done after outreach attempts
-            try:
-                update_status_by_id(job_id, 'Done')
-                logger.info(f"Updated company '{company}' status in tracker to 'Done'.")
-            except Exception as e:
-                logger.warning(f"Failed to record status update: {e}")
+            # Mark this job as Done after outreach attempts if recruiter target reached
+            if company_requests_sent >= max_recruiters_per_company:
+                try:
+                    update_status_by_id(job_id, 'Done')
+                    logger.info(f"Updated company '{company}' status in tracker to 'Done'.")
+                except Exception as e:
+                    logger.warning(f"Failed to record status update: {e}")
+            else:
+                logger.info(f"Finished processing '{company}' but target count {max_recruiters_per_company} not reached ({company_requests_sent} sent). Keeping status.")
 
             time.sleep(5)
 

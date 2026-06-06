@@ -1026,6 +1026,13 @@ body {
     margin-bottom: 30px;
 }
 
+.settings-column {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
 .settings-card {
     display: flex;
     flex-direction: column;
@@ -1623,7 +1630,8 @@ body {
     overflow-x: auto;
 }
 
-.settings-tab-btn {
+.settings-tab-btn,
+.pipeline-tab-btn {
     background: none;
     border: none;
     color: var(--text-secondary);
@@ -1639,23 +1647,27 @@ body {
     transition: all 0.3s ease;
 }
 
-.settings-tab-btn:hover {
+.settings-tab-btn:hover,
+.pipeline-tab-btn:hover {
     color: var(--text-primary);
     background: rgba(255, 255, 255, 0.03);
 }
 
-.settings-tab-btn.active {
+.settings-tab-btn.active,
+.pipeline-tab-btn.active {
     color: var(--text-primary);
     background: rgba(127, 90, 240, 0.15);
     box-shadow: inset 0 0 10px rgba(127, 90, 240, 0.1);
 }
 
-.settings-tab-pane {
+.settings-tab-pane,
+.pipeline-tab-pane {
     display: none;
     animation: fadeIn 0.35s ease-out;
 }
 
-.settings-tab-pane.active {
+.settings-tab-pane.active,
+.pipeline-tab-pane.active {
     display: block;
 }
 

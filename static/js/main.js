@@ -1067,6 +1067,21 @@ document.querySelectorAll('.settings-tab-btn').forEach(btn => {
     });
 });
 
+// Subtab navigation in Pipelines section
+document.querySelectorAll('.pipeline-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.pipeline-tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.pipeline-tab-pane').forEach(p => p.classList.remove('active'));
+        
+        btn.classList.add('active');
+        const paneId = `pane-${btn.getAttribute('data-pipeline-tab')}`;
+        const pane = document.getElementById(paneId);
+        if (pane) {
+            pane.classList.add('active');
+        }
+    });
+});
+
 // Keywords tags rendering
 function renderKeywords(type) {
     const container = document.getElementById(`${type}-keywords-container`);
@@ -1490,6 +1505,7 @@ async function loadSettings() {
         // 4. Recruiter Outreach fields
         setVal('recruiter-interval', recruiter.interval || '120');
         setVal('recruiter-daily-limit', recruiter.daily_limit || '5');
+        setVal('recruiter-target-count', recruiter.target_count || '2');
         setChecked('recruiter-review-mode', recruiter.review_mode !== false);
         setVal('recruiter-message-template', recruiter.message_template);
 
@@ -1587,6 +1603,7 @@ async function saveSettingsForm(event) {
         "recruiter_outreach": {
             "interval": getVal('recruiter-interval', recruiterOutreach.interval || '120'),
             "daily_limit": getVal('recruiter-daily-limit', recruiterOutreach.daily_limit || '5'),
+            "target_count": getVal('recruiter-target-count', recruiterOutreach.target_count || '2'),
             "review_mode": getChecked('recruiter-review-mode', recruiterOutreach.review_mode),
             "message_template": getVal('recruiter-message-template', recruiterOutreach.message_template)
         },
