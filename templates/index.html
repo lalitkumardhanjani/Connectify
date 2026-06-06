@@ -931,8 +931,7 @@
                                         </label>
                                     </div>
                                 </div>
-
-                                <div class="settings-card card-glass grid-span-2">
+                                <div class="settings-card card-glass">
                                     <h3><i class="fa-solid fa-address-book glow-icon-teal"></i> Target Network Keywords</h3>
                                     <p class="card-subtitle">Manage terms searched during connection routines</p>
                                     <div class="form-group">
@@ -953,10 +952,11 @@
                                                 <button type="button" class="btn btn-primary" onclick="applyBulkKeywords('connect')" style="padding: 6px 12px; font-size: 0.8rem;">Apply</button>
                                                 <button type="button" class="btn btn-secondary" onclick="toggleBulkPaste('connect')" style="padding: 6px 12px; font-size: 0.8rem;">Cancel</button>
                                             </div>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div class="settings-card card-glass grid-span-3 exclusion-keywords-card">
+                                <div class="settings-card card-glass exclusion-keywords-card">
                                     <h3><i class="fa-solid fa-ban glow-icon-red"></i> Exclusion Filters</h3>
                                     <p class="card-subtitle">Jobs matching any exclusion keyword will be skipped entirely — not saved or processed</p>
                                     <div class="form-group">
@@ -984,15 +984,10 @@
 
                             <div style="margin-top: 20px;">
                                 <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8px;">
-                                        <div>
-                                            <label style="margin-bottom: 2px;">LinkedIn Invite Note Studio</label>
-                                            <p style="font-size:0.8rem;color:var(--text-secondary);">
-                                                LinkedIn restricts invitations notes to <strong style="color:var(--accent-yellow)">300 characters</strong> — keep your note highly concise.
-                                            </p>
-                                        </div>
-                                    </div>
-
+                                    <label style="margin-bottom: 2px;">Available Invite Note Tokens</label>
+                                    <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:8px;">
+                                        Click a token below to insert it at your cursor position inside the Invitation Note Studio:
+                                    </p>
                                     <!-- Variable tokens reference -->
                                     <div class="template-var-legend" style="flex-wrap: wrap; gap: 6px;">
                                         <span class="tvar-title"><i class="fa-solid fa-brackets-curly"></i> Click to Insert:</span>
@@ -1009,6 +1004,19 @@
                                         <span class="tvar-badge" onclick="insertToken('connect', '{company}')" title="Click to insert">{company}</span>
                                         <span class="tvar-badge" onclick="insertToken('connect', '{job_url}')" title="Click to insert">{job_url}</span>
                                         <span class="tvar-badge" onclick="insertToken('connect', '{resume}')" title="Click to insert">{resume}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style="margin-top: 20px;">
+                                <div class="form-group">
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8px;">
+                                        <div>
+                                            <label style="margin-bottom: 2px;">LinkedIn Invite Note Studio</label>
+                                            <p style="font-size:0.8rem;color:var(--text-secondary);">
+                                                LinkedIn restricts invitations notes to <strong style="color:var(--accent-yellow)">300 characters</strong> — keep your note highly concise.
+                                            </p>
+                                        </div>
                                     </div>
 
                                     <div class="template-editor-container">
