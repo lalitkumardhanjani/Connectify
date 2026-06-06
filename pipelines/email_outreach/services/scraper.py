@@ -271,6 +271,7 @@ class LinkedInScraper:
         user_conf = get_selected_user_config()
         email_scraper = user_conf.get("email_scraper", {})
         search_keywords = email_scraper.get("keywords", DBA_KEYWORDS_DEFAULT)
+        excluded_keywords = [kw.lower().strip() for kw in email_scraper.get("excluded_keywords", []) if kw.strip()]
 
         while True:
             if time.time() - start_time > timeout_seconds:
@@ -294,14 +295,20 @@ class LinkedInScraper:
                     if data and data.get('content'):
                         content = data['content']
                         if any(kw.lower() in content.lower() for kw in search_keywords):
-                            emails = extract_emails(content)
-                            for email in emails:
-                                appended = append_email(email, keyword)
-                                if appended:
-                                    logger.info(f"Collected new email: {email}")
+                            # Check exclusion keywords against post content
+                            excluded_hit = next((kw for kw in excluded_keywords if kw in content.lower()), None)
+                            if excluded_hit:
+                                logger.debug(f"Post excluded by exclusion keyword '{excluded_hit}' – skipped.")
+                            else:
+                                emails = extract_emails(content)
+                                for email in emails:
+                                    appended = append_email(email, keyword)
+                                    if appended:
+                                        logger.info(f"Collected new email: {email}")
                         else:
                             logger.debug("Post did not contain any target keyword – skipped.")
                     processed_ids.add(post_id)
+
             except Exception as e:
                 logger.error(f"Error during post processing: {e}")
 

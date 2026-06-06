@@ -558,17 +558,24 @@ def run_job_finder(target_url=None):
                                 continue
 
                             if is_title_matching_keywords(position, keywords):
-                                try:
-                                    if save_job({
-                                        "url": external_url,
-                                        "company": company,
-                                        "position": position,
-                                        "search_keyword": keyword
-                                    }):
-                                        total_saved += 1
-                                        logger.info("  [SUCCESS] Job stored in Excel tracker.")
-                                except Exception as e:
-                                    logger.error(f"  [ERROR] Excel save error: {e}")
+                                # Check exclusion keywords against job title
+                                excluded_kws = [kw.lower().strip() for kw in user_conf.get("linkedin_connect", {}).get("excluded_keywords", []) if kw.strip()]
+                                excluded_hit = next((kw for kw in excluded_kws if kw in position.lower()), None)
+                                if excluded_hit:
+                                    logger.info(f"  [SKIP] Title '{position}' excluded by exclusion keyword '{excluded_hit}'.")
+                                else:
+                                    try:
+                                        if save_job({
+                                            "url": external_url,
+                                            "company": company,
+                                            "position": position,
+                                            "search_keyword": keyword
+                                        }):
+                                            total_saved += 1
+                                            logger.info("  [SUCCESS] Job stored in Excel tracker.")
+                                    except Exception as e:
+                                        logger.error(f"  [ERROR] Excel save error: {e}")
+
                             else:
                                 logger.info(f"  [SKIP] Title '{position}' does not match configured keyword list.")
 

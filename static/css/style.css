@@ -2940,3 +2940,104 @@ body {
     transform: translateY(-1px);
 }
 
+/* Inline Subject Editor Styling */
+.subject-input-wrapper {
+    background: rgba(255, 255, 255, 0.01);
+    border-bottom: 1px solid var(--glass-border);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+}
+
+.subject-input-group {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    gap: 8px;
+}
+
+.subject-input-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+    min-width: 60px;
+}
+
+.subject-input-field {
+    flex-grow: 1;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+    padding: 2px 0 !important;
+    outline: none;
+}
+
+/* Premium Tags styling for Excluded Keywords */
+.tag-badge-excluded {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(244, 63, 94, 0.12));
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #fca5a5;
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.tag-badge-excluded:hover {
+    border-color: #ef4444;
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.22), rgba(244, 63, 94, 0.22));
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2);
+}
+
+.tag-badge-excluded .btn-remove-tag {
+    cursor: pointer;
+    font-size: 0.75rem;
+    color: #fca5a5;
+    transition: color 0.2s ease;
+}
+
+.tag-badge-excluded .btn-remove-tag:hover {
+    color: #ffffff;
+}
+
+.tags-input-container.tags-input-excluded {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.tags-input-container.tags-input-excluded:focus-within {
+    border-color: #ef4444;
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
+}
+
+.btn-tag-action-red {
+    background: rgba(239, 68, 68, 0.1);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-tag-action-red:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #ffffff;
+}
+
+.glow-icon-red {
+    text-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+    color: #ef4444;
+}
+

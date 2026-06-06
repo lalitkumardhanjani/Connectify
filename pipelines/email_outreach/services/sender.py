@@ -29,11 +29,14 @@ def generate_email_draft():
     if not raw_template:
         raw_template = DEFAULT_EMAIL_TEMPLATE
         
+    # Retrieve subject from config (fall back to default if not set)
+    subject = email_scraper.get("email_subject", "").strip() or "Referral Request – DBA Opportunity"
+
     # Substitute variables
     body = substitute_template_variables(raw_template, profile)
-    subject = "Referral Request – DBA Opportunity"
     
     return subject, body
+
 
 
 def send_email_smtp(to_email, name, post_url):

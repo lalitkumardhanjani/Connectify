@@ -404,14 +404,17 @@ def create_user_profile():
         },
         "email_scraper": {
             "email_template": DEFAULT_EMAIL_TEMPLATE,
-            "keywords": ["SQL DBA", "SQL Server DBA", "Database Administrator"],
+            "email_subject": "",
+            "keywords": [],
+            "excluded_keywords": [],
             "sender_email": "",
             "interval": "60",
             "review_mode": True
         },
         "linkedin_connect": {
             "message_template": DEFAULT_CONNECTION_TEMPLATE,
-            "keywords": ["SQL DBA", "SQL Server DBA"],
+            "keywords": [],
+            "excluded_keywords": [],
             "interval": "60",
             "review_mode": True
         }
@@ -462,18 +465,24 @@ def save_user_keywords():
     body = request.get_json() or {}
     kws_type = body.get("type")
     keywords = body.get("keywords", [])
-    
-    if kws_type not in ("scraper", "connect"):
+
+    valid_types = ("scraper", "connect", "scraper-excluded", "connect-excluded")
+    if kws_type not in valid_types:
         return jsonify({"status": "error", "message": "Invalid keywords type"}), 400
-        
+
     config = load_all_configs()
     username = get_selected_user_name()
     if username not in config.get("users", {}):
         return jsonify({"status": "error", "message": f"User {username} not found"}), 404
-        
-    target_key = "email_scraper" if kws_type == "scraper" else "linkedin_connect"
-    config["users"][username][target_key]["keywords"] = [k.strip() for k in keywords if str(k).strip()]
-    
+
+    if kws_type in ("scraper", "scraper-excluded"):
+        target_section = "email_scraper"
+    else:
+        target_section = "linkedin_connect"
+
+    field = "keywords" if kws_type in ("scraper", "connect") else "excluded_keywords"
+    config["users"][username][target_section][field] = [k.strip() for k in keywords if str(k).strip()]
+
     save_all_configs(config)
     return jsonify({"status": "success"})
 

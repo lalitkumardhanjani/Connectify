@@ -818,6 +818,8 @@ let allUsers = [];
 let userDetails = {};
 let scraperKeywords = [];
 let connectKeywords = [];
+let scraperExcludedKeywords = [];
+let connectExcludedKeywords = [];
 let cachedConfig = {};
 
 // Helper to get 1 or 2 initials from a username
@@ -1017,16 +1019,24 @@ document.querySelectorAll('.settings-tab-btn').forEach(btn => {
 function renderKeywords(type) {
     const container = document.getElementById(`${type}-keywords-container`);
     const inputField = document.getElementById(`${type}-tag-input`);
-    const keywordsList = type === 'scraper' ? scraperKeywords : connectKeywords;
+    if (!container || !inputField) return;
+
+    let keywordsList;
+    if (type === 'scraper') keywordsList = scraperKeywords;
+    else if (type === 'connect') keywordsList = connectKeywords;
+    else if (type === 'scraper-excluded') keywordsList = scraperExcludedKeywords;
+    else if (type === 'connect-excluded') keywordsList = connectExcludedKeywords;
+    else return;
     
     // Clear old tags
-    const oldTags = container.querySelectorAll('.tag-badge');
+    const oldTags = container.querySelectorAll('.tag-badge, .tag-badge-excluded');
     oldTags.forEach(el => el.remove());
     
     // Render current tags
+    const isExcluded = type.endsWith('-excluded');
     keywordsList.forEach((kw, index) => {
         const badge = document.createElement('div');
-        badge.className = 'tag-badge';
+        badge.className = isExcluded ? 'tag-badge-excluded' : 'tag-badge';
         badge.innerHTML = `
             <span>${kw}</span>
             <i class="fa-solid fa-xmark btn-remove-tag" onclick="removeKeyword('${type}', ${index})"></i>
@@ -1037,7 +1047,13 @@ function renderKeywords(type) {
 
 // Immediately save keywords to backend JSON files
 async function saveKeywordsToBackend(type) {
-    const keywordsList = type === 'scraper' ? scraperKeywords : connectKeywords;
+    let keywordsList;
+    if (type === 'scraper') keywordsList = scraperKeywords;
+    else if (type === 'connect') keywordsList = connectKeywords;
+    else if (type === 'scraper-excluded') keywordsList = scraperExcludedKeywords;
+    else if (type === 'connect-excluded') keywordsList = connectExcludedKeywords;
+    else return;
+
     try {
         const response = await fetch('/api/users/config/keywords', {
             method: 'POST',
@@ -1051,11 +1067,19 @@ async function saveKeywordsToBackend(type) {
         if (res.status === 'success') {
             console.log(`Keywords updated successfully for ${type}`);
             if (cachedConfig && cachedConfig.config) {
-                const targetKey = type === 'scraper' ? 'email_scraper' : 'linkedin_connect';
-                if (!cachedConfig.config[targetKey]) {
-                    cachedConfig.config[targetKey] = {};
+                if (type === 'scraper') {
+                    if (!cachedConfig.config.email_scraper) cachedConfig.config.email_scraper = {};
+                    cachedConfig.config.email_scraper.keywords = [...keywordsList];
+                } else if (type === 'connect') {
+                    if (!cachedConfig.config.linkedin_connect) cachedConfig.config.linkedin_connect = {};
+                    cachedConfig.config.linkedin_connect.keywords = [...keywordsList];
+                } else if (type === 'scraper-excluded') {
+                    if (!cachedConfig.config.email_scraper) cachedConfig.config.email_scraper = {};
+                    cachedConfig.config.email_scraper.excluded_keywords = [...keywordsList];
+                } else if (type === 'connect-excluded') {
+                    if (!cachedConfig.config.linkedin_connect) cachedConfig.config.linkedin_connect = {};
+                    cachedConfig.config.linkedin_connect.excluded_keywords = [...keywordsList];
                 }
-                cachedConfig.config[targetKey].keywords = [...keywordsList];
             }
         } else {
             console.error('Failed to save keywords:', res.message);
@@ -1067,10 +1091,17 @@ async function saveKeywordsToBackend(type) {
 
 function addKeyword(type) {
     const inputField = document.getElementById(`${type}-tag-input`);
+    if (!inputField) return;
     const value = inputField.value.trim();
     if (!value) return;
     
-    const keywordsList = type === 'scraper' ? scraperKeywords : connectKeywords;
+    let keywordsList;
+    if (type === 'scraper') keywordsList = scraperKeywords;
+    else if (type === 'connect') keywordsList = connectKeywords;
+    else if (type === 'scraper-excluded') keywordsList = scraperExcludedKeywords;
+    else if (type === 'connect-excluded') keywordsList = connectExcludedKeywords;
+    else return;
+
     if (!keywordsList.includes(value)) {
         keywordsList.push(value);
         renderKeywords(type);
@@ -1080,7 +1111,13 @@ function addKeyword(type) {
 }
 
 function removeKeyword(type, index) {
-    const keywordsList = type === 'scraper' ? scraperKeywords : connectKeywords;
+    let keywordsList;
+    if (type === 'scraper') keywordsList = scraperKeywords;
+    else if (type === 'connect') keywordsList = connectKeywords;
+    else if (type === 'scraper-excluded') keywordsList = scraperExcludedKeywords;
+    else if (type === 'connect-excluded') keywordsList = connectExcludedKeywords;
+    else return;
+
     keywordsList.splice(index, 1);
     renderKeywords(type);
     saveKeywordsToBackend(type);
@@ -1089,16 +1126,22 @@ function removeKeyword(type, index) {
 // Inline Bulk paste keywords
 function toggleBulkPaste(type) {
     const box = document.getElementById(`${type}-bulk-paste-box`);
+    if (!box) return;
     box.classList.toggle('hidden');
     if (!box.classList.contains('hidden')) {
         const keywordsList = type === 'scraper' ? scraperKeywords : connectKeywords;
-        document.getElementById(`${type}-bulk-paste-text`).value = keywordsList.join(', ');
-        document.getElementById(`${type}-bulk-paste-text`).focus();
+        const textarea = document.getElementById(`${type}-bulk-paste-text`);
+        if (textarea) {
+            textarea.value = keywordsList.join(', ');
+            textarea.focus();
+        }
     }
 }
 
 function applyBulkKeywords(type) {
-    const text = document.getElementById(`${type}-bulk-paste-text`).value;
+    const textarea = document.getElementById(`${type}-bulk-paste-text`);
+    if (!textarea) return;
+    const text = textarea.value;
     const splitKws = text.split(/,|\n/).map(k => k.trim()).filter(k => k.length > 0);
     
     if (type === 'scraper') {
@@ -1111,23 +1154,61 @@ function applyBulkKeywords(type) {
     saveKeywordsToBackend(type);
 }
 
+// Inline Bulk paste excluded keywords
+function toggleExcludedBulkPaste(type) {
+    const box = document.getElementById(`${type}-excluded-bulk-paste-box`);
+    if (!box) return;
+    box.classList.toggle('hidden');
+    if (!box.classList.contains('hidden')) {
+        const keywordsList = type === 'scraper' ? scraperExcludedKeywords : connectExcludedKeywords;
+        const textarea = document.getElementById(`${type}-excluded-bulk-paste-text`);
+        if (textarea) {
+            textarea.value = keywordsList.join(', ');
+            textarea.focus();
+        }
+    }
+}
+
+function applyExcludedBulkKeywords(type) {
+    const textarea = document.getElementById(`${type}-excluded-bulk-paste-text`);
+    if (!textarea) return;
+    const text = textarea.value;
+    const splitKws = text.split(/,|\n/).map(k => k.trim()).filter(k => k.length > 0);
+    
+    if (type === 'scraper') {
+        scraperExcludedKeywords = splitKws;
+    } else {
+        connectExcludedKeywords = splitKws;
+    }
+    renderKeywords(`${type}-excluded`);
+    toggleExcludedBulkPaste(type);
+    saveKeywordsToBackend(`${type}-excluded`);
+}
+
 // Switch email/connect templates between preview and edit mode
 function switchTemplateMode(type, mode) {
     const editBtn = document.getElementById(`btn-mode-edit-${type}`);
     const previewBtn = document.getElementById(`btn-mode-preview-${type}`);
     const textarea = document.getElementById(`${type}-${type === 'scraper' ? 'email' : 'message'}-template`);
     const previewBox = document.getElementById(`${type}-template-preview`);
+    const subjectContainer = document.getElementById('scraper-subject-container');
     
     if (mode === 'edit') {
         editBtn.classList.add('active');
         previewBtn.classList.remove('active');
         textarea.classList.remove('hidden');
         previewBox.classList.add('hidden');
+        if (type === 'scraper' && subjectContainer) {
+            subjectContainer.classList.remove('hidden');
+        }
     } else {
         editBtn.classList.remove('active');
         previewBtn.classList.add('active');
         textarea.classList.add('hidden');
         previewBox.classList.remove('hidden');
+        if (type === 'scraper' && subjectContainer) {
+            subjectContainer.classList.add('hidden');
+        }
         
         // Render Preview with resolved placeholder strings
         const rawTemplate = textarea.value;
@@ -1158,6 +1239,26 @@ function switchTemplateMode(type, mode) {
             .replace(/{company}/g, "Sample Company")
             .replace(/{job_url}/g, "https://linkedin.com/jobs/view/12345");
             
+        if (type === 'scraper') {
+            const rawSubject = document.getElementById('scraper-email-subject') ? document.getElementById('scraper-email-subject').value : '';
+            let previewSubject = rawSubject
+                .replace(/{FIRST_NAME}/g, firstName)
+                .replace(/{LAST_NAME}/g, lastName)
+                .replace(/{EMAIL}/g, email)
+                .replace(/{PHONE_NUMBER}/g, phone)
+                .replace(/{EXPERIENCE}/g, experience)
+                .replace(/{LINKEDIN_PROFILE_URL}/g, linkedinUrl)
+                .replace(/{CURRENT_LOCATION}/g, currentLocation)
+                .replace(/{PREFERRED_LOCATIONS}/g, preferredLocations)
+                .replace(/{CURRENT_CTC}/g, currentCtc)
+                .replace(/{EXPECTED_CTC}/g, expectedCtc);
+            
+            const subjectPreviewElement = document.getElementById('scraper-preview-subject-content');
+            if (subjectPreviewElement) {
+                subjectPreviewElement.innerText = previewSubject || "Referral Request – DBA Opportunity";
+            }
+        }
+
         const bodyContent = document.getElementById(`${type}-preview-body-content`);
         if (bodyContent) {
             bodyContent.innerText = previewHtml;
@@ -1315,9 +1416,12 @@ async function loadSettings() {
         setVal('scraper-interval', scraper.interval || '60');
         setChecked('scraper-review-mode', scraper.review_mode === true);
         setVal('scraper-email-template', scraper.email_template);
+        setVal('scraper-email-subject', scraper.email_subject || '');
         
         scraperKeywords = scraper.keywords || [];
         renderKeywords('scraper');
+        scraperExcludedKeywords = scraper.excluded_keywords || [];
+        renderKeywords('scraper-excluded');
         
         // 3. LinkedIn Connect fields
         setVal('connect-interval', connect.interval || '120');
@@ -1326,6 +1430,8 @@ async function loadSettings() {
         
         connectKeywords = connect.keywords || [];
         renderKeywords('connect');
+        connectExcludedKeywords = connect.excluded_keywords || [];
+        renderKeywords('connect-excluded');
 
         // Reset Template mode displays to Edit
         switchTemplateMode('scraper', 'edit');
@@ -1365,6 +1471,8 @@ async function saveSettingsForm(event) {
     // Add any remaining tags entered in input fields
     addKeyword('scraper');
     addKeyword('connect');
+    addKeyword('scraper-excluded');
+    addKeyword('connect-excluded');
     
     const profile = cachedConfig.config?.profile || {};
     const emailScraper = cachedConfig.config?.email_scraper || {};
@@ -1402,12 +1510,15 @@ async function saveSettingsForm(event) {
             "interval": getVal('scraper-interval', emailScraper.interval || '60'),
             "review_mode": getChecked('scraper-review-mode', emailScraper.review_mode),
             "keywords": scraperKeywords,
+            "excluded_keywords": scraperExcludedKeywords,
+            "email_subject": getVal('scraper-email-subject', emailScraper.email_subject || ""),
             "email_template": getVal('scraper-email-template', emailScraper.email_template)
         },
         "linkedin_connect": {
             "interval": getVal('connect-interval', linkedinConnect.interval || '120'),
             "review_mode": getChecked('connect-review-mode', linkedinConnect.review_mode),
             "keywords": connectKeywords,
+            "excluded_keywords": connectExcludedKeywords,
             "message_template": getVal('connect-message-template', linkedinConnect.message_template)
         },
         "global_settings": {
@@ -1632,6 +1743,28 @@ if (connectTagInput) {
     connectTagInput.addEventListener('blur', () => addKeyword('connect'));
 }
 
+const scraperExcludedTagInput = document.getElementById('scraper-excluded-tag-input');
+if (scraperExcludedTagInput) {
+    scraperExcludedTagInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addKeyword('scraper-excluded');
+        }
+    });
+    scraperExcludedTagInput.addEventListener('blur', () => addKeyword('scraper-excluded'));
+}
+
+const connectExcludedTagInput = document.getElementById('connect-excluded-tag-input');
+if (connectExcludedTagInput) {
+    connectExcludedTagInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addKeyword('connect-excluded');
+        }
+    });
+    connectExcludedTagInput.addEventListener('blur', () => addKeyword('connect-excluded'));
+}
+
 // Dropdown click handlers
 const dropdownTrigger = document.getElementById('user-select-trigger');
 if (dropdownTrigger) {
@@ -1661,49 +1794,9 @@ setInterval(loadStats, 10000); // refresh metrics every 10s
 
 // ── Template Reset Helpers ───────────────────────────────────────────────────
 
-// These defaults mirror DEFAULT_EMAIL_TEMPLATE / DEFAULT_CONNECTION_TEMPLATE
-// in user_config_manager.py. If the user clears the textarea or wants a fresh
-// start, clicking "Reset to Default" restores them here without a server call.
+const DEFAULT_EMAIL_TEMPLATE = ``;
 
-const DEFAULT_EMAIL_TEMPLATE = `Hi,
-
-I came across your post regarding an opportunity.
-
-My name is {FIRST_NAME}, and I have {EXPERIENCE} of experience.
-
-I have attached my resume for your review. If my profile is a good fit for the role, I would be grateful if you could consider referring me or sharing it with the appropriate hiring team.
-
-Email: {EMAIL}
-Mobile: {PHONE_NUMBER}
-Current Location: {CURRENT_LOCATION}
-Preferred Locations: {PREFERRED_LOCATIONS}
-LinkedIn: {LINKEDIN_PROFILE_URL}
-
-Thank you for your time and support.
-
-Regards,
-{FIRST_NAME}`;
-
-const DEFAULT_CONNECT_TEMPLATE = `Hi, I am {FIRST_NAME}. I am applying for the position at {company}. Would you kindly refer me?\nJob: {job_url}\nResume: {resume}\nThank you for your support.`;
-
-function resetEmailTemplate() {
-    if (!confirm('Reset to the default email template? Your current edits will be lost.')) return;
-    const ta = document.getElementById('scraper-email-template');
-    if (ta) {
-        ta.value = DEFAULT_EMAIL_TEMPLATE;
-        switchTemplateMode('scraper', 'edit');
-    }
-}
-
-function resetConnectTemplate() {
-    if (!confirm('Reset to the default connection message? Your current edits will be lost.')) return;
-    const ta = document.getElementById('connect-message-template');
-    if (ta) {
-        ta.value = DEFAULT_CONNECT_TEMPLATE.replace(/\\n/g, '\n');
-        updateConnectCharCount();
-        switchTemplateMode('connect', 'edit');
-    }
-}
+const DEFAULT_CONNECT_TEMPLATE = ``;
 
 function insertToken(type, token) {
     const el = document.getElementById(`${type}-${type === 'scraper' ? 'email' : 'message'}-template`);

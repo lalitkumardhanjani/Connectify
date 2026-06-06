@@ -807,6 +807,31 @@
                                         </div>
                                     </div>
                                 </div>
+
+                                <div class="settings-card card-glass grid-span-3 exclusion-keywords-card">
+                                    <h3><i class="fa-solid fa-ban glow-icon-red"></i> Exclusion Filters</h3>
+                                    <p class="card-subtitle">Posts matching any exclusion keyword will be skipped entirely — not scraped or saved</p>
+                                    <div class="form-group">
+                                        <div class="tags-input-container tags-input-excluded" id="scraper-excluded-keywords-container">
+                                            <!-- Exclusion keyword tags rendered by JS -->
+                                            <input type="text" class="tag-input-field" id="scraper-excluded-tag-input" placeholder="Add exclusion keyword (press Enter)...">
+                                        </div>
+                                        <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                                            <button type="button" class="btn-tag-action btn-tag-action-red" onclick="toggleExcludedBulkPaste('scraper')">
+                                                <i class="fa-solid fa-paste"></i> Bulk Paste Exclusions
+                                            </button>
+                                        </div>
+                                        <!-- Inline Bulk Paste container -->
+                                        <div class="keyword-bulk-paste-container hidden" id="scraper-excluded-bulk-paste-box" style="margin-top: 10px;">
+                                            <label for="scraper-excluded-bulk-paste-text" style="font-size: 0.8rem; color: var(--text-secondary);">Bulk Paste Exclusions (comma or newline separated):</label>
+                                            <textarea id="scraper-excluded-bulk-paste-text" placeholder="oracle&#10;postgresql&#10;db2" style="width: 100%; min-height: 80px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: 6px; padding: 10px; color: var(--text-primary); font-family: var(--font-sans); margin-top: 5px; resize: vertical; outline: none;"></textarea>
+                                            <div style="display: flex; gap: 8px; margin-top: 8px;">
+                                                <button type="button" class="btn btn-danger" onclick="applyExcludedBulkKeywords('scraper')" style="padding: 6px 12px; font-size: 0.8rem;">Apply</button>
+                                                <button type="button" class="btn btn-secondary" onclick="toggleExcludedBulkPaste('scraper')" style="padding: 6px 12px; font-size: 0.8rem;">Cancel</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             <div style="margin-top: 20px;">
@@ -818,9 +843,6 @@
                                                 Draft cold messages utilizing auto-expanding profile parameters.
                                             </p>
                                         </div>
-                                        <button type="button" class="btn-reset-template" onclick="resetEmailTemplate()" title="Restore default template">
-                                            <i class="fa-solid fa-rotate-left"></i> Reset to Default
-                                        </button>
                                     </div>
 
                                     <!-- Variable tokens reference -->
@@ -846,6 +868,14 @@
                                                 <button type="button" class="template-mode-btn" id="btn-mode-preview-scraper" onclick="switchTemplateMode('scraper', 'preview')">Real-time Preview</button>
                                             </div>
                                         </div>
+                                        
+                                        <div id="scraper-subject-container" class="subject-input-wrapper">
+                                            <div class="subject-input-group">
+                                                <span class="subject-input-label">Subject:</span>
+                                                <input type="text" id="scraper-email-subject" class="subject-input-field" placeholder="e.g. Referral Request – {FIRST_NAME} Opportunity" autocomplete="off">
+                                            </div>
+                                        </div>
+
                                         <textarea id="scraper-email-template" class="template-textarea" placeholder="Outreach email template content..."></textarea>
                                         
                                         <!-- Mock Email Window Mockup -->
@@ -860,7 +890,7 @@
                                             </div>
                                             <div class="email-mockup-meta">
                                                 <div><span>To:</span> hiring.manager@company.com</div>
-                                                <div><span>Subject:</span> Application / Inquiry - Software Engineer</div>
+                                                <div><span>Subject:</span> <span id="scraper-preview-subject-content"></span></div>
                                             </div>
                                             <div class="email-mockup-body" id="scraper-preview-body-content">
                                                 <!-- Preview content gets rendered dynamically -->
@@ -923,6 +953,30 @@
                                                 <button type="button" class="btn btn-primary" onclick="applyBulkKeywords('connect')" style="padding: 6px 12px; font-size: 0.8rem;">Apply</button>
                                                 <button type="button" class="btn btn-secondary" onclick="toggleBulkPaste('connect')" style="padding: 6px 12px; font-size: 0.8rem;">Cancel</button>
                                             </div>
+                                    </div>
+                                </div>
+
+                                <div class="settings-card card-glass grid-span-3 exclusion-keywords-card">
+                                    <h3><i class="fa-solid fa-ban glow-icon-red"></i> Exclusion Filters</h3>
+                                    <p class="card-subtitle">Jobs matching any exclusion keyword will be skipped entirely — not saved or processed</p>
+                                    <div class="form-group">
+                                        <div class="tags-input-container tags-input-excluded" id="connect-excluded-keywords-container">
+                                            <!-- Exclusion keyword tags rendered by JS -->
+                                            <input type="text" class="tag-input-field" id="connect-excluded-tag-input" placeholder="Add exclusion keyword (press Enter)...">
+                                        </div>
+                                        <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                                            <button type="button" class="btn-tag-action btn-tag-action-red" onclick="toggleExcludedBulkPaste('connect')">
+                                                <i class="fa-solid fa-paste"></i> Bulk Paste Exclusions
+                                            </button>
+                                        </div>
+                                        <!-- Inline Bulk Paste container -->
+                                        <div class="keyword-bulk-paste-container hidden" id="connect-excluded-bulk-paste-box" style="margin-top: 10px;">
+                                            <label for="connect-excluded-bulk-paste-text" style="font-size: 0.8rem; color: var(--text-secondary);">Bulk Paste Exclusions (comma or newline separated):</label>
+                                            <textarea id="connect-excluded-bulk-paste-text" placeholder="oracle&#10;postgresql&#10;db2" style="width: 100%; min-height: 80px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: 6px; padding: 10px; color: var(--text-primary); font-family: var(--font-sans); margin-top: 5px; resize: vertical; outline: none;"></textarea>
+                                            <div style="display: flex; gap: 8px; margin-top: 8px;">
+                                                <button type="button" class="btn btn-danger" onclick="applyExcludedBulkKeywords('connect')" style="padding: 6px 12px; font-size: 0.8rem;">Apply</button>
+                                                <button type="button" class="btn btn-secondary" onclick="toggleExcludedBulkPaste('connect')" style="padding: 6px 12px; font-size: 0.8rem;">Cancel</button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -937,9 +991,6 @@
                                                 LinkedIn restricts invitations notes to <strong style="color:var(--accent-yellow)">300 characters</strong> — keep your note highly concise.
                                             </p>
                                         </div>
-                                        <button type="button" class="btn-reset-template" onclick="resetConnectTemplate()" title="Restore default template">
-                                            <i class="fa-solid fa-rotate-left"></i> Reset to Default
-                                        </button>
                                     </div>
 
                                     <!-- Variable tokens reference -->
