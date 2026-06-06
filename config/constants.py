@@ -11,3 +11,9 @@ JOB_LEADS_HEADERS = [
     'JobID', 'JobTitle', 'CompanyName', 'CompanyURL', 'ShortenURL', 'SearchKeyword', 'Status', 
     'ShortUrlCreated', 'CreatedDateTime'
 ]
+
+REFERRAL_HEADERS = [
+    'ReferralID', 'JobID', 'CompanyName', 'Referral_Person_Name', 'Referral_Person_Email',
+    'Referral_Person_Profile_URL', 'Referral_Person_Designation', 'Referral_Source',
+    'Referral_Status', 'Sent_Time', 'Error_Reason'
+]

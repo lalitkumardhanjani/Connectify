@@ -562,8 +562,8 @@
                                         <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
                                     </div>
                                     <div class="timeline-content">
-                                        <h4>Prepare Referral Links</h4>
-                                        <p>Generates short, trackable career links for warm outreach</p>
+                                        <h4>Discover Connected Employees</h4>
+                                        <p>Finds existing 1st-degree LinkedIn connections at target companies</p>
                                     </div>
                                     <button class="btn-step-run" onclick="runSingleStep(3, event)" title="Run this step only">
                                         <i class="fa-solid fa-play"></i>
@@ -577,10 +577,40 @@
                                         <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
                                     </div>
                                     <div class="timeline-content">
+                                        <h4>Send Referral Messages</h4>
+                                        <p>Sends referral request messages to those existing connections and verifies delivery</p>
+                                    </div>
+                                    <button class="btn-step-run" onclick="runSingleStep(4, event)" title="Run this step only">
+                                        <i class="fa-solid fa-play"></i>
+                                    </button>
+                                </div>
+                                <!-- Step 5 -->
+                                <div class="timeline-item p-step-seq" data-step="5">
+                                    <div class="timeline-marker">
+                                        <span class="marker-num">5</span>
+                                        <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
+                                        <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                    </div>
+                                    <div class="timeline-content">
+                                        <h4>Prepare Referral Links</h4>
+                                        <p>Generates short, trackable career links for warm outreach</p>
+                                    </div>
+                                    <button class="btn-step-run" onclick="runSingleStep(5, event)" title="Run this step only">
+                                        <i class="fa-solid fa-play"></i>
+                                    </button>
+                                </div>
+                                <!-- Step 6 -->
+                                <div class="timeline-item p-step-seq" data-step="6">
+                                    <div class="timeline-marker">
+                                        <span class="marker-num">6</span>
+                                        <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
+                                        <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                    </div>
+                                    <div class="timeline-content">
                                         <h4>Send LinkedIn Connection Requests</h4>
                                         <p>Automates warm connection requests & referral messages on LinkedIn</p>
                                     </div>
-                                    <button class="btn-step-run" onclick="runSingleStep(4, event)" title="Run this step only">
+                                    <button class="btn-step-run" onclick="runSingleStep(6, event)" title="Run this step only">
                                         <i class="fa-solid fa-play"></i>
                                     </button>
                                 </div>
@@ -615,9 +645,40 @@
                                         <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
                                     </div>
                                     <div class="timeline-content">
-                                        <h4>Recruiter Outreach</h4>
+                                        <h4>Discover Connected Recruiters</h4>
+                                        <p>Finds existing 1st-degree LinkedIn connections at target companies</p>
+                                    </div>
+                                    <button class="btn-step-run" onclick="runRecruiterStep(1, event)" title="Run this step only">
+                                        <i class="fa-solid fa-play"></i>
+                                    </button>
+                                </div>
+                                <div class="timeline-item p-step-seq" data-step="2">
+                                    <div class="timeline-marker">
+                                        <span class="marker-num">2</span>
+                                        <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
+                                        <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                    </div>
+                                    <div class="timeline-content">
+                                        <h4>Send Recruiter Messages</h4>
+                                        <p>Sends recruiter outreach messages to those existing connections and verifies delivery</p>
+                                    </div>
+                                    <button class="btn-step-run" onclick="runRecruiterStep(2, event)" title="Run this step only">
+                                        <i class="fa-solid fa-play"></i>
+                                    </button>
+                                </div>
+                                <div class="timeline-item p-step-seq" data-step="3">
+                                    <div class="timeline-marker">
+                                        <span class="marker-num">3</span>
+                                        <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
+                                        <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                    </div>
+                                    <div class="timeline-content">
+                                        <h4>Recruiter Connection Requests</h4>
                                         <p>Finds talent acquisition professionals & sends connection requests</p>
                                     </div>
+                                    <button class="btn-step-run" onclick="runRecruiterStep(3, event)" title="Run this step only">
+                                        <i class="fa-solid fa-play"></i>
+                                    </button>
                                 </div>
                             </div>
 
@@ -627,6 +688,7 @@
                             </div>
                         </div>
                     </div>
+
                 </div>
 
                 <!-- Interactive Terminal & Stdin Card -->
@@ -791,6 +853,63 @@
                     <!-- Pagination Controls -->
                     <div class="pagination-container" id="referral-pagination"></div>
                 </div>
+
+                <div class="table-card card-glass" style="margin-top: 30px;">
+                    <div class="table-header-custom" style="padding: 20px 20px 0 20px;">
+                        <h3 style="margin: 0; font-size: 1.25rem; color: var(--accent-blue);"><i class="fa-solid fa-users-rectangle"></i> Referral Outreach Contacts</h3>
+                        <p class="card-subtitle" style="margin: 5px 0 0 0; color: var(--text-secondary); font-size: 0.85rem;">Manage individual 1st-degree referral contacts, recruiters, and connection requests.</p>
+                    </div>
+                    <div class="table-controls flex-wrap" style="margin-top: 15px;">
+                        <div class="search-box">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="search-referrals-outreach" placeholder="Search by name, company, status...">
+                        </div>
+                        <div class="filter-controls">
+                            <div class="filter-group">
+                                <select id="filter-status-referrals-outreach">
+                                    <option value="all">All Statuses</option>
+                                    <option value="pending">Pending</option>
+                                    <option value="sent">Sent</option>
+                                    <option value="replied">Replied</option>
+                                    <option value="referral received">Referral Received</option>
+                                    <option value="failed">Failed</option>
+                                    <option value="skipped">Skipped</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <select id="filter-source-referrals-outreach">
+                                    <option value="all">All Sources</option>
+                                    <option value="existing connection">Existing Connection</option>
+                                    <option value="connection request">Connection Request</option>
+                                    <option value="recruiter outreach">Recruiter Outreach</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table" id="table-referrals-outreach">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Company</th>
+                                    <th>Contact Name</th>
+                                    <th>Designation</th>
+                                    <th>Source</th>
+                                    <th>Status</th>
+                                    <th>Sent Time</th>
+                                    <th style="width: 100px; text-align: center;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="8" class="table-empty">Loading referral contacts...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- Pagination Controls -->
+                    <div class="pagination-container" id="referrals-outreach-pagination"></div>
+                </div>
             </section>
 
             <!-- TAB 5: SETTINGS -->
@@ -812,6 +931,7 @@
                         <button type="button" class="settings-tab-btn" data-settings-tab="recruiter-outreach">
                             <i class="fa-solid fa-user-tie"></i> Recruiter Outreach
                         </button>
+
                     </div>
 
                     <form id="settings-form" onsubmit="saveSettingsForm(event)">
@@ -978,6 +1098,7 @@
                                     <div class="form-group">
                                         <label for="connect-interval">Action Timing Delay</label>
                                         <select id="connect-interval">
+                                            <option value="5">5 Seconds</option>
                                             <option value="15">15 Seconds</option>
                                             <option value="30">30 Seconds</option>
                                             <option value="60">1 Minute</option>
@@ -1080,6 +1201,59 @@
                                 </div>
                             </div>
 
+                            <!-- Referral Message Studio -->
+                            <div style="margin-top: 20px;">
+                                <div class="form-group">
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8px;">
+                                        <div>
+                                            <label style="margin-bottom: 2px;">LinkedIn Referral Message Studio</label>
+                                            <p style="font-size:0.8rem;color:var(--text-secondary);">
+                                                Referral messages are delivered to existing 1st-degree connections — you can write a longer, detailed request.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div class="template-editor-container">
+                                        <div class="template-editor-header">
+                                            <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;"><i class="fa-solid fa-comment-dots"></i> Referral Message Studio</span>
+                                            <div style="display:flex;align-items:center;gap:12px;">
+                                                <span id="referral-char-count" class="char-count-pill">0 / 1000</span>
+                                                <div class="template-modes">
+                                                    <button type="button" class="template-mode-btn active" id="btn-mode-edit-referral" onclick="switchTemplateMode('referral', 'edit')">Draft Editor</button>
+                                                    <button type="button" class="template-mode-btn" id="btn-mode-preview-referral" onclick="switchTemplateMode('referral', 'preview')">Real-time Preview</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <textarea id="referral-message-template" class="template-textarea" placeholder="Referral request message..." maxlength="1000" oninput="updateReferralCharCount()"></textarea>
+                                        
+                                        <!-- Mock LinkedIn Messaging Window -->
+                                        <div id="referral-template-preview" class="linkedin-mockup-window hidden">
+                                            <div class="linkedin-mockup-header">
+                                                <span>Message to Connection</span>
+                                                <i class="fa-solid fa-xmark"></i>
+                                            </div>
+                                            <div class="linkedin-mockup-body">
+                                                <div class="linkedin-manager-avatar">RM</div>
+                                                <div class="linkedin-manager-info">
+                                                    <div class="name">Referral Contact</div>
+                                                    <div class="title">Software Developer @ In Time Tec</div>
+                                                </div>
+                                                <div class="linkedin-invite-card">
+                                                    <p class="invite-header-text">Referral Message:</p>
+                                                    <div class="linkedin-invite-bubble" id="referral-preview-body-content">
+                                                        <!-- Preview content gets rendered dynamically -->
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="linkedin-mockup-footer">
+                                                <button type="button" class="btn-mock-cancel">Close</button>
+                                                <button type="button" class="btn-mock-send">Send Message</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div style="margin-top: 20px;">
                                 <div class="form-group">
                                     <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8px;">
@@ -1145,6 +1319,7 @@
                                     <div class="form-group">
                                         <label for="recruiter-interval">Action Timing Delay</label>
                                         <select id="recruiter-interval">
+                                            <option value="5">5 Seconds</option>
                                             <option value="15">15 Seconds</option>
                                             <option value="30">30 Seconds</option>
                                             <option value="60">1 Minute</option>
@@ -1155,94 +1330,151 @@
                                         </select>
                                     </div>
                                     <div class="form-group" style="margin-bottom: 16px;">
-                                        <label for="recruiter-daily-limit">Daily Invites Limit</label>
-                                        <input type="number" id="recruiter-daily-limit" min="1" max="100" value="5" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--glass-border); background:rgba(0,0,0,0.4); color:var(--text-primary);">
-                                    </div>
-                                    <div class="form-group" style="margin-bottom: 16px;">
-                                        <label for="recruiter-target-count">Target Recruiters per Company</label>
-                                        <input type="number" id="recruiter-target-count" min="1" max="100" value="2" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--glass-border); background:rgba(0,0,0,0.4); color:var(--text-primary);">
-                                    </div>
-                                    <div class="form-group toggle-group">
-                                        <span class="info-icon-wrapper">
-                                            <label for="recruiter-review-mode" style="margin-bottom: 0;">Invite Quality Gate</label>
-                                            <i class="fa-solid fa-circle-info info-tooltip-trigger" data-tooltip="Invite Quality Gate ON:&#10;You review recruiter outreach connection invites in the console overlay before they are sent.&#10;&#10;Invite Quality Gate OFF:&#10;Recruiter connection invites are delivered automatically."></i>
-                                        </span>
-                                        <label class="switch">
-                                            <input type="checkbox" id="recruiter-review-mode">
-                                            <span class="slider"></span>
-                                        </label>
-                                    </div>
-                                </div>
+                                         <label for="recruiter-target-count">Target Recruiters per Company</label>
+                                         <input type="number" id="recruiter-target-count" min="1" max="100" value="2" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--glass-border); background:rgba(0,0,0,0.4); color:var(--text-primary);">
+                                     </div>
+                                     <div class="form-group toggle-group">
+                                         <span class="info-icon-wrapper">
+                                             <label for="recruiter-review-mode" style="margin-bottom: 0;">Invite Quality Gate</label>
+                                             <i class="fa-solid fa-circle-info info-tooltip-trigger" data-tooltip="Invite Quality Gate ON:&#10;You review recruiter outreach connection invites in the console overlay before they are sent.&#10;&#10;Invite Quality Gate OFF:&#10;Recruiter connection invites are delivered automatically."></i>
+                                         </span>
+                                         <label class="switch">
+                                             <input type="checkbox" id="recruiter-review-mode">
+                                             <span class="slider"></span>
+                                         </label>
+                                     </div>
+                                 </div>
 
-                                <!-- Row 2: Available Recruiter Tokens Card -->
-                                <div class="settings-card card-glass">
-                                    <h3><i class="fa-solid fa-brackets-curly glow-icon-purple"></i> Available Recruiter Note Tokens</h3>
-                                    <p class="card-subtitle">Click a token below to insert it at your cursor position inside the Recruiter Note Studio:</p>
-                                    <div class="template-var-legend" style="flex-wrap: wrap; gap: 6px; margin-top: 10px;">
-                                        <span class="tvar-title"><i class="fa-solid fa-brackets-curly"></i> Click to Insert:</span>
-                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{FIRST_NAME}')" title="Click to insert">{FIRST_NAME}</span>
-                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{LAST_NAME}')" title="Click to insert">{LAST_NAME}</span>
-                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{EMAIL}')" title="Click to insert">{EMAIL}</span>
-                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{PHONE_NUMBER}')" title="Click to insert">{PHONE_NUMBER}</span>
-                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{EXPERIENCE}')" title="Click to insert">{EXPERIENCE}</span>
-                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{LINKEDIN_PROFILE_URL}')" title="Click to insert">{LINKEDIN_PROFILE_URL}</span>
-                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{CURRENT_LOCATION}')" title="Click to insert">{CURRENT_LOCATION}</span>
-                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{PREFERRED_LOCATIONS}')" title="Click to insert">{PREFERRED_LOCATIONS}</span>
-                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{CURRENT_CTC}')" title="Click to insert">{CURRENT_CTC}</span>
-                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{EXPECTED_CTC}')" title="Click to insert">{EXPECTED_CTC}</span>
-                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{company}')" title="Click to insert">{company}</span>
-                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{resume}')" title="Click to insert">{resume}</span>
-                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{first_name}')" title="Click to insert">{first_name}</span>
-                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{PERSON_NAME}')" title="Click to insert">{PERSON_NAME}</span>
-                                    </div>
-                                </div>
+                                 <!-- Row 2: Available Recruiter Tokens Card -->
+                                 <div class="settings-card card-glass">
+                                     <h3><i class="fa-solid fa-brackets-curly glow-icon-purple"></i> Available Recruiter Note Tokens</h3>
+                                     <p class="card-subtitle">Click a token below to insert it at your cursor position inside the Recruiter Note/Message Studios:</p>
+                                     <div class="template-var-legend" style="flex-wrap: wrap; gap: 6px; margin-top: 10px;">
+                                         <span class="tvar-title"><i class="fa-solid fa-brackets-curly"></i> Click to Insert:</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{FIRST_NAME}')" title="Click to insert">{FIRST_NAME}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{LAST_NAME}')" title="Click to insert">{LAST_NAME}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{EMAIL}')" title="Click to insert">{EMAIL}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{PHONE_NUMBER}')" title="Click to insert">{PHONE_NUMBER}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{EXPERIENCE}')" title="Click to insert">{EXPERIENCE}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{LINKEDIN_PROFILE_URL}')" title="Click to insert">{LINKEDIN_PROFILE_URL}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{CURRENT_LOCATION}')" title="Click to insert">{CURRENT_LOCATION}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{PREFERRED_LOCATIONS}')" title="Click to insert">{PREFERRED_LOCATIONS}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{CURRENT_CTC}')" title="Click to insert">{CURRENT_CTC}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{EXPECTED_CTC}')" title="Click to insert">{EXPECTED_CTC}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{company}')" title="Click to insert">{company}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{resume}')" title="Click to insert">{resume}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{first_name}')" title="Click to insert">{first_name}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{PERSON_NAME}')" title="Click to insert">{PERSON_NAME}</span>
+                                     </div>
+                                 </div>
 
-                                <!-- Row 3: LinkedIn Recruiter Invite Note Studio Card -->
-                                <div class="settings-card card-glass">
-                                    <h3><i class="fa-solid fa-comment-dots glow-icon-blue"></i> LinkedIn Recruiter Invite Note Studio</h3>
-                                    <p class="card-subtitle">LinkedIn restricts invitations notes to <strong style="color:var(--accent-yellow)">300 characters</strong>.</p>
-                                    
-                                    <div class="template-editor-container" style="margin-top: 10px;">
-                                        <div class="template-editor-header">
-                                            <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;"><i class="fa-solid fa-comment-dots"></i> Recruiter Note Studio</span>
-                                            <div style="display:flex;align-items:center;gap:12px;">
-                                                <span id="recruiter-char-count" class="char-count-pill">0 / 300</span>
-                                                <div class="template-modes">
-                                                    <button type="button" class="template-mode-btn active" id="btn-mode-edit-recruiter" onclick="switchTemplateMode('recruiter', 'edit')">Draft Editor</button>
-                                                    <button type="button" class="template-mode-btn" id="btn-mode-preview-recruiter" onclick="switchTemplateMode('recruiter', 'preview')">Real-time Preview</button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <textarea id="recruiter-message-template" class="template-textarea" placeholder="Recruiter connection request message..." maxlength="300" oninput="updateRecruiterCharCount()"></textarea>
-                                        
-                                        <!-- Mock Recruiter Invitation Window -->
-                                        <div id="recruiter-template-preview" class="linkedin-mockup-window hidden">
-                                            <div class="linkedin-mockup-header">
-                                                <span>Connect with Recruiter</span>
-                                                <i class="fa-solid fa-xmark"></i>
-                                            </div>
-                                            <div class="linkedin-mockup-body">
-                                                <div class="linkedin-manager-avatar" style="background: var(--accent-purple); color: white;">TA</div>
-                                                <div class="linkedin-manager-info">
-                                                    <div class="name">Recruiting Contact</div>
-                                                    <div class="title">Talent Acquisition &amp; Technical Recruiter</div>
-                                                </div>
-                                                <div class="linkedin-invite-card">
-                                                    <p class="invite-header-text">You can include a personal note to introduce yourself:</p>
-                                                    <div class="linkedin-invite-bubble" id="recruiter-preview-body-content">
-                                                        <!-- Preview content gets rendered dynamically -->
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="linkedin-mockup-footer">
-                                                <button type="button" class="btn-mock-cancel">Cancel</button>
-                                                <button type="button" class="btn-mock-send">Send Invitation</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                                 <!-- Row 3: LinkedIn Recruiter Invite Note Studio Card -->
+                                 <div class="settings-card card-glass">
+                                     <h3><i class="fa-solid fa-comment-dots glow-icon-blue"></i> LinkedIn Recruiter Invite Note Studio</h3>
+                                     <p class="card-subtitle">LinkedIn restricts invitations notes to <strong style="color:var(--accent-yellow)">300 characters</strong>.</p>
+                                     
+                                     <div class="template-editor-container" style="margin-top: 10px;">
+                                         <div class="template-editor-header">
+                                             <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;"><i class="fa-solid fa-comment-dots"></i> Recruiter Note Studio</span>
+                                             <div style="display:flex;align-items:center;gap:12px;">
+                                                 <span id="recruiter-char-count" class="char-count-pill">0 / 300</span>
+                                                 <div class="template-modes">
+                                                     <button type="button" class="template-mode-btn active" id="btn-mode-edit-recruiter" onclick="switchTemplateMode('recruiter', 'edit')">Draft Editor</button>
+                                                     <button type="button" class="template-mode-btn" id="btn-mode-preview-recruiter" onclick="switchTemplateMode('recruiter', 'preview')">Real-time Preview</button>
+                                                 </div>
+                                             </div>
+                                         </div>
+                                         <textarea id="recruiter-message-template" class="template-textarea" placeholder="Recruiter connection request message..." maxlength="300" oninput="updateRecruiterCharCount()"></textarea>
+                                         
+                                         <!-- Mock Recruiter Invitation Window -->
+                                         <div id="recruiter-template-preview" class="linkedin-mockup-window hidden">
+                                             <div class="linkedin-mockup-header">
+                                                 <span>Connect with Recruiter</span>
+                                                 <i class="fa-solid fa-xmark"></i>
+                                             </div>
+                                             <div class="linkedin-mockup-body">
+                                                 <div class="linkedin-manager-avatar" style="background: var(--accent-purple); color: white;">TA</div>
+                                                 <div class="linkedin-manager-info">
+                                                     <div class="name">Recruiting Contact</div>
+                                                     <div class="title">Talent Acquisition &amp; Technical Recruiter</div>
+                                                 </div>
+                                                 <div class="linkedin-invite-card">
+                                                     <p class="invite-header-text">You can include a personal note to introduce yourself:</p>
+                                                     <div class="linkedin-invite-bubble" id="recruiter-preview-body-content">
+                                                         <!-- Preview content gets rendered dynamically -->
+                                                     </div>
+                                                 </div>
+                                             </div>
+                                             <div class="linkedin-mockup-footer">
+                                                 <button type="button" class="btn-mock-cancel">Cancel</button>
+                                                 <button type="button" class="btn-mock-send">Send Invitation</button>
+                                             </div>
+                                         </div>
+                                     </div>
+                                 </div>
+
+                                 <!-- Row 4: LinkedIn Recruiter Message Studio Card -->
+                                 <div class="settings-card card-glass" style="margin-top: 20px;">
+                                     <h3><i class="fa-solid fa-comment-dots glow-icon-teal"></i> LinkedIn Recruiter Message Studio</h3>
+                                     <p class="card-subtitle">Recruiter messages are delivered to existing 1st-degree recruiter connections — you can write a longer, detailed request up to <strong style="color:var(--accent-yellow)">1000 characters</strong>.</p>
+                                     
+                                     <div class="template-var-legend" style="flex-wrap: wrap; gap: 6px; margin-top: 10px; margin-bottom: 15px;">
+                                         <span class="tvar-title"><i class="fa-solid fa-brackets-curly"></i> Click to Insert:</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{FIRST_NAME}')" title="Click to insert">{FIRST_NAME}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{LAST_NAME}')" title="Click to insert">{LAST_NAME}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{EMAIL}')" title="Click to insert">{EMAIL}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{PHONE_NUMBER}')" title="Click to insert">{PHONE_NUMBER}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{EXPERIENCE}')" title="Click to insert">{EXPERIENCE}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{LINKEDIN_PROFILE_URL}')" title="Click to insert">{LINKEDIN_PROFILE_URL}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{CURRENT_LOCATION}')" title="Click to insert">{CURRENT_LOCATION}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{PREFERRED_LOCATIONS}')" title="Click to insert">{PREFERRED_LOCATIONS}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{CURRENT_CTC}')" title="Click to insert">{CURRENT_CTC}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{EXPECTED_CTC}')" title="Click to insert">{EXPECTED_CTC}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{company}')" title="Click to insert">{company}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{resume}')" title="Click to insert">{resume}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{first_name}')" title="Click to insert">{first_name}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{PERSON_NAME}')" title="Click to insert">{PERSON_NAME}</span>
+                                     </div>
+
+                                     <div class="template-editor-container">
+                                         <div class="template-editor-header">
+                                             <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;"><i class="fa-solid fa-comment-dots"></i> Recruiter Message Studio</span>
+                                             <div style="display:flex;align-items:center;gap:12px;">
+                                                 <span id="recruiter-direct-char-count" class="char-count-pill">0 / 1000</span>
+                                                 <div class="template-modes">
+                                                     <button type="button" class="template-mode-btn active" id="btn-mode-edit-recruiter-direct" onclick="switchTemplateMode('recruiter-direct', 'edit')">Draft Editor</button>
+                                                     <button type="button" class="template-mode-btn" id="btn-mode-preview-recruiter-direct" onclick="switchTemplateMode('recruiter-direct', 'preview')">Real-time Preview</button>
+                                                 </div>
+                                             </div>
+                                         </div>
+                                         <textarea id="recruiter-direct-message-template" class="template-textarea" placeholder="Recruiter direct message..." maxlength="1000" oninput="updateRecruiterDirectCharCount()"></textarea>
+                                         
+                                         <!-- Mock Recruiter Message Window -->
+                                         <div id="recruiter-direct-template-preview" class="linkedin-mockup-window hidden">
+                                             <div class="linkedin-mockup-header">
+                                                 <span>Message to Recruiter</span>
+                                                 <i class="fa-solid fa-xmark"></i>
+                                             </div>
+                                             <div class="linkedin-mockup-body">
+                                                 <div class="linkedin-manager-avatar" style="background: var(--accent-teal); color: white;">TA</div>
+                                                 <div class="linkedin-manager-info">
+                                                     <div class="name">Recruiter Contact</div>
+                                                     <div class="title">Talent Acquisition Partner</div>
+                                                 </div>
+                                                 <div class="linkedin-invite-card">
+                                                     <p class="invite-header-text">Recruiter Message:</p>
+                                                     <div class="linkedin-invite-bubble" id="recruiter-direct-preview-body-content">
+                                                         <!-- Preview content gets rendered dynamically -->
+                                                     </div>
+                                                 </div>
+                                             </div>
+                                             <div class="linkedin-mockup-footer">
+                                                 <button type="button" class="btn-mock-cancel">Close</button>
+                                                 <button type="button" class="btn-mock-send">Send Message</button>
+                                             </div>
+                                         </div>
+                                     </div>
+                                 </div>
 
 
                         <!-- Actions bar -->
@@ -1351,6 +1583,58 @@
             </form>
         </div>
     </div>
+
+    <!-- Edit Referral Contact Modal -->
+    <div class="modal-overlay hidden" id="edit-referral-contact-modal">
+        <div class="modal-box" style="max-width: 500px;">
+            <div class="modal-header">
+                <i class="fa-solid fa-user-pen"></i> Edit Referral Contact
+            </div>
+            <form id="edit-referral-contact-form" onsubmit="saveReferralContactEditForm(event)">
+                <input type="hidden" id="edit-referral-contact-id">
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="edit-referral-contact-name">Contact Name</label>
+                    <input type="text" id="edit-referral-contact-name" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="edit-referral-contact-email">Email Address</label>
+                    <input type="email" id="edit-referral-contact-email">
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="edit-referral-contact-url">Profile URL</label>
+                    <input type="text" id="edit-referral-contact-url" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="edit-referral-contact-designation">Designation</label>
+                    <input type="text" id="edit-referral-contact-designation">
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="edit-referral-contact-source">Source</label>
+                    <select id="edit-referral-contact-source" required>
+                        <option value="Existing Connection">Existing Connection</option>
+                        <option value="Connection Request">Connection Request</option>
+                        <option value="Recruiter Outreach">Recruiter Outreach</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label for="edit-referral-contact-status">Status</label>
+                    <select id="edit-referral-contact-status" required>
+                        <option value="Pending">Pending</option>
+                        <option value="Sent">Sent</option>
+                        <option value="Replied">Replied</option>
+                        <option value="Referral Received">Referral Received</option>
+                        <option value="Failed">Failed</option>
+                        <option value="Skipped">Skipped</option>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="hideEditReferralContactModal()">Cancel</button>
+                    <button type="submit" class="btn btn-success">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
 
     <!-- Script File -->
     <script src="/static/js/main.js"></script>

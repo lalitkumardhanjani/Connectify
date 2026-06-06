@@ -22,6 +22,7 @@ navItems.forEach(item => {
             loadTableData('scraper');
         } else if (targetTab === 'db-referral') {
             loadTableData('referral');
+            loadTableData('referrals');
         } else if (targetTab === 'dashboard') {
             loadStats();
             if (typeof loadDashboardAnalytics === 'function') loadDashboardAnalytics();
@@ -164,23 +165,26 @@ async function pollLogs() {
             updateRecruiterPipelineSteps(data);
         }
 
+        const pipelinePrefix = activeTaskId.replace('_pipeline', '').replace(/_/g, '-');
+
         // Update badges
-        const badge = document.getElementById(`badge-${activeTaskId.split('_')[0]}`);
-        badge.innerText = data.status;
-        badge.className = `status-badge status-${data.status}`;
+        const badge = document.getElementById(`badge-${pipelinePrefix}`);
+        if (badge) {
+            badge.innerText = data.status;
+            badge.className = `status-badge status-${data.status}`;
+        }
 
         // Toggle action buttons based on state
-        const pipelinePrefix = activeTaskId.split('_')[0];
         const runBtn = document.getElementById(`btn-run-${pipelinePrefix}`);
         const killBtn = document.getElementById(`btn-kill-${pipelinePrefix}`);
         
         if (data.status === 'running') {
-            runBtn.classList.add('hidden');
-            killBtn.classList.remove('hidden');
+            if (runBtn) runBtn.classList.add('hidden');
+            if (killBtn) killBtn.classList.remove('hidden');
             setGlobalPipelineLock(activeTaskId);
         } else {
-            runBtn.classList.remove('hidden');
-            killBtn.classList.add('hidden');
+            if (runBtn) runBtn.classList.remove('hidden');
+            if (killBtn) killBtn.classList.add('hidden');
             setGlobalPipelineLock(null);
             stopPolling();
             loadStats(); // Reload stats after completion
@@ -208,6 +212,7 @@ async function pollLogs() {
             const promptText = document.getElementById('stdin-prompt-text');
             const isConnector = (data.current_step_name && data.current_step_name.includes("linkedin_connect")) ||
                                 (data.current_step_name && data.current_step_name.includes("recruiter_outreach")) ||
+                                (data.current_step_name && data.current_step_name.includes("run_referral_outreach_send")) ||
                                 activeTaskId === 'recruiter_pipeline';
             if (activeTaskId === 'scraper_pipeline' || isConnector) {
                 if (refButtons) refButtons.classList.add('hidden');
@@ -243,12 +248,14 @@ function updateReferralPipelineSteps(taskData) {
     let activeStepIdx = 0;
     if (activeStepName.includes("linkedin_find_job.py") || activeStepName.includes("run_job_search.py")) activeStepIdx = 1;
     else if (activeStepName.includes("review_for_referral.py") || activeStepName.includes("run_referral_review.py")) activeStepIdx = 2;
-    else if (activeStepName.includes("shorten_urls.py") || activeStepName.includes("run_url_shortener.py")) activeStepIdx = 3;
-    else if (activeStepName.includes("linkdin_connect.py") || activeStepName.includes("run_linkedin_connect.py")) activeStepIdx = 4;
+    else if (activeStepName.includes("run_referral_outreach_discover.py")) activeStepIdx = 3;
+    else if (activeStepName.includes("run_referral_outreach_send.py")) activeStepIdx = 4;
+    else if (activeStepName.includes("shorten_urls.py") || activeStepName.includes("run_url_shortener.py")) activeStepIdx = 5;
+    else if (activeStepName.includes("linkdin_connect.py") || activeStepName.includes("run_linkedin_connect.py")) activeStepIdx = 6;
 
     if (activeStepIdx > 0) {
         if (isSingle) {
-            const stepEl = document.querySelector(`.p-step-seq[data-step="${activeStepIdx}"]`);
+            const stepEl = document.querySelector(`#card-referral .p-step-seq[data-step="${activeStepIdx}"]`);
             if (stepEl) {
                 if (taskData.status === 'success') {
                     stepEl.classList.add('completed');
@@ -257,8 +264,8 @@ function updateReferralPipelineSteps(taskData) {
                 }
             }
         } else {
-            for (let i = 1; i <= 4; i++) {
-                const stepEl = document.querySelector(`.p-step-seq[data-step="${i}"]`);
+            for (let i = 1; i <= 6; i++) {
+                const stepEl = document.querySelector(`#card-referral .p-step-seq[data-step="${i}"]`);
                 if (i < activeStepIdx) {
                     stepEl.classList.add('completed');
                 } else if (i === activeStepIdx) {
@@ -281,7 +288,7 @@ function setGlobalPipelineLock(runningTaskId) {
         });
         
         // Ensure the active task's stop button is enabled
-        const pipelinePrefix = runningTaskId.split('_')[0]; // 'scraper', 'referral', or 'recruiter'
+        const pipelinePrefix = runningTaskId.replace('_pipeline', '').replace(/_/g, '-');
         const activeKillBtn = document.getElementById(`btn-kill-${pipelinePrefix}`);
         if (activeKillBtn) {
             activeKillBtn.disabled = false;
@@ -372,6 +379,42 @@ async function runSingleStep(stepNum, event) {
     }
 }
 
+// Start individual step in recruiter pipeline
+async function runRecruiterStep(stepNum, event) {
+    if (event) {
+        event.stopPropagation();
+    }
+    
+    // Check if any active task is running
+    try {
+        const checkRes = await fetch('/api/tasks');
+        const tasks = await checkRes.json();
+        for (let tid in tasks) {
+            if (tasks[tid].status === 'running') {
+                alert("A pipeline or step is already running. Please stop it or wait for it to finish first.");
+                return;
+            }
+        }
+        
+        const response = await fetch('/api/run/recruiter', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ "step": stepNum })
+        });
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            startPolling(data.task_id);
+            // Move to pipelines tab to monitor output
+            document.querySelector('[data-tab="pipelines"]').click();
+        } else {
+            alert(`Error: ${data.message}`);
+        }
+    } catch (e) {
+        console.error(`Failed to launch recruiter step ${stepNum}:`, e);
+    }
+}
+
 // Start individual step in scraper pipeline
 async function runScraperStep(phase, event) {
     if (event) {
@@ -407,6 +450,8 @@ async function runScraperStep(phase, event) {
         console.error(`Failed to launch scraper phase ${phase}:`, e);
     }
 }
+
+
 
 function updateScraperPipelineSteps(taskData) {
     const steps = document.querySelectorAll('#card-scraper .p-step-seq');
@@ -463,12 +508,46 @@ function updateRecruiterPipelineSteps(taskData) {
     const steps = document.querySelectorAll('#card-recruiter .p-step-seq');
     steps.forEach(el => el.classList.remove('active', 'completed'));
 
-    if (taskData.status === 'success') {
-        steps.forEach(el => el.classList.add('completed'));
-    } else if (taskData.status === 'running') {
-        steps.forEach(el => el.classList.add('active'));
+    const activeStepName = taskData.current_step_name;
+    const isSingle = taskData.is_single_step;
+
+    if (!activeStepName) return;
+
+    let activeStepIdx = 0;
+    if (activeStepName.includes("run_recruiter_outreach_discover.py")) activeStepIdx = 1;
+    else if (activeStepName.includes("run_recruiter_outreach_send.py")) activeStepIdx = 2;
+    else if (activeStepName.includes("run_recruiter_outreach.py")) activeStepIdx = 3;
+
+    if (activeStepIdx > 0) {
+        if (isSingle) {
+            const stepEl = document.querySelector(`#card-recruiter .p-step-seq[data-step="${activeStepIdx}"]`);
+            if (stepEl) {
+                if (taskData.status === 'success') {
+                    stepEl.classList.add('completed');
+                } else {
+                    stepEl.classList.add('active');
+                }
+            }
+        } else {
+            for (let i = 1; i <= 3; i++) {
+                const stepEl = document.querySelector(`#card-recruiter .p-step-seq[data-step="${i}"]`);
+                if (stepEl) {
+                    if (i < activeStepIdx) {
+                        stepEl.classList.add('completed');
+                    } else if (i === activeStepIdx) {
+                        if (taskData.status === 'success') {
+                            stepEl.classList.add('completed');
+                        } else {
+                            stepEl.classList.add('active');
+                        }
+                    }
+                }
+            }
+        }
     }
 }
+
+
 
 // Kill running pipeline tasks
 async function killPipeline(type) {
@@ -523,7 +602,7 @@ document.querySelectorAll('.start-pipeline-btn').forEach(btn => {
 });
 
 // Database Table Loaders (Search, Sort, Paginate)
-let dbData = { scraper: [], referral: [] };
+let dbData = { scraper: [], referral: [], referrals: [] };
 
 // Scraper Pagination State
 let scraperCurrentPage = 1;
@@ -533,8 +612,19 @@ const scraperRecordsPerPage = 10;
 let referralCurrentPage = 1;
 const referralRecordsPerPage = 10;
 
+// Referrals Outreach Pagination State
+let referralsCurrentPage = 1;
+const referralsRecordsPerPage = 10;
+
 async function loadTableData(type) {
-    const url = type === 'scraper' ? '/api/data/job_tracker' : '/api/data/job_leads';
+    let url;
+    if (type === 'scraper') {
+        url = '/api/data/job_tracker';
+    } else if (type === 'referral') {
+        url = '/api/data/job_leads';
+    } else if (type === 'referrals') {
+        url = '/api/data/referrals';
+    }
     try {
         const response = await fetch(url);
         const data = await response.json();
@@ -543,13 +633,123 @@ async function loadTableData(type) {
         if (type === 'scraper') {
             populateKeywordDropdown();
             applyScraperFiltersAndRender();
-        } else {
+        } else if (type === 'referral') {
             applyFilters('referral');
+        } else if (type === 'referrals') {
+            applyReferralsFiltersAndRender();
         }
     } catch (e) {
         console.error(`Failed to load ${type} data:`, e);
     }
 }
+
+function applyReferralsFiltersAndRender() {
+    const searchEl = document.getElementById('search-referrals-outreach');
+    const statusEl = document.getElementById('filter-status-referrals-outreach');
+    const sourceEl = document.getElementById('filter-source-referrals-outreach');
+    
+    const searchVal = searchEl ? searchEl.value.toLowerCase().trim() : '';
+    const statusVal = statusEl ? statusEl.value.toLowerCase() : 'all';
+    const sourceVal = sourceEl ? sourceEl.value.toLowerCase() : 'all';
+    
+    const originalData = dbData['referrals'] || [];
+    
+    const filtered = originalData.filter(row => {
+        // 1. Text Search
+        let textMatch = true;
+        if (searchVal) {
+            textMatch = (row.Referral_Person_Name && row.Referral_Person_Name.toLowerCase().includes(searchVal)) ||
+                        (row.CompanyName && row.CompanyName.toLowerCase().includes(searchVal)) ||
+                        (row.Referral_Person_Designation && row.Referral_Person_Designation.toLowerCase().includes(searchVal)) ||
+                        (row.Referral_Status && row.Referral_Status.toLowerCase().includes(searchVal));
+        }
+        
+        // 2. Status Match
+        let statusMatch = true;
+        if (statusVal !== 'all') {
+            const currentStatus = (row.Referral_Status || 'pending').toLowerCase().trim();
+            statusMatch = currentStatus === statusVal;
+        }
+        
+        // 3. Source Match
+        let sourceMatch = true;
+        if (sourceVal !== 'all') {
+            const currentSource = (row.Referral_Source || 'existing connection').toLowerCase().trim();
+            sourceMatch = currentSource === sourceVal;
+        }
+        
+        return textMatch && statusMatch && sourceMatch;
+    });
+    
+    // Sort referrals by ReferralID ascending
+    filtered.sort((a, b) => {
+        const idA = parseInt(a.ReferralID) || 0;
+        const idB = parseInt(b.ReferralID) || 0;
+        return idA - idB;
+    });
+    
+    const totalPages = Math.ceil(filtered.length / referralsRecordsPerPage) || 1;
+    if (referralsCurrentPage > totalPages) {
+        referralsCurrentPage = totalPages;
+    }
+    if (referralsCurrentPage < 1) {
+        referralsCurrentPage = 1;
+    }
+    
+    const startIndex = (referralsCurrentPage - 1) * referralsRecordsPerPage;
+    const pageData = filtered.slice(startIndex, startIndex + referralsRecordsPerPage);
+    
+    renderReferralsTable(pageData);
+    renderReferralsPaginationControls(filtered.length);
+}
+
+function renderReferralsTable(data) {
+    const tbody = document.querySelector('#table-referrals-outreach tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    
+    if (data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="table-empty">No matching referral contacts found.</td></tr>`;
+        return;
+    }
+    
+    data.forEach(row => {
+        const tr = document.createElement('tr');
+        
+        const statusClean = String(row.Referral_Status || 'pending').toLowerCase().trim();
+        const badgeClass = `badge-${statusClean.replace(/\s+/g, '_')}`;
+        const statusHtml = `<span class="badge ${badgeClass}">${statusClean.toUpperCase()}</span>`;
+        
+        const encName = encodeURIComponent(row.Referral_Person_Name || "");
+        const encEmail = encodeURIComponent(row.Referral_Person_Email || "");
+        const encUrl = encodeURIComponent(row.Referral_Person_Profile_URL || "");
+        const encDesignation = encodeURIComponent(row.Referral_Person_Designation || "");
+        const encSource = encodeURIComponent(row.Referral_Source || "");
+        const encStatus = encodeURIComponent(row.Referral_Status || "");
+        
+        tr.innerHTML = `
+            <td>${row.ReferralID || ""}</td>
+            <td><strong>${row.CompanyName || ""}</strong></td>
+            <td>${row.Referral_Person_Name || ""}</td>
+            <td><span style="font-size: 0.8rem; color: var(--text-secondary);">${row.Referral_Person_Designation || ""}</span></td>
+            <td><span style="font-size: 0.8rem;">${row.Referral_Source || ""}</span></td>
+            <td>${statusHtml}</td>
+            <td>${row.Sent_Time ? formatDisplayDate(row.Sent_Time) : ""}</td>
+            <td style="text-align: center;">
+                <div style="display: flex; gap: 8px; justify-content: center;">
+                    <button class="table-action-btn btn-edit" onclick="showEditReferralContactModal(${row.ReferralID}, '${encName}', '${encEmail}', '${encUrl}', '${encDesignation}', '${encSource}', '${encStatus}')" title="Edit contact">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                    </button>
+                    <button class="table-action-btn btn-delete" onclick="deleteRow('referrals', ${row.ReferralID})" title="Delete contact">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
 
 function renderTable(type, data) {
     const tbody = document.querySelector(`#table-${type} tbody`);
@@ -844,13 +1044,12 @@ async function updateStatus(type, id, newStatus) {
 async function deleteRow(type, id) {
     if (!confirm("Are you sure you want to delete this row from the database?")) return;
     try {
-        const response = await fetch('/api/data/delete_row', {
+        const url = type === 'referrals' ? '/api/data/delete_referral_row' : '/api/data/delete_row';
+        const body = type === 'referrals' ? { "id": id } : { "db_type": type, "id": id };
+        const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                "db_type": type,
-                "id": id
-            })
+            body: JSON.stringify(body)
         });
         const data = await response.json();
         if (data.status === 'success') {
@@ -1305,7 +1504,11 @@ function switchTemplateMode(type, mode) {
             .replace(/{resume}/g, resumeUrl)
             .replace(/{company}/g, "Sample Company")
             .replace(/{job_url}/g, "https://linkedin.com/jobs/view/12345")
-            .replace(/{first_name}/g, "Recruiter");
+            .replace(/{first_name}/g, "Recruiter")
+            .replace(/{PERSON_NAME}/g, "John")
+            .replace(/{employee_designation}/g, "Software Engineer")
+            .replace(/{target_role}/g, "Senior Software Engineer")
+            .replace(/{candidate_name}/g, `${firstName} ${lastName}`);
             
         if (type === 'scraper') {
             const rawSubject = document.getElementById('scraper-email-subject') ? document.getElementById('scraper-email-subject').value : '';
@@ -1422,6 +1625,7 @@ async function loadSettings() {
         const scraper = config.email_scraper || {};
         const connect = config.linkedin_connect || {};
         const recruiter = config.recruiter_outreach || {};
+        const referralOutreach = config.referral_outreach || {};
         
         const setVal = (id, val) => {
             const el = document.getElementById(id);
@@ -1498,6 +1702,7 @@ async function loadSettings() {
         setChecked('connect-review-mode', connect.review_mode === true);
         setVal('connect-max-connections', connect.max_connections_per_run || '5');
         setVal('connect-message-template', connect.message_template);
+        setVal('referral-message-template', referralOutreach.message_template || '');
         
         connectKeywords = connect.keywords || [];
         renderKeywords('connect');
@@ -1506,19 +1711,25 @@ async function loadSettings() {
 
         // 4. Recruiter Outreach fields
         setVal('recruiter-interval', recruiter.interval || '120');
-        setVal('recruiter-daily-limit', recruiter.daily_limit || '5');
         setVal('recruiter-target-count', recruiter.target_count || '2');
         setChecked('recruiter-review-mode', recruiter.review_mode !== false);
         setVal('recruiter-message-template', recruiter.message_template);
+        setVal('recruiter-direct-message-template', recruiter.direct_message_template || '');
+
 
         // Reset Template mode displays to Edit
-        switchTemplateMode('scraper', 'edit');
         switchTemplateMode('connect', 'edit');
+        switchTemplateMode('referral', 'edit');
         switchTemplateMode('recruiter', 'edit');
+        switchTemplateMode('recruiter-direct', 'edit');
+
 
         // Update character counter for connection template
         if (typeof updateConnectCharCount === 'function') updateConnectCharCount();
+        if (typeof updateReferralCharCount === 'function') updateReferralCharCount();
         if (typeof updateRecruiterCharCount === 'function') updateRecruiterCharCount();
+        if (typeof updateRecruiterDirectCharCount === 'function') updateRecruiterDirectCharCount();
+
 
         // 4. Global settings
         setVal('setting-linkedin-email', globalSettings.linkedin_email);
@@ -1558,6 +1769,7 @@ async function saveSettingsForm(event) {
     const emailScraper = cachedConfig.config?.email_scraper || {};
     const linkedinConnect = cachedConfig.config?.linkedin_connect || {};
     const recruiterOutreach = cachedConfig.config?.recruiter_outreach || {};
+    const referralOutreach = cachedConfig.config?.referral_outreach || {};
     const globalSettings = cachedConfig.global_settings || {};
     
     const getVal = (id, fallback) => {
@@ -1606,10 +1818,13 @@ async function saveSettingsForm(event) {
         },
         "recruiter_outreach": {
             "interval": getVal('recruiter-interval', recruiterOutreach.interval || '120'),
-            "daily_limit": getVal('recruiter-daily-limit', recruiterOutreach.daily_limit || '5'),
             "target_count": getVal('recruiter-target-count', recruiterOutreach.target_count || '2'),
             "review_mode": getChecked('recruiter-review-mode', recruiterOutreach.review_mode),
-            "message_template": getVal('recruiter-message-template', recruiterOutreach.message_template)
+            "message_template": getVal('recruiter-message-template', recruiterOutreach.message_template),
+            "direct_message_template": getVal('recruiter-direct-message-template', recruiterOutreach.direct_message_template || '')
+        },
+        "referral_outreach": {
+            "message_template": getVal('referral-message-template', referralOutreach.message_template || '')
         },
         "global_settings": {
             "linkedin_email": getVal('setting-linkedin-email', globalSettings.linkedin_email || ""),
@@ -1769,6 +1984,30 @@ document.getElementById('filter-date-referral').addEventListener('change', () =>
     applyFilters('referral');
 });
 
+// Bind listeners to Referral Outreach Database filters
+const searchRef = document.getElementById('search-referrals-outreach');
+if (searchRef) {
+    searchRef.addEventListener('input', () => {
+        referralsCurrentPage = 1;
+        applyReferralsFiltersAndRender();
+    });
+}
+const filterStatusRef = document.getElementById('filter-status-referrals-outreach');
+if (filterStatusRef) {
+    filterStatusRef.addEventListener('change', () => {
+        referralsCurrentPage = 1;
+        applyReferralsFiltersAndRender();
+    });
+}
+const filterSourceRef = document.getElementById('filter-source-referrals-outreach');
+if (filterSourceRef) {
+    filterSourceRef.addEventListener('change', () => {
+        referralsCurrentPage = 1;
+        applyReferralsFiltersAndRender();
+    });
+}
+
+
 // Check if any pipeline is running on startup to restore log viewer state
 async function checkActiveTasks() {
     try {
@@ -1901,6 +2140,8 @@ function insertToken(type, token) {
         updateConnectCharCount();
     } else if (type === 'recruiter' && typeof updateRecruiterCharCount === 'function') {
         updateRecruiterCharCount();
+    } else if (type === 'recruiter-direct' && typeof updateRecruiterDirectCharCount === 'function') {
+        updateRecruiterDirectCharCount();
     }
 }
 
@@ -1922,6 +2163,26 @@ function updateRecruiterCharCount() {
     ctr.style.color = len > 280 ? 'var(--accent-red)' : len > 240 ? 'var(--accent-yellow)' : 'var(--text-secondary)';
 }
 
+function updateRecruiterDirectCharCount() {
+    const ta  = document.getElementById('recruiter-direct-message-template');
+    const ctr = document.getElementById('recruiter-direct-char-count');
+    if (!ta || !ctr) return;
+    const len = ta.value.length;
+    ctr.textContent = `${len} / 1000`;
+    ctr.style.color = len > 950 ? 'var(--accent-red)' : len > 850 ? 'var(--accent-yellow)' : 'var(--text-secondary)';
+}
+
+function updateReferralCharCount() {
+    const ta  = document.getElementById('referral-message-template');
+    const ctr = document.getElementById('referral-char-count');
+    if (!ta || !ctr) return;
+    const len = ta.value.length;
+    ctr.textContent = `${len} / 1000`;
+    ctr.style.color = len > 950 ? 'var(--accent-red)' : len > 850 ? 'var(--accent-yellow)' : 'var(--text-secondary)';
+}
+
+
+
 // Initialise character counter whenever settings are loaded
 const _origSwitchTemplate = window.switchTemplateMode;
 const _origLoadSettings   = window.loadSettings;
@@ -1933,6 +2194,22 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const recruiterTa = document.getElementById('recruiter-message-template');
     if (recruiterTa) recruiterTa.addEventListener('input', updateRecruiterCharCount);
+
+    const recruiterDirectTa = document.getElementById('recruiter-direct-message-template');
+    if (recruiterDirectTa) recruiterDirectTa.addEventListener('input', updateRecruiterDirectCharCount);
+    
+    const referralTa = document.getElementById('referral-message-template');
+    if (referralTa) referralTa.addEventListener('input', updateReferralCharCount);
+    
+    // Auto-save settings and profile on any field changes
+    const settingsForm = document.getElementById('settings-form');
+    if (settingsForm) {
+        settingsForm.addEventListener('change', () => saveSettingsForm(null));
+    }
+    const profileForm = document.getElementById('profile-form');
+    if (profileForm) {
+        profileForm.addEventListener('change', () => saveSettingsForm(null));
+    }
     
     // Initialize scraper header filters
     bindScraperColumnFilters();
@@ -2107,11 +2384,119 @@ async function saveReferralEditForm(event) {
     }
 }
 
+// ── Referral Contact Modal Triggers ──────────────────────────────────
+function showEditReferralContactModal(id, name, email, profileUrl, designation, source, status) {
+    document.getElementById('edit-referral-contact-id').value = id;
+    document.getElementById('edit-referral-contact-name').value = decodeURIComponent(name);
+    document.getElementById('edit-referral-contact-email').value = decodeURIComponent(email === 'None' || email === 'null' || !email ? '' : email);
+    document.getElementById('edit-referral-contact-url').value = decodeURIComponent(profileUrl);
+    document.getElementById('edit-referral-contact-designation').value = decodeURIComponent(designation === 'None' || designation === 'null' || !designation ? '' : designation);
+    document.getElementById('edit-referral-contact-source').value = decodeURIComponent(source || 'Existing Connection');
+    document.getElementById('edit-referral-contact-status').value = decodeURIComponent(status || 'Pending');
+    
+    const modal = document.getElementById('edit-referral-contact-modal');
+    if (modal) modal.classList.remove('hidden');
+}
+
+function hideEditReferralContactModal() {
+    const modal = document.getElementById('edit-referral-contact-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+async function saveReferralContactEditForm(event) {
+    if (event) event.preventDefault();
+    
+    const id = document.getElementById('edit-referral-contact-id').value;
+    const name = document.getElementById('edit-referral-contact-name').value;
+    const email = document.getElementById('edit-referral-contact-email').value;
+    const profile_url = document.getElementById('edit-referral-contact-url').value;
+    const designation = document.getElementById('edit-referral-contact-designation').value;
+    const source = document.getElementById('edit-referral-contact-source').value;
+    const status = document.getElementById('edit-referral-contact-status').value;
+    
+    try {
+        const response = await fetch('/api/data/edit_referral_row', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id: id,
+                name: name,
+                email: email,
+                profile_url: profile_url,
+                designation: designation,
+                source: source,
+                status: status
+            })
+        });
+        const data = await response.json();
+        if (data.status === 'success') {
+            hideEditReferralContactModal();
+            await loadTableData('referrals');
+        } else {
+            alert(`Error updating contact: ${data.message}`);
+        }
+    } catch (e) {
+        console.error("Failed to save contact:", e);
+        alert("Failed to save changes. Please try again.");
+    }
+}
+
+function renderReferralsPaginationControls(totalRecords) {
+    const container = document.getElementById('referrals-outreach-pagination');
+    if (!container) return;
+    
+    const totalPages = Math.ceil(totalRecords / referralsRecordsPerPage) || 1;
+    
+    const startRecord = totalRecords === 0 ? 0 : (referralsCurrentPage - 1) * referralsRecordsPerPage + 1;
+    const endRecord = Math.min(referralsCurrentPage * referralsRecordsPerPage, totalRecords);
+    
+    let infoHtml = `<div class="pagination-info">Showing <strong>${startRecord}</strong> to <strong>${endRecord}</strong> of <strong>${totalRecords}</strong> records</div>`;
+    
+    let controlsHtml = `<div class="pagination-controls">`;
+    const prevDisabled = referralsCurrentPage === 1 ? 'disabled' : '';
+    controlsHtml += `
+        <button class="pagination-btn" type="button" onclick="changeReferralsPage(${referralsCurrentPage - 1})" ${prevDisabled}>
+            <i class="fa-solid fa-chevron-left"></i> Prev
+        </button>
+    `;
+    
+    controlsHtml += `<div class="pagination-pages">`;
+    for (let i = 1; i <= totalPages; i++) {
+        if (totalPages <= 6 || i === 1 || i === totalPages || (i >= referralsCurrentPage - 1 && i <= referralsCurrentPage + 1)) {
+            const activeClass = i === referralsCurrentPage ? 'active' : '';
+            controlsHtml += `<button class="pagination-page-btn ${activeClass}" type="button" onclick="changeReferralsPage(${i})">${i}</button>`;
+        } else if (i === 2 && referralsCurrentPage > 3) {
+            controlsHtml += `<span style="color: var(--text-secondary); padding: 0 4px;">...</span>`;
+            i = referralsCurrentPage - 2;
+        } else if (i === referralsCurrentPage + 2 && referralsCurrentPage < totalPages - 2) {
+            controlsHtml += `<span style="color: var(--text-secondary); padding: 0 4px;">...</span>`;
+            i = totalPages - 1;
+        }
+    }
+    controlsHtml += `</div>`;
+    
+    const nextDisabled = referralsCurrentPage === totalPages ? 'disabled' : '';
+    controlsHtml += `
+        <button class="pagination-btn" type="button" onclick="changeReferralsPage(${referralsCurrentPage + 1})" ${nextDisabled}>
+            Next <i class="fa-solid fa-chevron-right"></i>
+        </button>
+    `;
+    controlsHtml += `</div>`;
+    
+    container.innerHTML = infoHtml + controlsHtml;
+}
+
+function changeReferralsPage(page) {
+    referralsCurrentPage = page;
+    applyReferralsFiltersAndRender();
+}
+
 // ── Two-way Synchronization: Excel-to-UI Poll ─────────────────────────────
 setInterval(() => {
     // Only fetch updates if the user is not actively editing in a modal
     const isModalOpen = !document.getElementById('edit-scraper-modal').classList.contains('hidden') ||
                         (document.getElementById('edit-referral-modal') && !document.getElementById('edit-referral-modal').classList.contains('hidden')) ||
+                        (document.getElementById('edit-referral-contact-modal') && !document.getElementById('edit-referral-contact-modal').classList.contains('hidden')) ||
                         document.querySelector('.modal-overlay:not(.hidden)');
     
     // Check if the user is focused on settings fields specifically
@@ -2125,15 +2510,14 @@ setInterval(() => {
                                (document.activeElement.id && (
                                    document.activeElement.id.startsWith('scraper-') || 
                                    document.activeElement.id.startsWith('connect-') || 
-                                   document.activeElement.id.startsWith('recruiter-')
+                                   document.activeElement.id.startsWith('recruiter-') ||
+                                   document.activeElement.id.startsWith('referral-')
                                )));
     
     if (!isModalOpen) {
         loadTableData('scraper');
         loadTableData('referral');
-    }
-    if (!isModalOpen && !isEditingSettings) {
-        loadSettings();
+        loadTableData('referrals');
     }
 }, 5000);
 

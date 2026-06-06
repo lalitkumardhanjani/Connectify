@@ -6,7 +6,7 @@ from openpyxl.worksheet.table import Table, TableStyleInfo
 from config.settings import (
     BASE_DIR, get_data_dir, get_job_tracker_file, get_job_leads_file
 )
-from config.constants import SCRAPER_HEADERS, JOB_LEADS_HEADERS
+from config.constants import SCRAPER_HEADERS, JOB_LEADS_HEADERS, REFERRAL_HEADERS
 from core.logging.config import logger
 from core.utils.url_utils import is_valid_external_url, normalize_external_url
 
@@ -127,6 +127,8 @@ def trim_scraper_excel_to_schema(path=None):
     
     current_headers = [cell.value for cell in ws[1]]
     needed = SCRAPER_HEADERS
+    if current_headers == needed and len(ws._tables) > 0:
+        return
     header_map = {h: i+1 for i, h in enumerate(current_headers) if h in needed}
     
     data_rows = []
@@ -336,6 +338,8 @@ def trim_job_leads_excel_to_schema(path=None):
     
     current_headers = [cell.value for cell in ws[1]]
     needed = JOB_LEADS_HEADERS
+    if current_headers == needed and len(ws._tables) > 0:
+        return
     header_map = {h: i+1 for i, h in enumerate(current_headers) if h in needed}
     
     data_rows = []
@@ -615,6 +619,240 @@ def edit_lead_row(job_id, company, url, shorten, keyword, position, status, path
                 ws.cell(row=row, column=position_col, value=position)
             if status_col and status is not None:
                 ws.cell(row=row, column=status_col, value=status)
+            updated = True
+            break
+            
+    if updated:
+        wb.save(path)
+        _trigger_mac_excel_reload(path)
+    return updated
+
+
+# =========================================================================
+# 3. Referral Outreach Database Operations (Referrals Sheet)
+# =========================================================================
+
+def init_referrals_store(path=None):
+    """Initializes the referrals worksheet inside LinkedIn_Job_Tracker.xlsx if it doesn't exist."""
+    if path is None:
+        path = get_job_leads_file()
+    
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    
+    if os.path.exists(path):
+        wb = openpyxl.load_workbook(path)
+    else:
+        wb = openpyxl.Workbook()
+        if wb.active.title == "Sheet":
+            wb.active.title = "Jobs"
+            wb.active.append(JOB_LEADS_HEADERS)
+            
+    if "Referrals" not in wb.sheetnames:
+        try:
+            ws = wb.create_sheet(title="Referrals")
+            ws.append(REFERRAL_HEADERS)
+            ref_range = f"A1:{chr(64 + len(REFERRAL_HEADERS))}1"
+            tab = Table(displayName="ReferralsTable", ref=ref_range)
+            style = TableStyleInfo(
+                name="TableStyleLight9",
+                showFirstColumn=False,
+                showLastColumn=False,
+                showRowStripes=True,
+                showColumnStripes=False,
+            )
+            tab.tableStyleInfo = style
+            ws.add_table(tab)
+            wb.save(path)
+            logger.info(f"Initialized new Referrals sheet in tracker: {path}")
+        except Exception as e:
+            logger.error(f"Unable to initialize Referrals sheet: {str(e)}")
+    else:
+        try:
+            trim_referrals_excel_to_schema(path)
+        except Exception as e:
+            logger.error(f"Error trimming referrals Excel: {e}")
+
+def trim_referrals_excel_to_schema(path=None):
+    """Enforces Referrals Excel sheet headers conform to standard schema."""
+    if path is None:
+        path = get_job_leads_file()
+    if not os.path.exists(path):
+        return
+    wb = openpyxl.load_workbook(path)
+    if "Referrals" not in wb.sheetnames:
+        return
+    ws = wb["Referrals"]
+    
+    current_headers = [cell.value for cell in ws[1]]
+    needed = REFERRAL_HEADERS
+    if current_headers == needed and len(ws._tables) > 0:
+        return
+    header_map = {h: i+1 for i, h in enumerate(current_headers) if h in needed}
+    
+    data_rows = []
+    for row in range(1, ws.max_row + 1):
+        row_data = {}
+        for h in needed:
+            idx = header_map.get(h)
+            if idx is not None and idx <= ws.max_column:
+                row_data[h] = ws.cell(row=row, column=idx).value
+            else:
+                row_data[h] = h if row == 1 else None
+        data_rows.append(row_data)
+        
+    ws.delete_rows(1, ws.max_row)
+    
+    for r_idx, row_dict in enumerate(data_rows, start=1):
+        for c_idx, h in enumerate(needed, start=1):
+            ws.cell(row=r_idx, column=c_idx, value=row_dict[h])
+            
+    max_col = ws.max_column
+    if max_col > len(needed):
+        ws.delete_cols(len(needed)+1, max_col - len(needed))
+        
+    ws._tables.clear()
+    ref = f"A1:{chr(64+len(needed))}{ws.max_row}"
+    tab = Table(displayName="ReferralsTable", ref=ref)
+    style = TableStyleInfo(
+        name="TableStyleLight9",
+        showFirstColumn=False,
+        showLastColumn=False,
+        showRowStripes=True,
+        showColumnStripes=False,
+    )
+    tab.tableStyleInfo = style
+    ws.add_table(tab)
+    wb.save(path)
+    _trigger_mac_excel_reload(path)
+
+def load_all_referrals(path=None):
+    """Loads all referral contact records from the Referrals sheet."""
+    if path is None:
+        path = get_job_leads_file()
+    init_referrals_store(path)
+    wb = openpyxl.load_workbook(path)
+    if "Referrals" not in wb.sheetnames:
+        return []
+    ws = wb["Referrals"]
+    col_indices = {cell.value: idx for idx, cell in enumerate(ws[1], start=1)}
+    
+    rows = []
+    for row in range(2, ws.max_row + 1):
+        row_dict = {header: ws.cell(row=row, column=col_idx).value for header, col_idx in col_indices.items()}
+        rows.append(row_dict)
+    return rows
+
+def add_or_update_referral(referral_data, path=None):
+    """Adds a new referral contact or updates status/fields of an existing one by profile URL."""
+    if path is None:
+        path = get_job_leads_file()
+    init_referrals_store(path)
+    wb = openpyxl.load_workbook(path)
+    ws = wb["Referrals"]
+    col_indices = {cell.value: idx for idx, cell in enumerate(ws[1], start=1)}
+    
+    profile_url = referral_data.get('Referral_Person_Profile_URL')
+    if not profile_url:
+        return False
+        
+    url_col = col_indices.get('Referral_Person_Profile_URL')
+    
+    existing_row = None
+    if url_col:
+        for r in range(2, ws.max_row + 1):
+            cell_val = ws.cell(row=r, column=url_col).value
+            if cell_val and str(cell_val).strip() == str(profile_url).strip():
+                existing_row = r
+                break
+                
+    if existing_row:
+        for key, val in referral_data.items():
+            col_idx = col_indices.get(key)
+            if col_idx and key != 'ReferralID':
+                ws.cell(row=existing_row, column=col_idx, value=val)
+    else:
+        id_col = col_indices.get('ReferralID', 1)
+        max_id = 0
+        for r in range(2, ws.max_row + 1):
+            val = ws.cell(row=r, column=id_col).value
+            if val is not None:
+                try:
+                    max_id = max(max_id, int(val))
+                except ValueError:
+                    pass
+        new_id = max_id + 1
+        
+        row_data = []
+        for header in REFERRAL_HEADERS:
+            if header == 'ReferralID':
+                row_data.append(new_id)
+            else:
+                row_data.append(referral_data.get(header))
+        ws.append(row_data)
+        
+    wb.save(path)
+    
+    wb = openpyxl.load_workbook(path)
+    ws = wb["Referrals"]
+    ws._tables.clear()
+    ref_range = f"A1:{chr(64 + len(REFERRAL_HEADERS))}{ws.max_row}"
+    tab = Table(displayName="ReferralsTable", ref=ref_range)
+    style = TableStyleInfo(
+        name="TableStyleLight9",
+        showFirstColumn=False,
+        showLastColumn=False,
+        showRowStripes=True,
+        showColumnStripes=False,
+    )
+    tab.tableStyleInfo = style
+    ws.add_table(tab)
+    wb.save(path)
+    _trigger_mac_excel_reload(path)
+    return True
+
+def is_profile_already_contacted(profile_url, path=None):
+    """Checks if connection profile URL has been contacted or skipped before."""
+    if path is None:
+        path = get_job_leads_file()
+    init_referrals_store(path)
+    wb = openpyxl.load_workbook(path)
+    ws = wb["Referrals"]
+    col_indices = {cell.value: idx for idx, cell in enumerate(ws[1], start=1)}
+    url_col = col_indices.get('Referral_Person_Profile_URL')
+    status_col = col_indices.get('Referral_Status')
+    
+    if not url_col:
+        return False
+        
+    for row in range(2, ws.max_row + 1):
+        cell_url = ws.cell(row=row, column=url_col).value
+        if cell_url and str(cell_url).strip().lower() == str(profile_url).strip().lower():
+            if status_col:
+                status = str(ws.cell(row=row, column=status_col).value or "").strip().lower()
+                if status in ('sent', 'replied', 'referral received', 'skipped'):
+                    return True
+    return False
+
+def edit_referral_contact_row(referral_id, referral_data, path=None):
+    """Modifies an existing referral contact record directly by ReferralID."""
+    if path is None:
+        path = get_job_leads_file()
+    init_referrals_store(path)
+    wb = openpyxl.load_workbook(path)
+    ws = wb["Referrals"]
+    col_indices = {cell.value: idx for idx, cell in enumerate(ws[1], start=1)}
+    id_col = col_indices.get('ReferralID')
+    if not id_col:
+        return False
+        
+    updated = False
+    for row in range(2, ws.max_row + 1):
+        val = ws.cell(row=row, column=id_col).value
+        if val is not None and str(val).strip() == str(referral_id).strip():
+            for key, value in referral_data.items():
+                col_idx = col_indices.get(key)
+                if col_idx and key != 'ReferralID':
+                    ws.cell(row=row, column=col_idx, value=value)
             updated = True
             break
             

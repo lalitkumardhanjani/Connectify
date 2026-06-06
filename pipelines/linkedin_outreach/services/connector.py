@@ -356,11 +356,21 @@ def find_people_with_connect_button(driver, max_people=10):
                     except Exception:
                         continue
 
+                profile_url = ""
+                try:
+                    profile_link = card.find_element(By.CSS_SELECTOR, "a[href*='/in/']")
+                    profile_url = profile_link.get_attribute("href")
+                    if "?" in profile_url:
+                        profile_url = profile_url.split("?")[0]
+                except Exception:
+                    pass
+
                 people_with_connect.append({
                     'button': connect_button,
                     'card':   card,
                     'name':   name,
                     'role':   role,
+                    'profile_url': profile_url
                 })
             except NoSuchElementException:
                 continue
@@ -955,9 +965,12 @@ def run_connector():
                                 message = message[:297] + "..."
 
                             sent = send_connection_request(driver, person, message, review_mode=review_mode)
+                            
+                            status_val = 'Sent'
+                            error_reason = ''
                             if sent == "skipped":
                                 logger.info(f"Skipping connect request to {person.get('name', 'unknown')}")
-                                continue
+                                status_val = 'Skipped'
                             elif sent == "quit":
                                 logger.info("Quitting connect requests loop as requested by user.")
                                 return
@@ -973,6 +986,31 @@ def run_connector():
                                     logger.warning(f"Failed to record referral info: {e}")
                                 logger.info(f"Connect requests sent: {success_count}/{max_apply}")
                                 logger.info(f"Total connections sent in this run: {total_connections_sent}/{max_connections}")
+                            else:
+                                status_val = 'Failed'
+                                error_reason = 'Connection invitation note could not be sent'
+
+                            if sent != "quit":
+                                try:
+                                    from core.storage.database import add_or_update_referral
+                                    referral_data = {
+                                        'JobID': job_id,
+                                        'CompanyName': company,
+                                        'Referral_Person_Name': person.get('name', 'unknown'),
+                                        'Referral_Person_Email': '',
+                                        'Referral_Person_Profile_URL': person.get('profile_url', ''),
+                                        'Referral_Person_Designation': person.get('role', ''),
+                                        'Referral_Source': 'Connection Request',
+                                        'Referral_Status': status_val,
+                                        'Sent_Time': datetime.now().strftime("%Y-%m-%d %H:%M:%S") if status_val == 'Sent' else '',
+                                        'Error_Reason': error_reason
+                                    }
+                                    add_or_update_referral(referral_data)
+                                except Exception as ex:
+                                    logger.warning(f"Failed to save connection request referral details to Excel: {ex}")
+
+                            if sent == "skipped":
+                                continue
                         except Exception as e:
                             logger.warning(f"Failed sending connect request: {str(e)}")
                         time.sleep(random.randint(3, 7))
@@ -998,15 +1036,43 @@ def run_connector():
                             person_name=person.get('name'),
                             their_role=person.get('role'),
                         )
+                        status_val = 'Sent'
+                        error_reason = ''
                         if long_message is None:
                             logger.info(f"Skipping message to {person.get('name', 'unknown')}")
-                            continue
+                            status_val = 'Skipped'
+                        else:
+                            try:
+                                if send_direct_message(driver, person, long_message):
+                                    msg_count += 1
+                                else:
+                                    status_val = 'Failed'
+                                    error_reason = 'Direct message window could not be processed'
+                            except Exception as e:
+                                logger.warning(f"Failed sending message: {str(e)}")
+                                status_val = 'Failed'
+                                error_reason = str(e)
+                        
                         try:
-                            if send_direct_message(driver, person, long_message):
-                                msg_count += 1
-                        except Exception as e:
-                            logger.warning(f"Failed sending message: {str(e)}")
-                        time.sleep(random.randint(3, 7))
+                            from core.storage.database import add_or_update_referral
+                            referral_data = {
+                                'JobID': job_id,
+                                'CompanyName': company,
+                                'Referral_Person_Name': person.get('name', 'unknown'),
+                                'Referral_Person_Email': '',
+                                'Referral_Person_Profile_URL': person.get('profile_url', ''),
+                                'Referral_Person_Designation': person.get('role', ''),
+                                'Referral_Source': 'Existing Connection',
+                                'Referral_Status': status_val,
+                                'Sent_Time': datetime.now().strftime("%Y-%m-%d %H:%M:%S") if status_val == 'Sent' else '',
+                                'Error_Reason': error_reason
+                            }
+                            add_or_update_referral(referral_data)
+                        except Exception as ex:
+                            logger.warning(f"Failed to save direct message referral details to Excel: {ex}")
+
+                        if long_message is None:
+                            continue
                     logger.info(f"✓ Messages sent: {msg_count}/{len(connected_people)}")
                 else:
                     logger.info("No already connected people found")

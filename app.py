@@ -73,6 +73,48 @@ class SubprocessRunner:
     def _run_loop(self):
         for idx, (script, args) in enumerate(self.commands):
             self.current_step = idx + 1
+            if script == "run_linkedin_connect.py":
+                try:
+                    from config.user_profiles import get_selected_user_config
+                    from core.storage.database import load_all_referrals
+                    user_conf = get_selected_user_config()
+                    connect_conf = user_conf.get("linkedin_connect", {})
+                    max_connections = int(connect_conf.get("max_connections_per_run") or 5)
+                    
+                    referrals = load_all_referrals()
+                    today_str = datetime.now().strftime("%Y-%m-%d")
+                    ref_sent_count = sum(
+                        1 for r in referrals
+                        if str(r.get('Referral_Status') or '').strip().lower() == 'sent'
+                        and str(r.get('Sent_Time') or '').strip().startswith(today_str)
+                    )
+                    if ref_sent_count >= max_connections:
+                        self.log(f"Target count of {max_connections} reached via referral messages today. Skipping subsequent connection requests pipeline.")
+                        break
+                    
+                    pending_referrals = [
+                        r for r in referrals
+                        if str(r.get('Referral_Status') or '').strip().lower() == 'pending'
+                    ]
+                    if not pending_referrals:
+                        self.log("All referral outreach contacts have been processed. Stopping the pipeline with success.")
+                        break
+                except Exception as e:
+                    self.log(f"Warning: error checking run target limits or pending referrals in runner: {e}")
+            elif script == "run_recruiter_outreach.py":
+                try:
+                    from core.storage.database import load_all_referrals
+                    referrals = load_all_referrals()
+                    pending_recruiters = [
+                        r for r in referrals
+                        if str(r.get('Referral_Status') or '').strip().lower() == 'pending'
+                        and str(r.get('Referral_Source') or '').strip().startswith('Recruiter')
+                    ]
+                    if not pending_recruiters:
+                        self.log("All recruiter outreach contacts have been processed. Stopping the pipeline with success.")
+                        break
+                except Exception as e:
+                    self.log(f"Warning: error checking pending recruiters in runner: {e}")
             script_path = os.path.join(os.getcwd(), script)
             cmd = [PYTHON_BIN, "-u", script_path] + args
             
@@ -259,6 +301,8 @@ def start_referral():
         all_commands = [
             ("run_job_search.py", []),
             ("run_referral_review.py", []),
+            ("run_referral_outreach_discover.py", []),
+            ("run_referral_outreach_send.py", []),
             ("run_url_shortener.py", []),
             ("run_linkedin_connect.py", [])
         ]
@@ -288,7 +332,27 @@ def start_recruiter():
         if task_id in active_tasks and active_tasks[task_id].status == "running":
             return jsonify({"status": "error", "message": "Recruiter outreach pipeline is already running"}), 400
         
-        runner = SubprocessRunner(task_id, [("run_recruiter_outreach.py", [])])
+        body = request.get_json() or {}
+        step = body.get("step")
+        
+        all_commands = [
+            ("run_recruiter_outreach_discover.py", []),
+            ("run_recruiter_outreach_send.py", []),
+            ("run_recruiter_outreach.py", [])
+        ]
+        
+        if step is not None:
+            try:
+                step_idx = int(step) - 1
+                if step_idx < 0 or step_idx >= len(all_commands):
+                    return jsonify({"status": "error", "message": f"Invalid step: {step}"}), 400
+                commands = [all_commands[step_idx]]
+            except ValueError:
+                return jsonify({"status": "error", "message": f"Step must be an integer: {step}"}), 400
+        else:
+            commands = all_commands
+        
+        runner = SubprocessRunner(task_id, commands)
         active_tasks[task_id] = runner
         runner.start()
         
@@ -447,6 +511,12 @@ def create_user_profile():
             "daily_limit": "5",
             "target_count": "2",
             "review_mode": True
+        },
+        "referral_outreach": {
+            "message_template": "Hi {PERSON_NAME}, I noticed we are connected and saw you work as {employee_designation} at {company}. I'm interested in the {target_role} role there. I'd love to get your guidance or a referral if possible! My resume: {resume}",
+            "interval": "60",
+            "max_referrals_per_run": "5",
+            "review_mode": True
         }
     }
     config["selected_user"] = username
@@ -480,12 +550,14 @@ def save_user_configuration():
     email_scraper = body.get("email_scraper", {})
     linkedin_connect = body.get("linkedin_connect", {})
     recruiter_outreach = body.get("recruiter_outreach", {})
+    referral_outreach = body.get("referral_outreach", {})
     global_settings = body.get("global_settings", {})
     
     config["users"][username]["profile"] = user_profile
     config["users"][username]["email_scraper"] = email_scraper
     config["users"][username]["linkedin_connect"] = linkedin_connect
     config["users"][username]["recruiter_outreach"] = recruiter_outreach
+    config["users"][username]["referral_outreach"] = referral_outreach
     config["global_settings"] = global_settings
     
     save_all_configs(config)
@@ -785,6 +857,130 @@ def edit_table_row():
         return jsonify({"status": "error", "message": "JobID not found"}), 404
     else:
         return jsonify({"status": "error", "message": "Invalid db_type"}), 400
+
+
+@app.route('/api/data/referrals')
+def referrals_data():
+    from core.storage.database import init_referrals_store, load_all_referrals
+    init_referrals_store()
+    return jsonify(load_all_referrals(get_job_leads_file()))
+
+
+@app.route('/api/data/update_referral_status', methods=['POST'])
+def update_referral_status():
+    body = request.get_json() or {}
+    referral_id = body.get("id")
+    status = body.get("status")
+    
+    if referral_id is None or not status:
+        return jsonify({"status": "error", "message": "Missing required fields"}), 400
+        
+    try:
+        referral_id = int(referral_id)
+    except ValueError:
+        pass
+        
+    from core.storage.database import edit_referral_contact_row
+    success = edit_referral_contact_row(referral_id, {"Referral_Status": status}, get_job_leads_file())
+    if success:
+        return jsonify({"status": "success"})
+    return jsonify({"status": "error", "message": "ReferralID not found"}), 404
+
+
+@app.route('/api/data/edit_referral_row', methods=['POST'])
+def edit_referral_row():
+    body = request.get_json() or {}
+    referral_id = body.get("id")
+    if referral_id is None:
+        return jsonify({"status": "error", "message": "Missing ReferralID"}), 400
+        
+    try:
+        referral_id = int(referral_id)
+    except ValueError:
+        return jsonify({"status": "error", "message": "Invalid ReferralID"}), 400
+        
+    name = body.get("name")
+    email = body.get("email")
+    profile_url = body.get("profile_url")
+    designation = body.get("designation")
+    source = body.get("source")
+    status = body.get("status")
+    
+    if not name or not profile_url or not status:
+        return jsonify({"status": "error", "message": "Missing required fields"}), 400
+        
+    update_data = {
+        "Referral_Person_Name": name,
+        "Referral_Person_Email": email or "",
+        "Referral_Person_Profile_URL": profile_url,
+        "Referral_Person_Designation": designation or "",
+        "Referral_Source": source or "Existing Connection",
+        "Referral_Status": status
+    }
+    
+    from core.storage.database import edit_referral_contact_row
+    success = edit_referral_contact_row(referral_id, update_data, get_job_leads_file())
+    if success:
+        return jsonify({"status": "success"})
+    return jsonify({"status": "error", "message": "ReferralID not found"}), 404
+
+
+@app.route('/api/data/delete_referral_row', methods=['POST'])
+def delete_referral_row():
+    body = request.get_json() or {}
+    referral_id = body.get("id")
+    if referral_id is None:
+        return jsonify({"status": "error", "message": "Missing ReferralID"}), 400
+        
+    try:
+        referral_id = int(referral_id)
+    except ValueError:
+        pass
+        
+    path = get_job_leads_file()
+    if not os.path.exists(path):
+        return jsonify({"status": "error", "message": "File not found"}), 404
+        
+    try:
+        wb = openpyxl.load_workbook(path)
+        if "Referrals" not in wb.sheetnames:
+            return jsonify({"status": "error", "message": "Referrals sheet not found"}), 404
+        ws = wb["Referrals"]
+        col_indices = {cell.value: idx for idx, cell in enumerate(ws[1], start=1)}
+        id_col = col_indices.get('ReferralID')
+        if not id_col:
+            return jsonify({"status": "error", "message": "ReferralID column not found"}), 500
+            
+        deleted = False
+        for row in range(2, ws.max_row + 1):
+            val = ws.cell(row=row, column=id_col).value
+            if val is not None and str(val).strip() == str(referral_id).strip():
+                ws.delete_rows(row)
+                deleted = True
+                break
+                
+        if deleted:
+            ws._tables.clear()
+            from config.constants import REFERRAL_HEADERS
+            ref_range = f"A1:{chr(64 + len(REFERRAL_HEADERS))}{ws.max_row}"
+            from openpyxl.worksheet.table import Table, TableStyleInfo
+            tab = Table(displayName="ReferralsTable", ref=ref_range)
+            style = TableStyleInfo(
+                name="TableStyleLight9",
+                showFirstColumn=False,
+                showLastColumn=False,
+                showRowStripes=True,
+                showColumnStripes=False,
+            )
+            tab.tableStyleInfo = style
+            ws.add_table(tab)
+            wb.save(path)
+            _trigger_mac_excel_reload(path)
+            return jsonify({"status": "success"})
+            
+        return jsonify({"status": "error", "message": "ReferralID not found"}), 404
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 

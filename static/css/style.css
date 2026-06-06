@@ -1335,6 +1335,30 @@ body {
     color: #81c784;
 }
 
+/* Teal for Replied */
+.badge-replied, .badge-teal {
+    background: rgba(0, 184, 212, 0.15);
+    color: #00e5ff;
+}
+
+/* Green for Referral Received */
+.badge-referral_received, .badge-referral-received {
+    background: rgba(0, 230, 118, 0.15);
+    color: var(--accent-green);
+}
+
+/* Red for Failed */
+.badge-failed {
+    background: rgba(255, 61, 0, 0.15);
+    color: var(--accent-red);
+}
+
+/* Gray for Skipped */
+.badge-skipped {
+    background: rgba(158, 164, 192, 0.15);
+    color: var(--text-secondary);
+}
+
 /* Specific select dropdown pill coloring in Referral Tracker */
 .status-select-wrapper.new .status-inline-select,
 .status-select-wrapper.pending .status-inline-select {
