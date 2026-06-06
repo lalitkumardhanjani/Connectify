@@ -198,10 +198,15 @@ async function pollLogs() {
             const refButtons = document.getElementById('stdin-referral-buttons');
             const outButtons = document.getElementById('stdin-outreach-buttons');
             const promptText = document.getElementById('stdin-prompt-text');
-            if (activeTaskId === 'scraper_pipeline') {
+            const isConnector = data.current_step_name && data.current_step_name.includes("linkedin_connect");
+            if (activeTaskId === 'scraper_pipeline' || isConnector) {
                 if (refButtons) refButtons.classList.add('hidden');
                 if (outButtons) outButtons.classList.remove('hidden');
-                if (promptText) promptText.innerText = "Outreach Quality Gate is waiting for your choice. Please review the generated email and select:";
+                if (activeTaskId === 'scraper_pipeline') {
+                    if (promptText) promptText.innerText = "Outreach Quality Gate is waiting for your choice. Please review the generated email and select:";
+                } else {
+                    if (promptText) promptText.innerText = "Invite Quality Gate is waiting for your choice. Please review the LinkedIn window and select:";
+                }
             } else {
                 if (refButtons) refButtons.classList.remove('hidden');
                 if (outButtons) outButtons.classList.add('hidden');

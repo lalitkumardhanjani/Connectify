@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import json
 import random
@@ -289,10 +290,26 @@ def find_people_with_connect_button(driver, max_people=10):
             if len(people_with_connect) >= max_people:
                 break
             try:
-                connect_button = card.find_element(
-                    By.CSS_SELECTOR,
-                    "a[aria-label*='to connect']"
-                )
+                connect_button = None
+                buttons = card.find_elements(By.TAG_NAME, "button")
+                for btn in buttons:
+                    try:
+                        aria = btn.get_attribute("aria-label") or ""
+                        text = btn.text or ""
+                        if "to connect" in aria.lower() or "connect" in aria.lower() or text.strip().lower() == "connect":
+                            connect_button = btn
+                            break
+                    except Exception:
+                        continue
+                
+                if not connect_button:
+                    try:
+                        connect_button = card.find_element(By.XPATH, ".//*[contains(@aria-label, 'to connect') or contains(@aria-label, 'Connect')]")
+                    except Exception:
+                        pass
+                
+                if not connect_button:
+                    continue
 
                 name = ""
                 name_selectors = [
@@ -423,7 +440,7 @@ def find_people_already_connected(driver, max_people=10):
         logger.error(f"Error finding connected people: {str(e)}")
         return people_connected
 
-def send_connection_request(driver, person, message):
+def send_connection_request(driver, person, message, review_mode=None):
     try:
         try:
             driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", person['button'])
@@ -479,28 +496,36 @@ def send_connection_request(driver, person, message):
             "button.ml1.artdeco-button--primary"
         ]
 
+        add_note_button = None
         for selector in add_note_css_selectors:
             try:
-                add_note_button = driver.execute_script("""
+                btn = driver.find_element(By.CSS_SELECTOR, selector)
+                if btn.is_displayed():
+                    add_note_button = btn
+                    break
+            except Exception:
+                pass
+            try:
+                btn = driver.execute_script("""
                     const host = document.querySelector('#interop-outlet');
-                    if (!host) return null;
-                    const root = host.shadowRoot;
-                    if (!root) return null;
-                    return root.querySelector(arguments[0]);
+                    if (!host || !host.shadowRoot) return null;
+                    return host.shadowRoot.querySelector(arguments[0]);
                 """, selector)
+                if btn:
+                    add_note_button = btn
+                    break
+            except Exception:
+                pass
 
-                if not add_note_button:
-                    continue
-
+        if add_note_button:
+            try:
                 driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", add_note_button)
                 time.sleep(1)
                 driver.execute_script("arguments[0].click();", add_note_button)
                 add_note_clicked = True
                 time.sleep(3)
-                break
             except Exception as e:
-                logger.warning(f"Error with selector {selector}: {str(e)}")
-                continue
+                logger.warning(f"Failed to click Add a note button: {e}")
 
         if add_note_clicked:
             message_box_selectors = [
@@ -512,17 +537,23 @@ def send_connection_request(driver, person, message):
             message_box = None
             for selector in message_box_selectors:
                 try:
-                    message_box = driver.execute_script("""
-                        const host = document.querySelector('#interop-outlet');
-                        if (!host) return null;
-                        const root = host.shadowRoot;
-                        if (!root) return null;
-                        return root.querySelector(arguments[0]);
-                    """, selector)
-                    if message_box:
+                    box = driver.find_element(By.CSS_SELECTOR, selector)
+                    if box.is_displayed():
+                        message_box = box
                         break
-                except Exception as e:
-                    logger.warning(f"Message box selector failed: {str(e)}")
+                except Exception:
+                    pass
+                try:
+                    box = driver.execute_script("""
+                        const host = document.querySelector('#interop-outlet');
+                        if (!host || !host.shadowRoot) return null;
+                        return host.shadowRoot.querySelector(arguments[0]);
+                    """, selector)
+                    if box:
+                        message_box = box
+                        break
+                except Exception:
+                    pass
 
             if message_box:
                 driver.execute_script("arguments[0].value = '';", message_box)
@@ -534,40 +565,100 @@ def send_connection_request(driver, person, message):
                 """, message_box, message)
                 time.sleep(1)
 
+                if review_mode is None:
+                    review_mode = get_connect_review_mode()
+
+                if review_mode:
+                    print("\n" + "="*50)
+                    print("INVITE QUALITY GATE - CONNECTION NOTE REVIEW")
+                    print("="*50)
+                    print(f"Recipient: {person.get('name', 'unknown')} ({person.get('role', 'unknown')})")
+                    print("-" * 50)
+                    print(message)
+                    print("="*50)
+                    
+                    print("Enter action (Send [S] / Skip [K] / Quit [Q]):")
+                    choice = input().strip().lower()
+                    while choice not in ('s', 'k', 'q'):
+                        print("Invalid option. Please enter Send [S], Skip [K], or Quit [Q]:")
+                        choice = input().strip().lower()
+                        
+                    if choice == 'k':
+                        logger.info("User skipped connection request.")
+                        close_dialog(driver)
+                        return "skipped"
+                    elif choice == 'q':
+                        logger.info("User requested to quit the connector pipeline.")
+                        close_dialog(driver)
+                        return "quit"
+                    else:
+                        logger.info("User approved sending connection request.")
+                else:
+                    logger.info("Automatically sending connection request...")
+
                 send_button_selectors = [
                     "button[aria-label='Send invitation']",
                     "button.artdeco-button--primary",
                     "button.ml1.artdeco-button--primary",
                 ]
 
+                send_btn = None
                 for selector in send_button_selectors:
                     try:
-                        send_button = driver.execute_script("""
+                        btn = driver.find_element(By.CSS_SELECTOR, selector)
+                        if btn.is_displayed():
+                            send_btn = btn
+                            break
+                    except Exception:
+                        pass
+                    try:
+                        btn = driver.execute_script("""
                             const host = document.querySelector('#interop-outlet');
-                            if (!host) return null;
-                            const root = host.shadowRoot;
-                            if (!root) return null;
-                            return root.querySelector(arguments[0]);
+                            if (!host || !host.shadowRoot) return null;
+                            return host.shadowRoot.querySelector(arguments[0]);
                         """, selector)
+                        if btn:
+                            send_btn = btn
+                            break
+                    except Exception:
+                        pass
 
-                        if not send_button:
-                            continue
-
-                        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", send_button)
-                        time.sleep(1)
-                        driver.execute_script("arguments[0].click();", send_button)
-                        time.sleep(3)
-                        return True
-                    except Exception as e:
-                        logger.debug(f"Send selector failed: {str(e)}")
-                        continue
-                close_dialog(driver)
-                return False
+                if send_btn:
+                    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", send_btn)
+                    time.sleep(1)
+                    driver.execute_script("arguments[0].click();", send_btn)
+                    time.sleep(3)
+                    return True
+                else:
+                    logger.warning("Could not find Send invitation button.")
+                    close_dialog(driver)
+                    return False
             else:
+                logger.warning("Could not find note message text area.")
                 close_dialog(driver)
                 return False
         else:
             save_debug_info(driver, "no_add_note_button")
+            if review_mode is None:
+                review_mode = get_connect_review_mode()
+            if review_mode:
+                print("\n" + "="*50)
+                print("INVITE QUALITY GATE - CONNECT WITHOUT NOTE REVIEW")
+                print("="*50)
+                print(f"Recipient: {person.get('name', 'unknown')} ({person.get('role', 'unknown')})")
+                print("="*50)
+                print("Enter action (Send [S] / Skip [K] / Quit [Q]):")
+                choice = input().strip().lower()
+                while choice not in ('s', 'k', 'q'):
+                    print("Invalid option. Please enter Send [S], Skip [K], or Quit [Q]:")
+                    choice = input().strip().lower()
+                if choice == 'k':
+                    close_dialog(driver)
+                    return "skipped"
+                elif choice == 'q':
+                    close_dialog(driver)
+                    return "quit"
+
             send_button_selectors = [
                 "button.artdeco-button--primary[aria-label*='Send']",
                 "button.ml1.artdeco-button--primary",
@@ -575,24 +666,31 @@ def send_connection_request(driver, person, message):
                 "button.artdeco-button--primary"
             ]
 
+            send_btn = None
             for selector in send_button_selectors:
                 try:
-                    send_button = driver.execute_script("""
-                        const host = document.querySelector('#interop-outlet');
-                        if (!host) return null;
-                        const root = host.shadowRoot;
-                        if (!root) return null;
-                        return root.querySelector(arguments[0]);
-                    """, selector)
-
-                    if not send_button:
-                        continue
-
-                    driver.execute_script("arguments[0].click();", send_button)
-                    time.sleep(2)
-                    return True
+                    btn = driver.find_element(By.CSS_SELECTOR, selector)
+                    if btn.is_displayed():
+                        send_btn = btn
+                        break
                 except Exception:
-                    continue
+                    pass
+                try:
+                    btn = driver.execute_script("""
+                        const host = document.querySelector('#interop-outlet');
+                        if (!host || !host.shadowRoot) return null;
+                        return host.shadowRoot.querySelector(arguments[0]);
+                    """, selector)
+                    if btn:
+                        send_btn = btn
+                        break
+                except Exception:
+                    pass
+
+            if send_btn:
+                driver.execute_script("arguments[0].click();", send_btn)
+                time.sleep(2)
+                return True
             close_dialog(driver)
             return False
     except Exception as e:
@@ -666,6 +764,21 @@ def send_direct_message(driver, person, message):
 
 def close_dialog(driver):
     try:
+        dismiss_selectors = [
+            "button.artdeco-modal__dismiss",
+            "button[aria-label='Dismiss']",
+            "button[data-test-modal-close-btn]"
+        ]
+        for sel in dismiss_selectors:
+            try:
+                btn = driver.find_element(By.CSS_SELECTOR, sel)
+                if btn.is_displayed():
+                    btn.click()
+                    time.sleep(1)
+                    return True
+            except Exception:
+                continue
+
         result = driver.execute_script("""
             const host = document.querySelector('#interop-outlet');
             if (!host) return 'NO_HOST';
@@ -683,7 +796,12 @@ def close_dialog(driver):
             return 'NO_CLOSE_BUTTON';
         """)
         time.sleep(1)
-        return result == "SUCCESS"
+        if result == "SUCCESS":
+            return True
+
+        driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
+        time.sleep(1)
+        return True
     except Exception:
         return False
 
@@ -805,20 +923,24 @@ def run_connector():
                             break
                         try:
                             first_name = person.get('name', 'unknown').split()[0] if person.get('name') else "there"
-                            message = review_and_confirm_message(
-                                get_message,
-                                f"CONNECT NOTE — {person.get('name', 'unknown')}",
+                            message = get_message(
                                 position=position,
                                 company=company,
                                 first_name=first_name,
                                 job_url=job_url,
                                 resume_link=resume_link,
                             )
-                            if message is None:
+                            if len(message) > 300:
+                                message = message[:297] + "..."
+
+                            sent = send_connection_request(driver, person, message, review_mode=review_mode)
+                            if sent == "skipped":
                                 logger.info(f"Skipping connect request to {person.get('name', 'unknown')}")
                                 continue
-                            
-                            if send_connection_request(driver, person, message):
+                            elif sent == "quit":
+                                logger.info("Quitting connect requests loop as requested by user.")
+                                break
+                            elif sent:
                                 success_count += 1
                                 try:
                                     if success_count >= max_apply:
@@ -872,11 +994,13 @@ def run_connector():
         logger.info("\n" + "=" * 60)
         logger.info("All jobs processed!")
         logger.info("=" * 60)
-        input("\nPress Enter to close the browser...")
+        if sys.stdin.isatty():
+            input("\nPress Enter to close the browser...")
 
     except Exception:
         logger.exception("Fatal error in connector script")
-        input("\nFatal error occurred. Press Enter to exit...")
+        if sys.stdin.isatty():
+            input("\nFatal error occurred. Press Enter to exit...")
     finally:
         logger.info("Closing browser...")
         driver.quit()
