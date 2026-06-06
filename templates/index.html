@@ -601,8 +601,10 @@
                             <div class="stdin-header">
                                 <i class="fa-solid fa-circle-question"></i> Action Required
                             </div>
-                            <p>Manual review script is waiting for your choice. Please review the Chrome window and make a selection:</p>
-                            <div class="stdin-buttons">
+                            <p id="stdin-prompt-text">Manual review script is waiting for your choice. Please review the Chrome window and make a selection:</p>
+                            
+                            <!-- Referral Pipeline Buttons -->
+                            <div class="stdin-buttons" id="stdin-referral-buttons">
                                 <button class="btn btn-success" onclick="sendStdin('1')">
                                     <i class="fa-solid fa-thumbs-up"></i> (1) Ask for referral (Keep Row)
                                 </button>
@@ -611,6 +613,19 @@
                                 </button>
                                 <button class="btn btn-danger" onclick="sendStdin('q')">
                                     <i class="fa-solid fa-circle-xmark"></i> (q) Quit Script
+                                </button>
+                            </div>
+
+                            <!-- Outreach Pipeline Buttons -->
+                            <div class="stdin-buttons hidden" id="stdin-outreach-buttons">
+                                <button class="btn btn-success" onclick="sendStdin('s')">
+                                    <i class="fa-solid fa-paper-plane"></i> Send (s)
+                                </button>
+                                <button class="btn btn-warning" onclick="sendStdin('k')">
+                                    <i class="fa-solid fa-forward"></i> Skip (k)
+                                </button>
+                                <button class="btn btn-danger" onclick="sendStdin('q')">
+                                    <i class="fa-solid fa-circle-xmark"></i> Quit (q)
                                 </button>
                             </div>
                             <div class="stdin-custom" style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 15px;">

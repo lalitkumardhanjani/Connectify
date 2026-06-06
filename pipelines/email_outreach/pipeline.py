@@ -58,9 +58,15 @@ def run_phase_two(scraper, review_mode=None):
         if not email:
             continue
             
-        logger.info(f"Sending email to {email} (row {row})")
+        logger.info(f"Processing email outreach for {email} (row {row})")
         sent = send_email_via_gmail(scraper.driver, email, review_mode=review_mode)
-        if sent:
+        if sent == "skipped":
+            logger.info(f"Email to {email} skipped – leaving status unchanged.")
+            continue
+        elif sent == "quit":
+            logger.info("Quitting email outreach pipeline as requested by user.")
+            break
+        elif sent:
             update_status(email, 'sent')
         else:
             logger.info(f"Email to {email} not sent – leaving status unchanged.")

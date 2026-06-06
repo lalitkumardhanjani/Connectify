@@ -118,6 +118,27 @@ def send_email_via_gmail(driver, to_email, review_mode=None):
     resume_file_path = get_resume_file_path(profile)
     subject, body = generate_email_draft()
 
+    if review_mode:
+        print("\n" + "="*50)
+        print("OUTREACH QUALITY GATE - EMAIL REVIEW")
+        print("="*50)
+        print(f"To: {to_email}")
+        print("-" * 50)
+        print(f"Subject: {subject}")
+        print(body)
+        print("="*50)
+        
+        choice = input("Enter action (Send [S] / Skip [K] / Quit [Q]): ").strip().lower()
+        while choice not in ('s', 'k', 'q'):
+            choice = input("Invalid option. Please enter Send [S], Skip [K], or Quit [Q]: ").strip().lower()
+            
+        if choice == 'k':
+            logger.info(f"User skipped sending email to {to_email}.")
+            return "skipped"
+        elif choice == 'q':
+            logger.info("User requested to quit the outreach process.")
+            return "quit"
+
     def attach_resume(file_path):
         if not os.path.exists(file_path):
             logger.warning(f"Resume file not found: {file_path}")
@@ -446,24 +467,7 @@ def send_email_via_gmail(driver, to_email, review_mode=None):
             logger.warning("Failed to attach resume. Aborting send.")
             return False
 
-        # Confirm before sending
-        if review_mode:
-            print("\n" + "="*50)
-            print("REVIEW MODE - COMPOSED EMAIL (in Gmail)")
-            print("="*50)
-            print(f"To: {to_email}")
-            print("-" * 50)
-            print(f"Subject: {subject}")
-            print(body)
-            print("="*50)
-            choice = input("Send this email now? (Y/N): ").strip().lower()
-        else:
-            logger.info("Review mode disabled – automatically sending email.")
-            choice = 'y'
-            
-        if choice != 'y':
-            logger.info(f"User skipped sending email to {to_email}.")
-            return False
+        logger.info("Automatically sending composed email as approved via quality gate review...")
         
         # Click Send button
         time.sleep(0.5)

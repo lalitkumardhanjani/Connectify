@@ -17,6 +17,7 @@ import threading
 import signal
 from datetime import datetime
 from flask import Flask, jsonify, request, render_template, send_from_directory, send_file, Response
+from werkzeug.utils import secure_filename
 import pandas as pd
 import openpyxl
 
@@ -112,7 +113,7 @@ class SubprocessRunner:
                 self.logs.append(line.rstrip('\r\n'))
                 
                 # Check if review_for_referral or job search is waiting for option/confirmation selection
-                if "Enter choice:" in clean_line or "Options:" in clean_line or "press ENTER to continue" in clean_line:
+                if "Enter choice:" in clean_line or "Options:" in clean_line or "press ENTER to continue" in clean_line or "Send [S] / Skip [K] / Quit [Q]" in clean_line:
                     time.sleep(0.2)
                     self.waiting_for_input = True
 
@@ -496,15 +497,27 @@ def upload_user_resume():
         return jsonify({"status": "error", "message": "No file selected"}), 400
         
     if file:
-        filename = secure_filename(file.filename)
+        config = load_all_configs()
         username = get_selected_user_name()
         resumes_dir = get_resumes_dir()
         os.makedirs(resumes_dir, exist_ok=True)
+        
+        # Resume Replacement Logic: remove previous active resume if it exists
+        if username in config.get("users", {}):
+            old_resume_name = config["users"][username].get("profile", {}).get("resume_name", "")
+            if old_resume_name:
+                old_resume_path = os.path.join(resumes_dir, old_resume_name)
+                if os.path.exists(old_resume_path):
+                    try:
+                        os.remove(old_resume_path)
+                    except Exception as e:
+                        app.logger.warning(f"Failed to delete old resume file {old_resume_path}: {e}")
+
+        filename = secure_filename(file.filename)
         new_filename = filename
         save_path = os.path.join(resumes_dir, new_filename)
         file.save(save_path)
         
-        config = load_all_configs()
         if username in config.get("users", {}):
             config["users"][username]["profile"]["resume_name"] = new_filename
             save_all_configs(config)

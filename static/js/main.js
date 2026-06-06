@@ -195,6 +195,18 @@ async function pollLogs() {
         const stdinOverlay = document.getElementById('stdin-overlay');
         if (data.waiting_for_input) {
             stdinOverlay.classList.remove('hidden');
+            const refButtons = document.getElementById('stdin-referral-buttons');
+            const outButtons = document.getElementById('stdin-outreach-buttons');
+            const promptText = document.getElementById('stdin-prompt-text');
+            if (activeTaskId === 'scraper_pipeline') {
+                if (refButtons) refButtons.classList.add('hidden');
+                if (outButtons) outButtons.classList.remove('hidden');
+                if (promptText) promptText.innerText = "Outreach Quality Gate is waiting for your choice. Please review the generated email and select:";
+            } else {
+                if (refButtons) refButtons.classList.remove('hidden');
+                if (outButtons) outButtons.classList.add('hidden');
+                if (promptText) promptText.innerText = "Manual review script is waiting for your choice. Please review the Chrome window and make a selection:";
+            }
         } else {
             stdinOverlay.classList.add('hidden');
         }
