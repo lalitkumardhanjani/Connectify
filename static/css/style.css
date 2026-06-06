@@ -1291,16 +1291,60 @@ body {
     opacity: 0.8;
 }
 
-/* Specific select dropdown pill coloring */
-.status-select-wrapper.new .status-inline-select {
-    background: rgba(158, 164, 192, 0.15);
-    color: var(--text-secondary);
+/* Unified Status Badges for Outreach Leads & consistent color mapping */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 10px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    border-radius: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    line-height: 1;
 }
 
-.status-select-wrapper.ask_for_referral .status-inline-select {
+/* Gray/Yellow for New/Pending */
+.badge-new, .badge-pending, .badge-yellow {
+    background: rgba(255, 179, 0, 0.15);
+    color: var(--accent-yellow);
+}
+
+/* Green for Interested */
+.badge-interested, .badge-green {
+    background: rgba(0, 230, 118, 0.15);
+    color: var(--accent-green);
+}
+
+/* Red for Not Interested */
+.badge-not_interested, .badge-not-interested, .badge-red {
+    background: rgba(255, 61, 0, 0.15);
+    color: var(--accent-red);
+}
+
+/* Blue for Asked for Referral / Sent */
+.badge-asked_for_referral, .badge-asked-for-referral, .badge-blue, .badge-sent {
     background: rgba(0, 176, 255, 0.15);
     color: var(--accent-cyan);
-    box-shadow: 0 0 10px rgba(0, 176, 255, 0.1);
+}
+
+/* Dark Green for Done */
+.badge-done, .badge-dark-green {
+    background: rgba(46, 125, 50, 0.25);
+    color: #81c784;
+}
+
+/* Specific select dropdown pill coloring in Referral Tracker */
+.status-select-wrapper.new .status-inline-select,
+.status-select-wrapper.pending .status-inline-select {
+    background: rgba(255, 179, 0, 0.15);
+    color: var(--accent-yellow);
+}
+
+.status-select-wrapper.interested .status-inline-select {
+    background: rgba(0, 230, 118, 0.15);
+    color: var(--accent-green);
 }
 
 .status-select-wrapper.not_interested .status-inline-select {
@@ -1308,19 +1352,17 @@ body {
     color: var(--accent-red);
 }
 
-.status-select-wrapper.done .status-inline-select {
-    background: rgba(0, 230, 118, 0.15);
-    color: var(--accent-green);
-}
-
+.status-select-wrapper.ask_for_referral .status-inline-select,
+.status-select-wrapper.asked_for_referral .status-inline-select,
 .status-select-wrapper.sent .status-inline-select {
     background: rgba(0, 176, 255, 0.15);
     color: var(--accent-cyan);
+    box-shadow: 0 0 10px rgba(0, 176, 255, 0.1);
 }
 
-.status-select-wrapper.pending .status-inline-select {
-    background: rgba(158, 164, 192, 0.15);
-    color: var(--text-secondary);
+.status-select-wrapper.done .status-inline-select {
+    background: rgba(46, 125, 50, 0.25);
+    color: #81c784;
 }
 
 /* Styles inside dropdown options */

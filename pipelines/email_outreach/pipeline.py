@@ -60,12 +60,20 @@ def run_phase_two(scraper, review_mode=None):
             continue
         pending_rows.append((row, email))
         
+    user_conf = get_selected_user_config()
+    email_scraper_conf = user_conf.get("email_scraper", {})
+    max_emails = int(email_scraper_conf.get("max_emails_per_run") or 5)
+    emails_sent = 0
+
     if not pending_rows:
         logger.info(f"No pending or unsent emails found in '{JOB_TRACKER_FILE}'. All scraped email records are already sent or the file is empty.")
         return
         
-    logger.info(f"Found {len(pending_rows)} pending emails to process.")
+    logger.info(f"Found {len(pending_rows)} pending emails to process. Target limit: {max_emails} per run.")
     for row, email in pending_rows:
+        if emails_sent >= max_emails:
+            logger.info(f"Target limit of {max_emails} emails sent reached for this run. Stopping.")
+            break
             
         logger.info(f"Processing email outreach for {email} (row {row})")
         sent = send_email_via_gmail(scraper.driver, email, review_mode=review_mode)
@@ -77,6 +85,7 @@ def run_phase_two(scraper, review_mode=None):
             break
         elif sent:
             update_status(email, 'sent')
+            emails_sent += 1
         else:
             logger.info(f"Email to {email} not sent – leaving status unchanged.")
 

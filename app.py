@@ -214,10 +214,14 @@ def company_stats():
 
 @app.route('/api/data/job_tracker')
 def job_tracker_data():
+    from core.storage.database import init_scraper_store
+    init_scraper_store()
     return jsonify(get_excel_data(get_job_tracker_file()))
 
 @app.route('/api/data/job_leads')
 def job_leads_data():
+    from core.storage.database import init_job_leads_store
+    init_job_leads_store()
     return jsonify(get_excel_data(get_job_leads_file()))
 
 
@@ -426,14 +430,16 @@ def create_user_profile():
             "excluded_keywords": [],
             "sender_email": "",
             "interval": "60",
-            "review_mode": True
+            "review_mode": True,
+            "max_emails_per_run": "5"
         },
         "linkedin_connect": {
             "message_template": DEFAULT_CONNECTION_TEMPLATE,
             "keywords": [],
             "excluded_keywords": [],
             "interval": "60",
-            "review_mode": True
+            "review_mode": True,
+            "max_connections_per_run": "5"
         },
         "recruiter_outreach": {
             "message_template": "Hi {first_name}, let's connect! I saw you handle Talent Acquisition at {company}. I am interested in opportunities there. My resume: {resume}",

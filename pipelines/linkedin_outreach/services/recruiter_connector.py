@@ -25,7 +25,7 @@ from pipelines.linkedin_outreach.services.connector import (
 
 logger = setup_logger(LINKEDIN_CONNECT_LOG_FILE)
 
-def get_recruiter_message(company=None, first_name=None, resume_link=None):
+def get_recruiter_message(company=None, first_name=None, resume_link=None, person_name=None):
     try:
         user_conf = get_selected_user_config()
     except Exception:
@@ -41,10 +41,17 @@ def get_recruiter_message(company=None, first_name=None, resume_link=None):
     if not resume_link:
         resume_link = profile.get("resume_url", "")
     
+    resolved_person_name = "there"
+    if person_name:
+        resolved_person_name = person_name.split()[0] if person_name.strip() else "there"
+    elif first_name:
+        resolved_person_name = first_name
+
     extra_vars = {
         "{company}": company or "the company",
         "{resume}": resume_link or "",
         "{first_name}": first_name or "there",
+        "{PERSON_NAME}": resolved_person_name,
     }
     
     msg = substitute_template_variables(template, profile, extra_vars)
@@ -137,11 +144,13 @@ def run_recruiter_connector():
                     if company_requests_sent >= max_recruiters_per_company or total_requests_sent >= daily_limit:
                         break
                     try:
-                        first_name = person.get('name', 'unknown').split()[0] if person.get('name') else "there"
+                        raw_name = person.get('name') or ''
+                        first_name = raw_name.split()[0] if raw_name else "there"
                         message = get_recruiter_message(
                             company=company,
                             first_name=first_name,
                             resume_link=resume_link,
+                            person_name=raw_name,
                         )
                         if len(message) > 300:
                             message = message[:297] + "..."

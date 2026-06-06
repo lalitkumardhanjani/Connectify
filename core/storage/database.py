@@ -124,22 +124,28 @@ def trim_scraper_excel_to_schema(path=None):
         return
     wb = openpyxl.load_workbook(path)
     ws = wb.active
+    
     current_headers = [cell.value for cell in ws[1]]
     needed = SCRAPER_HEADERS
     header_map = {h: i+1 for i, h in enumerate(current_headers) if h in needed}
     
-    for h in needed:
-        if h not in header_map:
-            ws.cell(row=1, column=len(current_headers)+1, value=h)
-            header_map[h] = len(current_headers)+1
-            current_headers.append(h)
+    data_rows = []
+    for row in range(1, ws.max_row + 1):
+        row_data = {}
+        for h in needed:
+            idx = header_map.get(h)
+            if idx is not None and idx <= ws.max_column:
+                row_data[h] = ws.cell(row=row, column=idx).value
+            else:
+                row_data[h] = h if row == 1 else None
+        data_rows.append(row_data)
+        
+    ws.delete_rows(1, ws.max_row)
+    
+    for r_idx, row_dict in enumerate(data_rows, start=1):
+        for c_idx, h in enumerate(needed, start=1):
+            ws.cell(row=r_idx, column=c_idx, value=row_dict[h])
             
-    for target_idx, h in enumerate(needed, start=1):
-        src_idx = header_map[h]
-        if src_idx != target_idx:
-            for row in range(1, ws.max_row + 1):
-                ws.cell(row=row, column=target_idx, value=ws.cell(row=row, column=src_idx).value)
-                
     max_col = ws.max_column
     if max_col > len(needed):
         ws.delete_cols(len(needed)+1, max_col - len(needed))
@@ -327,22 +333,28 @@ def trim_job_leads_excel_to_schema(path=None):
         return
     wb = openpyxl.load_workbook(path)
     ws = wb.active
+    
     current_headers = [cell.value for cell in ws[1]]
     needed = JOB_LEADS_HEADERS
     header_map = {h: i+1 for i, h in enumerate(current_headers) if h in needed}
     
-    for h in needed:
-        if h not in header_map:
-            ws.cell(row=1, column=len(current_headers)+1, value=h)
-            header_map[h] = len(current_headers)+1
-            current_headers.append(h)
+    data_rows = []
+    for row in range(1, ws.max_row + 1):
+        row_data = {}
+        for h in needed:
+            idx = header_map.get(h)
+            if idx is not None and idx <= ws.max_column:
+                row_data[h] = ws.cell(row=row, column=idx).value
+            else:
+                row_data[h] = h if row == 1 else None
+        data_rows.append(row_data)
+        
+    ws.delete_rows(1, ws.max_row)
+    
+    for r_idx, row_dict in enumerate(data_rows, start=1):
+        for c_idx, h in enumerate(needed, start=1):
+            ws.cell(row=r_idx, column=c_idx, value=row_dict[h])
             
-    for target_idx, h in enumerate(needed, start=1):
-        src_idx = header_map[h]
-        if src_idx != target_idx:
-            for row in range(1, ws.max_row + 1):
-                ws.cell(row=row, column=target_idx, value=ws.cell(row=row, column=src_idx).value)
-                
     max_col = ws.max_column
     if max_col > len(needed):
         ws.delete_cols(len(needed)+1, max_col - len(needed))

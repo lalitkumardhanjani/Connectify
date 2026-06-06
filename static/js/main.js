@@ -686,7 +686,7 @@ function applyScraperFiltersAndRender() {
             const tr = document.createElement('tr');
             
             const statusClean = String(row.Status || 'New').toLowerCase().trim();
-            const badgeClass = statusClean === 'sent' ? 'badge-green' : 'badge-yellow';
+            const badgeClass = `badge-${statusClean}`;
             const statusHtml = `<span class="badge ${badgeClass}">${statusClean.toUpperCase()}</span>`;
             
             const escapedEmail = String(row.Email || '').replace(/'/g, "\\'");
@@ -1484,6 +1484,7 @@ async function loadSettings() {
         // 2. Email Scraper fields
         setVal('scraper-interval', scraper.interval || '60');
         setChecked('scraper-review-mode', scraper.review_mode === true);
+        setVal('scraper-max-emails', scraper.max_emails_per_run || '5');
         setVal('scraper-email-template', scraper.email_template);
         setVal('scraper-email-subject', scraper.email_subject || '');
         
@@ -1495,6 +1496,7 @@ async function loadSettings() {
         // 3. LinkedIn Connect fields
         setVal('connect-interval', connect.interval || '120');
         setChecked('connect-review-mode', connect.review_mode === true);
+        setVal('connect-max-connections', connect.max_connections_per_run || '5');
         setVal('connect-message-template', connect.message_template);
         
         connectKeywords = connect.keywords || [];
@@ -1588,6 +1590,7 @@ async function saveSettingsForm(event) {
             "sender_email": emailScraper.sender_email || "",
             "interval": getVal('scraper-interval', emailScraper.interval || '60'),
             "review_mode": getChecked('scraper-review-mode', emailScraper.review_mode),
+            "max_emails_per_run": getVal('scraper-max-emails', emailScraper.max_emails_per_run || '5'),
             "keywords": scraperKeywords,
             "excluded_keywords": scraperExcludedKeywords,
             "email_subject": getVal('scraper-email-subject', emailScraper.email_subject || ""),
@@ -1596,6 +1599,7 @@ async function saveSettingsForm(event) {
         "linkedin_connect": {
             "interval": getVal('connect-interval', linkedinConnect.interval || '120'),
             "review_mode": getChecked('connect-review-mode', linkedinConnect.review_mode),
+            "max_connections_per_run": getVal('connect-max-connections', linkedinConnect.max_connections_per_run || '5'),
             "keywords": connectKeywords,
             "excluded_keywords": connectExcludedKeywords,
             "message_template": getVal('connect-message-template', linkedinConnect.message_template)
@@ -2110,15 +2114,26 @@ setInterval(() => {
                         (document.getElementById('edit-referral-modal') && !document.getElementById('edit-referral-modal').classList.contains('hidden')) ||
                         document.querySelector('.modal-overlay:not(.hidden)');
     
-    // Check if the user is focused on search inputs or other input fields
-    const isEditing = document.activeElement && 
-                      (document.activeElement.tagName === 'INPUT' || 
-                       document.activeElement.tagName === 'TEXTAREA' || 
-                       document.activeElement.tagName === 'SELECT');
+    // Check if the user is focused on settings fields specifically
+    const isEditingSettings = document.activeElement && 
+                              (document.activeElement.tagName === 'INPUT' || 
+                               document.activeElement.tagName === 'TEXTAREA' || 
+                               document.activeElement.tagName === 'SELECT') &&
+                              (document.activeElement.closest('.settings-card') ||
+                               document.activeElement.closest('#settings-form') ||
+                               document.activeElement.closest('#settings') ||
+                               (document.activeElement.id && (
+                                   document.activeElement.id.startsWith('scraper-') || 
+                                   document.activeElement.id.startsWith('connect-') || 
+                                   document.activeElement.id.startsWith('recruiter-')
+                               )));
     
-    if (!isModalOpen && !isEditing) {
+    if (!isModalOpen) {
         loadTableData('scraper');
         loadTableData('referral');
+    }
+    if (!isModalOpen && !isEditingSettings) {
+        loadSettings();
     }
 }, 5000);
 

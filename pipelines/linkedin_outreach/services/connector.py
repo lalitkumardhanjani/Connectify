@@ -56,7 +56,7 @@ def get_connect_review_mode():
     except Exception:
         return os.getenv("REVIEW_MODE", "0") != "0"
 
-def get_message(position=None, company=None, first_name=None, job_url=None, resume_link=None):
+def get_message(position=None, company=None, first_name=None, job_url=None, resume_link=None, person_name=None):
     try:
         user_conf = get_selected_user_config()
     except Exception:
@@ -72,11 +72,18 @@ def get_message(position=None, company=None, first_name=None, job_url=None, resu
     if not resume_link:
         resume_link = profile.get("resume_url", "")
     
+    resolved_person_name = "there"
+    if person_name:
+        resolved_person_name = person_name.split()[0] if person_name.strip() else "there"
+    elif first_name:
+        resolved_person_name = first_name
+
     extra_vars = {
         "{company}": company or "the company",
         "{job_url}": job_url or "",
         "{resume}": resume_link or "",
         "{first_name}": first_name or "there",
+        "{PERSON_NAME}": resolved_person_name,
     }
     
     msg = substitute_template_variables(template, profile, extra_vars)
@@ -846,6 +853,10 @@ def run_connector():
     user_conf = get_selected_user_config()
     global_conf = get_global_settings()
     
+    connect_conf = user_conf.get("linkedin_connect", {})
+    max_connections = int(connect_conf.get("max_connections_per_run") or 5)
+    total_connections_sent = 0
+    
     outreach_mode = os.getenv("OUTREACH_MODE", "connect_only")
     review_mode = get_connect_review_mode()
     
@@ -855,6 +866,7 @@ def run_connector():
     
     logger.info(f"REVIEW_MODE  : {review_mode}")
     logger.info(f"OUTREACH_MODE: {outreach_mode}")
+    logger.info(f"MAX_LIMIT    : {max_connections}")
     logger.info("=" * 60)
 
     job_data = load_jobs_for_referral(status_filter='Interested')
@@ -878,6 +890,10 @@ def run_connector():
             sys.exit(1)
 
         for job in job_data:
+            if total_connections_sent >= max_connections:
+                logger.info(f"Global run limit of {max_connections} connection requests reached. Stopping pipeline.")
+                break
+
             company = job.get('CompanyName') or ''
             position = job.get('SearchKeyword') or ''
             job_id = job.get('JobID') or ''
@@ -908,9 +924,9 @@ def run_connector():
             # Send connect requests to new people
             if outreach_mode in ("connect_only", "both"):
                 page_number = 1
-                while success_count < max_apply:
+                while success_count < max_apply and total_connections_sent < max_connections:
                     logger.info(f"\nProcessing page {page_number} for connect requests")
-                    remaining = max_apply - success_count
+                    remaining = min(max_apply - success_count, max_connections - total_connections_sent)
                     people = find_people_with_connect_button(driver, max_people=remaining)
 
                     if not people:
@@ -922,16 +938,18 @@ def run_connector():
                         continue
 
                     for person in people:
-                        if success_count >= max_apply:
+                        if success_count >= max_apply or total_connections_sent >= max_connections:
                             break
                         try:
-                            first_name = person.get('name', 'unknown').split()[0] if person.get('name') else "there"
+                            raw_name = person.get('name') or ''
+                            first_name = raw_name.split()[0] if raw_name else "there"
                             message = get_message(
                                 position=position,
                                 company=company,
                                 first_name=first_name,
                                 job_url=job_url,
                                 resume_link=resume_link,
+                                person_name=raw_name,
                             )
                             if len(message) > 300:
                                 message = message[:297] + "..."
@@ -945,6 +963,7 @@ def run_connector():
                                 return
                             elif sent:
                                 success_count += 1
+                                total_connections_sent += 1
                                 try:
                                     if success_count >= 5:
                                         update_status_by_id(job_id, 'Asked for Referral')
@@ -953,11 +972,12 @@ def run_connector():
                                 except Exception as e:
                                     logger.warning(f"Failed to record referral info: {e}")
                                 logger.info(f"Connect requests sent: {success_count}/{max_apply}")
+                                logger.info(f"Total connections sent in this run: {total_connections_sent}/{max_connections}")
                         except Exception as e:
                             logger.warning(f"Failed sending connect request: {str(e)}")
                         time.sleep(random.randint(3, 7))
 
-                    if success_count >= max_apply:
+                    if success_count >= max_apply or total_connections_sent >= max_connections:
                         break
 
                     if not go_to_next_page(driver):
