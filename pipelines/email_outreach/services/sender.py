@@ -118,26 +118,7 @@ def send_email_via_gmail(driver, to_email, review_mode=None):
     resume_file_path = get_resume_file_path(profile)
     subject, body = generate_email_draft()
 
-    if review_mode:
-        print("\n" + "="*50)
-        print("OUTREACH QUALITY GATE - EMAIL REVIEW")
-        print("="*50)
-        print(f"To: {to_email}")
-        print("-" * 50)
-        print(f"Subject: {subject}")
-        print(body)
-        print("="*50)
-        
-        choice = input("Enter action (Send [S] / Skip [K] / Quit [Q]): ").strip().lower()
-        while choice not in ('s', 'k', 'q'):
-            choice = input("Invalid option. Please enter Send [S], Skip [K], or Quit [Q]: ").strip().lower()
-            
-        if choice == 'k':
-            logger.info(f"User skipped sending email to {to_email}.")
-            return "skipped"
-        elif choice == 'q':
-            logger.info("User requested to quit the outreach process.")
-            return "quit"
+    # Prompt is moved to the end of Gmail composition
 
     def attach_resume(file_path):
         if not os.path.exists(file_path):
@@ -467,7 +448,60 @@ def send_email_via_gmail(driver, to_email, review_mode=None):
             logger.warning("Failed to attach resume. Aborting send.")
             return False
 
-        logger.info("Automatically sending composed email as approved via quality gate review...")
+        if review_mode:
+            print("\n" + "="*50)
+            print("OUTREACH QUALITY GATE - EMAIL REVIEW")
+            print("="*50)
+            print(f"To: {to_email}")
+            print("-" * 50)
+            print(f"Subject: {subject}")
+            print(body)
+            print("="*50)
+            
+            choice = input("Enter action (Send [S] / Skip [K] / Quit [Q]): ").strip().lower()
+            while choice not in ('s', 'k', 'q'):
+                choice = input("Invalid option. Please enter Send [S], Skip [K], or Quit [Q]: ").strip().lower()
+                
+            def discard_draft():
+                discard_selectors = [
+                    "//div[@aria-label='Discard draft']",
+                    "//div[@data-tooltip='Discard draft (Ctrl-Shift-D)']",
+                    "//div[contains(@aria-label, 'Discard draft')]",
+                    "//div[@aria-label='Save & close']",
+                    "//img[@alt='Close']"
+                ]
+                for xpath in discard_selectors:
+                    try:
+                        discard_btn = driver.find_element(By.XPATH, xpath)
+                        driver.execute_script("arguments[0].scrollIntoView(true);", discard_btn)
+                        time.sleep(0.2)
+                        driver.execute_script("arguments[0].click();", discard_btn)
+                        logger.info("Discarded/closed Gmail compose window.")
+                        time.sleep(1)
+                        return True
+                    except Exception:
+                        continue
+                try:
+                    driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
+                    logger.info("Sent ESCAPE to close compose window.")
+                    time.sleep(1)
+                    return True
+                except Exception as e:
+                    logger.warning(f"Failed to discard draft: {e}")
+                    return False
+
+            if choice == 'k':
+                logger.info(f"User skipped sending email to {to_email}.")
+                discard_draft()
+                return "skipped"
+            elif choice == 'q':
+                logger.info("User requested to quit the outreach process.")
+                discard_draft()
+                return "quit"
+            else:
+                logger.info("User approved sending email.")
+        else:
+            logger.info("Automatically sending composed email...")
         
         # Click Send button
         time.sleep(0.5)
