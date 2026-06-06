@@ -22,9 +22,17 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--review",
+        dest="review",
         action="store_true",
-        help="Review emails before sending"
+        help="Review emails before sending (overrides config)"
     )
+    parser.add_argument(
+        "--no-review",
+        dest="review",
+        action="store_false",
+        help="Do not review emails before sending (overrides config)"
+    )
+    parser.set_defaults(review=None)
     args = parser.parse_args()
     run_pipeline(phase=args.phase, review_mode=args.review)
 

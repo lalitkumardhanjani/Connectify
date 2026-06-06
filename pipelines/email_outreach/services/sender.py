@@ -458,9 +458,11 @@ def send_email_via_gmail(driver, to_email, review_mode=None):
             print(body)
             print("="*50)
             
-            choice = input("Enter action (Send [S] / Skip [K] / Quit [Q]): ").strip().lower()
+            print("Enter action (Send [S] / Skip [K] / Quit [Q]):")
+            choice = input().strip().lower()
             while choice not in ('s', 'k', 'q'):
-                choice = input("Invalid option. Please enter Send [S], Skip [K], or Quit [Q]: ").strip().lower()
+                print("Invalid option. Please enter Send [S], Skip [K], or Quit [Q]:")
+                choice = input().strip().lower()
                 
             def discard_draft():
                 discard_selectors = [
