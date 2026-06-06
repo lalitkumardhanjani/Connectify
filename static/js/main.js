@@ -160,6 +160,8 @@ async function pollLogs() {
             updateReferralPipelineSteps(data);
         } else if (activeTaskId === 'scraper_pipeline') {
             updateScraperPipelineSteps(data);
+        } else if (activeTaskId === 'recruiter_pipeline') {
+            updateRecruiterPipelineSteps(data);
         }
 
         // Update badges
@@ -191,6 +193,9 @@ async function pollLogs() {
             } else if (activeTaskId === 'referral_pipeline') {
                 const steps = document.querySelectorAll('#card-referral .p-step-seq');
                 steps.forEach(el => el.classList.remove('active'));
+            } else if (activeTaskId === 'recruiter_pipeline') {
+                const steps = document.querySelectorAll('#card-recruiter .p-step-seq');
+                steps.forEach(el => el.classList.remove('active'));
             }
         }
 
@@ -201,7 +206,9 @@ async function pollLogs() {
             const refButtons = document.getElementById('stdin-referral-buttons');
             const outButtons = document.getElementById('stdin-outreach-buttons');
             const promptText = document.getElementById('stdin-prompt-text');
-            const isConnector = data.current_step_name && data.current_step_name.includes("linkedin_connect");
+            const isConnector = (data.current_step_name && data.current_step_name.includes("linkedin_connect")) ||
+                                (data.current_step_name && data.current_step_name.includes("recruiter_outreach")) ||
+                                activeTaskId === 'recruiter_pipeline';
             if (activeTaskId === 'scraper_pipeline' || isConnector) {
                 if (refButtons) refButtons.classList.add('hidden');
                 if (outButtons) outButtons.classList.remove('hidden');
@@ -267,14 +274,14 @@ function updateReferralPipelineSteps(taskData) {
 }
 
 function setGlobalPipelineLock(runningTaskId) {
-    const buttonsToLock = document.querySelectorAll('#btn-run-scraper, #btn-run-referral, .btn-step-run');
+    const buttonsToLock = document.querySelectorAll('#btn-run-scraper, #btn-run-referral, #btn-run-recruiter, .btn-step-run');
     if (runningTaskId) {
         buttonsToLock.forEach(btn => {
             btn.disabled = true;
         });
         
         // Ensure the active task's stop button is enabled
-        const pipelinePrefix = runningTaskId.split('_')[0]; // 'scraper' or 'referral'
+        const pipelinePrefix = runningTaskId.split('_')[0]; // 'scraper', 'referral', or 'recruiter'
         const activeKillBtn = document.getElementById(`btn-kill-${pipelinePrefix}`);
         if (activeKillBtn) {
             activeKillBtn.disabled = false;
@@ -452,6 +459,17 @@ function updateScraperPipelineSteps(taskData) {
     }
 }
 
+function updateRecruiterPipelineSteps(taskData) {
+    const steps = document.querySelectorAll('#card-recruiter .p-step-seq');
+    steps.forEach(el => el.classList.remove('active', 'completed'));
+
+    if (taskData.status === 'success') {
+        steps.forEach(el => el.classList.add('completed'));
+    } else if (taskData.status === 'running') {
+        steps.forEach(el => el.classList.add('active'));
+    }
+}
+
 // Kill running pipeline tasks
 async function killPipeline(type) {
     const taskId = `${type}_pipeline`;
@@ -492,8 +510,10 @@ async function sendCustomStdin() {
 // Add click listeners to pipeline buttons
 document.getElementById('btn-run-scraper').addEventListener('click', () => runPipeline('scraper'));
 document.getElementById('btn-run-referral').addEventListener('click', () => runPipeline('referral'));
+document.getElementById('btn-run-recruiter').addEventListener('click', () => runPipeline('recruiter'));
 document.getElementById('btn-kill-scraper').addEventListener('click', () => killPipeline('scraper'));
 document.getElementById('btn-kill-referral').addEventListener('click', () => killPipeline('referral'));
+document.getElementById('btn-kill-recruiter').addEventListener('click', () => killPipeline('recruiter'));
 
 document.querySelectorAll('.start-pipeline-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -554,13 +574,20 @@ function renderTable(type, data) {
         const shortenUrl = row.ShortenURL || "";
         const shortenLinkHtml = shortenUrl.startsWith("http") ? `<a href="${shortenUrl}" target="_blank">${shortenUrl}</a>` : shortenUrl;
         
-        const statusOptions = ['new', 'ask for referral', 'not interested', 'done'];
+        const statusOptions = ['new', 'interested', 'not interested', 'asked for referral', 'done'];
         let statusOptionsHtml = '';
         statusOptions.forEach(opt => {
             const selected = (row.Status || 'new').toLowerCase().trim() === opt ? 'selected' : '';
             statusOptionsHtml += `<option value="${opt}" ${selected}>${opt.toUpperCase()}</option>`;
         });
         const cleanStatus = (row.Status || 'new').toLowerCase().replace(/\s+/g, '_');
+
+        const encCompany = encodeURIComponent(row.CompanyName || "");
+        const encUrl = encodeURIComponent(row.CompanyURL || "");
+        const encShorten = encodeURIComponent(row.ShortenURL || "");
+        const encKeyword = encodeURIComponent(row.SearchKeyword || "");
+        const encPosition = encodeURIComponent(row.JobTitle || "");
+        const encStatus = encodeURIComponent(row.Status || "");
 
         tr.innerHTML = `
             <td>${row.JobID || ""}</td>
@@ -577,9 +604,14 @@ function renderTable(type, data) {
             </td>
             <td>${row.CreatedDateTime || ""}</td>
             <td style="text-align: center;">
-                <button class="table-action-btn btn-delete" onclick="deleteRow('referral', ${row.JobID})" title="Delete job">
-                    <i class="fa-solid fa-trash-can"></i>
-                </button>
+                <div style="display: flex; gap: 8px; justify-content: center;">
+                    <button class="table-action-btn btn-edit" onclick="showEditReferralModal(${row.JobID}, '${encCompany}', '${encUrl}', '${encShorten}', '${encKeyword}', '${encPosition}', '${encStatus}')" title="Edit record">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                    </button>
+                    <button class="table-action-btn btn-delete" onclick="deleteRow('referral', ${row.JobID})" title="Delete job">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
             </td>
         `;
         tbody.appendChild(tr);
@@ -1257,7 +1289,8 @@ function switchTemplateMode(type, mode) {
             .replace(/{EXPECTED_CTC}/g, expectedCtc)
             .replace(/{resume}/g, resumeUrl)
             .replace(/{company}/g, "Sample Company")
-            .replace(/{job_url}/g, "https://linkedin.com/jobs/view/12345");
+            .replace(/{job_url}/g, "https://linkedin.com/jobs/view/12345")
+            .replace(/{first_name}/g, "Recruiter");
             
         if (type === 'scraper') {
             const rawSubject = document.getElementById('scraper-email-subject') ? document.getElementById('scraper-email-subject').value : '';
@@ -1373,6 +1406,7 @@ async function loadSettings() {
         const profile = config.profile || {};
         const scraper = config.email_scraper || {};
         const connect = config.linkedin_connect || {};
+        const recruiter = config.recruiter_outreach || {};
         
         const setVal = (id, val) => {
             const el = document.getElementById(id);
@@ -1453,12 +1487,20 @@ async function loadSettings() {
         connectExcludedKeywords = connect.excluded_keywords || [];
         renderKeywords('connect-excluded');
 
+        // 4. Recruiter Outreach fields
+        setVal('recruiter-interval', recruiter.interval || '120');
+        setVal('recruiter-daily-limit', recruiter.daily_limit || '5');
+        setChecked('recruiter-review-mode', recruiter.review_mode !== false);
+        setVal('recruiter-message-template', recruiter.message_template);
+
         // Reset Template mode displays to Edit
         switchTemplateMode('scraper', 'edit');
         switchTemplateMode('connect', 'edit');
+        switchTemplateMode('recruiter', 'edit');
 
         // Update character counter for connection template
         if (typeof updateConnectCharCount === 'function') updateConnectCharCount();
+        if (typeof updateRecruiterCharCount === 'function') updateRecruiterCharCount();
 
         // 4. Global settings
         setVal('setting-linkedin-email', globalSettings.linkedin_email);
@@ -1497,6 +1539,7 @@ async function saveSettingsForm(event) {
     const profile = cachedConfig.config?.profile || {};
     const emailScraper = cachedConfig.config?.email_scraper || {};
     const linkedinConnect = cachedConfig.config?.linkedin_connect || {};
+    const recruiterOutreach = cachedConfig.config?.recruiter_outreach || {};
     const globalSettings = cachedConfig.global_settings || {};
     
     const getVal = (id, fallback) => {
@@ -1540,6 +1583,12 @@ async function saveSettingsForm(event) {
             "keywords": connectKeywords,
             "excluded_keywords": connectExcludedKeywords,
             "message_template": getVal('connect-message-template', linkedinConnect.message_template)
+        },
+        "recruiter_outreach": {
+            "interval": getVal('recruiter-interval', recruiterOutreach.interval || '120'),
+            "daily_limit": getVal('recruiter-daily-limit', recruiterOutreach.daily_limit || '5'),
+            "review_mode": getChecked('recruiter-review-mode', recruiterOutreach.review_mode),
+            "message_template": getVal('recruiter-message-template', recruiterOutreach.message_template)
         },
         "global_settings": {
             "linkedin_email": getVal('setting-linkedin-email', globalSettings.linkedin_email || ""),
@@ -1829,12 +1878,23 @@ function insertToken(type, token) {
     el.selectionStart = el.selectionEnd = start + token.length;
     if (type === 'connect' && typeof updateConnectCharCount === 'function') {
         updateConnectCharCount();
+    } else if (type === 'recruiter' && typeof updateRecruiterCharCount === 'function') {
+        updateRecruiterCharCount();
     }
 }
 
 function updateConnectCharCount() {
     const ta  = document.getElementById('connect-message-template');
     const ctr = document.getElementById('connect-char-count');
+    if (!ta || !ctr) return;
+    const len = ta.value.length;
+    ctr.textContent = `${len} / 300`;
+    ctr.style.color = len > 280 ? 'var(--accent-red)' : len > 240 ? 'var(--accent-yellow)' : 'var(--text-secondary)';
+}
+
+function updateRecruiterCharCount() {
+    const ta  = document.getElementById('recruiter-message-template');
+    const ctr = document.getElementById('recruiter-char-count');
     if (!ta || !ctr) return;
     const len = ta.value.length;
     ctr.textContent = `${len} / 300`;
@@ -1849,6 +1909,10 @@ const _origLoadSettings   = window.loadSettings;
 document.addEventListener('DOMContentLoaded', () => {
     const ta = document.getElementById('connect-message-template');
     if (ta) ta.addEventListener('input', updateConnectCharCount);
+    
+    const recruiterTa = document.getElementById('recruiter-message-template');
+    if (recruiterTa) recruiterTa.addEventListener('input', updateRecruiterCharCount);
+    
     // Initialize scraper header filters
     bindScraperColumnFilters();
 });
@@ -1962,3 +2026,82 @@ if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
         }, 800);
     };
 }
+
+
+// ── Referral Record Modal Triggers ──────────────────────────────────
+function showEditReferralModal(id, encCompany, encUrl, encShorten, encKeyword, encPosition, encStatus) {
+    document.getElementById('edit-referral-id').value = id;
+    document.getElementById('edit-referral-company').value = decodeURIComponent(encCompany);
+    document.getElementById('edit-referral-url').value = decodeURIComponent(encUrl);
+    document.getElementById('edit-referral-shorten').value = decodeURIComponent(encShorten === 'None' || encShorten === 'null' || !encShorten ? '' : encShorten);
+    document.getElementById('edit-referral-keyword').value = decodeURIComponent(encKeyword === 'None' || encKeyword === 'null' || !encKeyword ? '' : encKeyword);
+    document.getElementById('edit-referral-position').value = decodeURIComponent(encPosition === 'None' || encPosition === 'null' || !encPosition ? '' : encPosition);
+    document.getElementById('edit-referral-status').value = decodeURIComponent(encStatus).toLowerCase();
+    
+    const modal = document.getElementById('edit-referral-modal');
+    if (modal) modal.classList.remove('hidden');
+}
+
+function hideEditReferralModal() {
+    const modal = document.getElementById('edit-referral-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+async function saveReferralEditForm(event) {
+    if (event) event.preventDefault();
+    
+    const id = document.getElementById('edit-referral-id').value;
+    const company = document.getElementById('edit-referral-company').value;
+    const url = document.getElementById('edit-referral-url').value;
+    const shorten = document.getElementById('edit-referral-shorten').value;
+    const keyword = document.getElementById('edit-referral-keyword').value;
+    const position = document.getElementById('edit-referral-position').value;
+    const status = document.getElementById('edit-referral-status').value;
+    
+    try {
+        const response = await fetch('/api/data/edit_row', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                db_type: 'referral',
+                id: id,
+                company: company,
+                url: url,
+                shorten: shorten,
+                keyword: keyword,
+                position: position,
+                status: status
+            })
+        });
+        const data = await response.json();
+        if (data.status === 'success') {
+            hideEditReferralModal();
+            await loadTableData('referral');
+        } else {
+            alert(`Error updating record: ${data.message}`);
+        }
+    } catch (e) {
+        console.error("Failed to save record:", e);
+        alert("Failed to save changes. Please try again.");
+    }
+}
+
+// ── Two-way Synchronization: Excel-to-UI Poll ─────────────────────────────
+setInterval(() => {
+    // Only fetch updates if the user is not actively editing in a modal
+    const isModalOpen = !document.getElementById('edit-scraper-modal').classList.contains('hidden') ||
+                        (document.getElementById('edit-referral-modal') && !document.getElementById('edit-referral-modal').classList.contains('hidden')) ||
+                        document.querySelector('.modal-overlay:not(.hidden)');
+    
+    // Check if the user is focused on search inputs or other input fields
+    const isEditing = document.activeElement && 
+                      (document.activeElement.tagName === 'INPUT' || 
+                       document.activeElement.tagName === 'TEXTAREA' || 
+                       document.activeElement.tagName === 'SELECT');
+    
+    if (!isModalOpen && !isEditing) {
+        loadTableData('scraper');
+        loadTableData('referral');
+    }
+}, 5000);
+

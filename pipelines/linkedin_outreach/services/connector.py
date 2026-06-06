@@ -857,12 +857,13 @@ def run_connector():
     logger.info(f"OUTREACH_MODE: {outreach_mode}")
     logger.info("=" * 60)
 
-    job_data = load_jobs_for_referral(status_filter='Ask for referral')
+    job_data = load_jobs_for_referral(status_filter='Interested')
     if not job_data:
-        logger.error("No jobs with status 'Ask for referral' found in database. Exiting...")
+        logger.error("No jobs with status 'Interested' found in database. Exiting...")
         return
 
-    logger.info(f"Loaded {len(job_data)} jobs with status 'Ask for referral'.")
+    logger.info(f"Loaded {len(job_data)} jobs with status 'Interested'.")
+
 
     try:
         driver = get_driver()
@@ -945,10 +946,10 @@ def run_connector():
                             elif sent:
                                 success_count += 1
                                 try:
-                                    if success_count >= max_apply:
-                                        update_status_by_id(job_id, 'Done')
+                                    if success_count >= 5:
+                                        update_status_by_id(job_id, 'Asked for Referral')
                                     else:
-                                        update_status_by_id(job_id, 'Ask for referral')
+                                        update_status_by_id(job_id, 'Interested')
                                 except Exception as e:
                                     logger.warning(f"Failed to record referral info: {e}")
                                 logger.info(f"Connect requests sent: {success_count}/{max_apply}")

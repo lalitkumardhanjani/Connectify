@@ -31,9 +31,10 @@ from config.user_profiles import (
 )
 from config.email_templates import DEFAULT_EMAIL_TEMPLATE, DEFAULT_CONNECTION_TEMPLATE
 from core.analytics.metrics import get_email_metrics, get_company_metrics
-from core.storage.database import _trigger_mac_excel_reload, update_status_by_id, edit_row
+from core.storage.database import _trigger_mac_excel_reload, update_status_by_id, edit_row, edit_lead_row
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
+
 
 if sys.platform == 'win32':
     PYTHON_BIN = os.path.join(os.getcwd(), ".venv", "Scripts", "python.exe")
@@ -276,7 +277,22 @@ def start_referral():
         return jsonify({"status": "success", "task_id": task_id})
 
 
+@app.route('/api/run/recruiter', methods=['POST'])
+def start_recruiter():
+    with task_lock:
+        task_id = "recruiter_pipeline"
+        if task_id in active_tasks and active_tasks[task_id].status == "running":
+            return jsonify({"status": "error", "message": "Recruiter outreach pipeline is already running"}), 400
+        
+        runner = SubprocessRunner(task_id, [("run_recruiter_outreach.py", [])])
+        active_tasks[task_id] = runner
+        runner.start()
+        
+        return jsonify({"status": "success", "task_id": task_id})
+
+
 @app.route('/api/tasks')
+
 def get_all_tasks():
     with task_lock:
         result = {}
@@ -417,6 +433,12 @@ def create_user_profile():
             "keywords": [],
             "excluded_keywords": [],
             "interval": "60",
+            "review_mode": True
+        },
+        "recruiter_outreach": {
+            "message_template": "Hi {first_name}, let's connect! I saw you handle Talent Acquisition at {company}. I am interested in opportunities there. My resume: {resume}",
+            "interval": "120",
+            "daily_limit": "5",
             "review_mode": True
         }
     }
@@ -720,11 +742,8 @@ def edit_table_row():
     body = request.get_json() or {}
     db_type = body.get("db_type")
     row_id = body.get("id")
-    email = body.get("email")
-    status = body.get("status")
-    keyword = body.get("keyword")
     
-    if not db_type or row_id is None or not email or not status:
+    if not db_type or row_id is None:
         return jsonify({"status": "error", "message": "Missing required fields"}), 400
         
     try:
@@ -733,12 +752,31 @@ def edit_table_row():
         return jsonify({"status": "error", "message": "Invalid ID"}), 400
         
     if db_type == "scraper":
+        email = body.get("email")
+        status = body.get("status")
+        keyword = body.get("keyword")
+        if not email or not status:
+            return jsonify({"status": "error", "message": "Missing required fields"}), 400
         success = edit_row(row_id, email, status, keyword, get_job_tracker_file())
         if success:
             return jsonify({"status": "success"})
         return jsonify({"status": "error", "message": "ID not found"}), 404
+    elif db_type == "referral":
+        company = body.get("company")
+        url = body.get("url")
+        shorten = body.get("shorten")
+        keyword = body.get("keyword")
+        position = body.get("position")
+        status = body.get("status")
+        if not company or not url or not status:
+            return jsonify({"status": "error", "message": "Missing company, url, or status"}), 400
+        success = edit_lead_row(row_id, company, url, shorten, keyword, position, status, get_job_leads_file())
+        if success:
+            return jsonify({"status": "success"})
+        return jsonify({"status": "error", "message": "JobID not found"}), 404
     else:
-        return jsonify({"status": "error", "message": "Editing is only supported for Scraper Database"}), 400
+        return jsonify({"status": "error", "message": "Invalid db_type"}), 400
+
 
 
 @app.route('/api/dev-reload')

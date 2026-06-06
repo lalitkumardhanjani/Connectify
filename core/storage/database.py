@@ -564,3 +564,50 @@ def update_status_by_id(job_id, status, path=None):
         wb.save(path)
         _trigger_mac_excel_reload(path)
     return updated
+
+
+def edit_lead_row(job_id, company, url, shorten, keyword, position, status, path=None):
+    """Modifies details of an existing job lead by JobID."""
+    if path is None:
+        path = get_job_leads_file()
+    init_job_leads_store(path)
+    wb = openpyxl.load_workbook(path)
+    ws = wb.active
+    col_indices = {cell.value: idx for idx, cell in enumerate(ws[1], start=1)}
+    id_col = col_indices.get('JobID', 1)
+    company_col = col_indices.get('CompanyName')
+    url_col = col_indices.get('CompanyURL')
+    shorten_col = col_indices.get('ShortenURL')
+    keyword_col = col_indices.get('SearchKeyword')
+    position_col = col_indices.get('JobTitle')
+    status_col = col_indices.get('Status')
+    short_url_created_col = col_indices.get('ShortUrlCreated')
+    
+    updated = False
+    for row in range(2, ws.max_row + 1):
+        if ws.cell(row=row, column=id_col).value == job_id:
+            if company_col and company is not None:
+                ws.cell(row=row, column=company_col, value=company)
+            if url_col and url is not None:
+                ws.cell(row=row, column=url_col, value=url)
+            if shorten_col and shorten is not None:
+                ws.cell(row=row, column=shorten_col, value=shorten)
+                if short_url_created_col:
+                    if shorten and str(shorten).strip().startswith("http"):
+                        ws.cell(row=row, column=short_url_created_col, value="Yes")
+                    else:
+                        ws.cell(row=row, column=short_url_created_col, value="No")
+            if keyword_col and keyword is not None:
+                ws.cell(row=row, column=keyword_col, value=keyword)
+            if position_col and position is not None:
+                ws.cell(row=row, column=position_col, value=position)
+            if status_col and status is not None:
+                ws.cell(row=row, column=status_col, value=status)
+            updated = True
+            break
+            
+    if updated:
+        wb.save(path)
+        _trigger_mac_excel_reload(path)
+    return updated
+

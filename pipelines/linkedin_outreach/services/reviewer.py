@@ -87,7 +87,7 @@ def run_reviewer():
 
             while True:
                 print("\nOptions:")
-                print("1 -> Ask for referral (keep row)")
+                print("1 -> Interested (set status)")
                 print("2 -> Not Interested (set status)")
                 print("q -> Quit")
                 choice = input("\nEnter choice: ").strip().lower()
@@ -101,15 +101,16 @@ def run_reviewer():
                 updated_rows.extend(remaining)
                 break
             elif choice == '1':
-                logger.info("Marked for referral. Keeping row.")
+                logger.info("Interested. Updating status.")
                 if status_col:
-                    row[status_col] = "Ask for referral"
+                    row[status_col] = "Interested"
                 updated_rows.append(row)
             elif choice == '2':
                 logger.info("Not interested. Updating status.")
                 if status_col:
                     row[status_col] = "Not Interested"
                 updated_rows.append(row)
+
 
             # After handling the choice, save current state
             remaining = jobs_to_process[index:]
