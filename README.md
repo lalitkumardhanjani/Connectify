@@ -97,6 +97,13 @@ cd Connectify
   ```
 *Note: Pip will install Selenium, Flask, openpyxl, pandas, requests, python-dotenv, and webdriver-manager.*
 
+> [!TIP]
+> **VS Code Extension Setup**: If you run the project in VS Code and receive `ModuleNotFoundError: No module named 'flask'`, it means VS Code is trying to run python using your global system interpreter rather than the virtual environment `.venv`.
+> To resolve this:
+> 1. Open the Command Palette (`Cmd + Shift + P` on Mac, `Ctrl + Shift + P` on Windows).
+> 2. Search for and select **`Python: Select Interpreter`**.
+> 3. Select the option pointing to the local directory's **`.venv`** interpreter (e.g. `./.venv/bin/python`).
+
 ### Step 4: Configure Settings & Onboarding
 1. Copy the example configuration file:
    - **On macOS / Linux**:
