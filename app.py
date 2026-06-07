@@ -167,7 +167,12 @@ class SubprocessRunner:
             if return_code != 0:
                 self.log(f"Script {script} exited with non-zero status code: {return_code}")
                 if self.status != "killed":
-                    self.status = "failed"
+                    # Exit code 2 = user-initiated Quit (Quality Gate). Show as
+                    # 'stopped' rather than 'failed' so the dashboard badge is correct.
+                    if return_code == 2:
+                        self.status = "stopped"
+                    else:
+                        self.status = "failed"
                 return
             
             self.log(f"Step {self.current_step} completed successfully.")

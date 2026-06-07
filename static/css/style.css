@@ -472,6 +472,12 @@ body {
     color: var(--accent-red);
 }
 
+.status-stopped {
+    background: rgba(255, 179, 0, 0.15);
+    color: var(--accent-yellow);
+}
+
+
 .pipeline-timeline {
     position: relative;
     display: flex;

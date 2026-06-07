@@ -701,6 +701,107 @@ def close_chat_window(driver):
     return False
 
 
+# ─────────────────────────────────────────────────────────────
+# Step Validation Helpers
+# ─────────────────────────────────────────────────────────────
+
+def verify_correct_profile_loaded(driver, expected_url, timeout=12):
+    """Polls until the browser URL matches the expected profile URL.
+    Returns True when confirmed, False on timeout."""
+    clean_expected = expected_url.split("?")[0].rstrip("/")
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            current = driver.current_url.split("?")[0].rstrip("/")
+            if clean_expected in current or current in clean_expected:
+                logger.info(f"Profile URL verified: {current}")
+                return True
+        except Exception:
+            pass
+        time.sleep(0.5)
+    logger.warning(f"Profile URL mismatch after {timeout}s. Expected '{clean_expected}', got '{driver.current_url}'.")
+    return False
+
+
+def wait_for_message_dialog(driver, timeout=15):
+    """Waits until the LinkedIn message editor (contenteditable) is present
+    and visible in the DOM. Returns True when ready, False on timeout."""
+    logger.info("Waiting for message dialog/editor to become ready...")
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            editor = driver.execute_script("""
+                const host = document.querySelector('#interop-outlet');
+                if (host && host.shadowRoot) {
+                    const ed = host.shadowRoot.querySelector('.msg-form__contenteditable');
+                    if (ed && ed.offsetParent !== null) return ed;
+                }
+                const ed = document.querySelector('.msg-form__contenteditable');
+                if (ed && ed.offsetParent !== null) return ed;
+                return null;
+            """)
+            if editor:
+                logger.info("Message dialog is open and editor is ready.")
+                return True
+        except Exception:
+            pass
+        time.sleep(0.8)
+    logger.warning(f"Message editor did not appear within {timeout}s.")
+    return False
+
+
+def verify_editor_has_text(driver, expected_text, timeout=8):
+    """Verifies that the active message editor contains the beginning of
+    expected_text. Guards against the 'pasted into wrong window' bug.
+    Returns True if the text is present, False otherwise."""
+    snippet = expected_text[:40].strip()
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            editor_text = driver.execute_script("""
+                const host = document.querySelector('#interop-outlet');
+                if (host && host.shadowRoot) {
+                    const ed = host.shadowRoot.querySelector('.msg-form__contenteditable');
+                    if (ed) return ed.innerText || ed.textContent || '';
+                }
+                const ed = document.querySelector('.msg-form__contenteditable');
+                return ed ? (ed.innerText || ed.textContent || '') : '';
+            """)
+            if editor_text and snippet.lower() in editor_text.lower():
+                logger.info("Editor content verified — message is in the correct chat window.")
+                return True
+        except Exception:
+            pass
+        time.sleep(0.5)
+    logger.warning(f"Editor does not contain expected text after {timeout}s. Expected snippet: '{snippet}'")
+    return False
+
+
+def wait_for_chat_closed(driver, timeout=6):
+    """Waits until no msg-form__contenteditable is visible, confirming the
+    chat overlay has fully closed before navigating away."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            visible = driver.execute_script("""
+                const host = document.querySelector('#interop-outlet');
+                if (host && host.shadowRoot) {
+                    const ed = host.shadowRoot.querySelector('.msg-form__contenteditable');
+                    if (ed && ed.offsetParent !== null) return true;
+                }
+                const ed = document.querySelector('.msg-form__contenteditable');
+                return !!(ed && ed.offsetParent !== null);
+            """)
+            if not visible:
+                logger.info("Chat overlay confirmed closed.")
+                return True
+        except Exception:
+            pass
+        time.sleep(0.5)
+    logger.warning("Chat overlay did not close within timeout — continuing anyway.")
+    return False
+
+
 def run_phase_one_discovery():
     """Phase 1: Discover connected 1st-degree employees at target companies."""
     logger.info("=" * 60)
@@ -819,7 +920,13 @@ def prompt_referral_action(recipient_name, review_mode=True):
 
 
 def run_phase_two_messaging():
-    """Phase 2-5: Message pending connections and verify delivery."""
+    """Phase 2-5: Message pending connections and verify delivery.
+    
+    Exit codes:
+      0 — normal completion
+      1 — fatal error
+      2 — user requested Quit (stops all remaining pipeline steps)
+    """
     logger.info("=" * 60)
     logger.info("Phase 2-5: Sending Referral Messages...")
     logger.info("=" * 60)
@@ -855,15 +962,18 @@ def run_phase_two_messaging():
         sys.exit(1)
 
     sent_count = 0
+    user_quit = False
     try:
         driver.get("https://www.linkedin.com/feed/")
         if not login_to_linkedin(driver, email, password):
             logger.error("Failed to login to LinkedIn. Exiting...")
             sys.exit(1)
 
-        # Close any chat overlays restored by LinkedIn session state on start
+        # ── Step 0: Clean up any chat overlays restored by LinkedIn on login ──
         logger.info("Performing initial post-login chat window cleanup...")
         close_chat_window(driver)
+        wait_for_chat_closed(driver, timeout=4)
+        time.sleep(1)
 
         # Load job metadata to resolve job titles and URLs
         job_data = load_jobs_for_referral(status_filter='Interested')
@@ -882,7 +992,9 @@ def run_phase_two_messaging():
             # Check company target connections count
             sent_for_company = get_company_sent_count(company)
             if sent_for_company >= max_referrals:
-                logger.info(f"Target connection count of {max_referrals} already reached for {company} (sent: {sent_for_company}). Skipping message to {ref.get('Referral_Person_Name')}.")
+                logger.info(f"Target connection count of {max_referrals} already reached for "
+                            f"{company} (sent: {sent_for_company}). "
+                            f"Skipping message to {ref.get('Referral_Person_Name')}.")
                 continue
                 
             name = ref.get('Referral_Person_Name')
@@ -892,29 +1004,60 @@ def run_phase_two_messaging():
             job_url = job_urls.get(job_id) or ""
             
             logger.info("\n" + "=" * 60)
-            logger.info(f"Processing referral message to {name} ({company})")
+            logger.info(f"[Contact {idx+1}/{len(pending)}] Processing referral message to {name} ({company})")
             logger.info("=" * 60)
             
-            # Final eligibility check
+            # ── Final eligibility check ──────────────────────────────────────
             if is_profile_already_contacted(profile_url):
-                logger.info(f"Eligibility Check: profile {profile_url} already messaged. Skipping.")
+                logger.info(f"Eligibility check: profile already messaged. Skipping.")
                 ref['Referral_Status'] = 'Skipped'
                 add_or_update_referral(ref)
                 continue
-                
-            # Close any leftover chat windows first to avoid pasting into previous chats
+
+            # ── Step 1: Close ALL open chat overlays for a clean slate ────────
+            logger.info("[Step 1] Closing any open chat overlays...")
             close_chat_window(driver)
-            
+            wait_for_chat_closed(driver, timeout=5)
+            time.sleep(1)
+
+            # ── Step 2: Navigate to profile and verify correct page loaded ────
+            logger.info(f"[Step 2] Navigating to profile: {profile_url}")
             driver.get(profile_url)
-            time.sleep(4)
+            time.sleep(3)  # base wait for initial render
             
+            if not verify_correct_profile_loaded(driver, profile_url, timeout=12):
+                logger.warning(f"[Step 2] Profile URL verification failed for {name}. Skipping.")
+                ref['Referral_Status'] = 'Failed'
+                ref['Error_Reason'] = 'Profile URL did not load correctly'
+                add_or_update_referral(ref)
+                close_chat_window(driver)
+                continue
+            time.sleep(1)  # let the page settle after URL confirmed
+
+            # ── Step 3: Click Message button and wait for dialog to open ─────
+            logger.info(f"[Step 3] Opening Message dialog for {name}...")
             if not open_messaging_from_profile(driver, name=name):
-                logger.warning(f"Could not open messaging for {name}. Message button not found or hidden.")
+                logger.warning(f"[Step 3] Message button not found for {name}.")
                 ref['Referral_Status'] = 'Failed'
                 ref['Error_Reason'] = 'Message button not found on profile'
                 add_or_update_referral(ref)
+                close_chat_window(driver)
                 continue
-                
+
+            # ── Step 4: Wait for message editor to be ready ──────────────────
+            logger.info("[Step 4] Waiting for message editor to be ready...")
+            if not wait_for_message_dialog(driver, timeout=15):
+                logger.warning(f"[Step 4] Message editor did not appear for {name}.")
+                ref['Referral_Status'] = 'Failed'
+                ref['Error_Reason'] = 'Message editor did not become available'
+                add_or_update_referral(ref)
+                close_chat_window(driver)
+                wait_for_chat_closed(driver, timeout=4)
+                continue
+            time.sleep(0.5)  # small buffer before inserting text
+
+            # ── Step 5: Build and insert message draft ───────────────────────
+            logger.info("[Step 5] Building and inserting message draft...")
             message_text = get_referral_message(
                 company=company,
                 target_role=target_role,
@@ -922,63 +1065,122 @@ def run_phase_two_messaging():
                 employee_designation=designation,
                 job_url=job_url
             )
-            
             if len(message_text) > 500:
                 logger.warning("Message exceeds 500 characters. Truncating.")
                 message_text = message_text[:497] + "..."
                 
             inserted = insert_message_draft(driver, message_text)
             if not inserted:
+                logger.warning(f"[Step 5] Failed to insert message draft for {name}.")
                 ref['Referral_Status'] = 'Failed'
                 ref['Error_Reason'] = 'Failed to insert text into chat box'
                 add_or_update_referral(ref)
                 close_chat_window(driver)
+                wait_for_chat_closed(driver, timeout=4)
                 continue
-                
-            # Attempt to upload local resume PDF as attachment
-            upload_resume_attachment(driver, profile)
-                
-            # Invite Quality Gate (Prompt action after the text draft is ready in browser)
+
+            # ── Step 6: Verify text is in the CORRECT chat window ────────────
+            logger.info("[Step 6] Verifying message content in correct chat window...")
+            if not verify_editor_has_text(driver, message_text, timeout=8):
+                logger.warning(f"[Step 6] Editor text verification failed for {name}. "
+                               "Message may have been pasted into wrong window. Aborting.")
+                ref['Referral_Status'] = 'Failed'
+                ref['Error_Reason'] = 'Editor content verification failed (wrong chat context)'
+                add_or_update_referral(ref)
+                close_chat_window(driver)
+                wait_for_chat_closed(driver, timeout=4)
+                continue
+
+            # ── Step 7: Upload resume attachment (optional) ──────────────────
+            logger.info("[Step 7] Attempting resume attachment upload...")
+            attachment_ok = upload_resume_attachment(driver, profile)
+            if attachment_ok:
+                logger.info("[Step 7] Resume attached successfully. Waiting for upload to settle...")
+                time.sleep(2)
+            else:
+                logger.info("[Step 7] No resume attachment (file not configured or not found).")
+
+            # ── Step 8: Verify all fields populated (log only, non-blocking) ─
+            logger.info("[Step 8] Final pre-send verification...")
+            final_editor_ok = verify_editor_has_text(driver, message_text, timeout=5)
+            if not final_editor_ok:
+                logger.warning("[Step 8] Pre-send editor check failed. Proceeding with caution.")
+
+            # ── Step 9: Quality Gate ─────────────────────────────────────────
             action = prompt_referral_action(name, review_mode=review_mode)
             
             if action == "skip":
-                logger.info(f"Skipped referral outreach to {name} by user.")
+                logger.info(f"[Quality Gate] Skipped referral to {name}.")
                 ref['Referral_Status'] = 'Skipped'
                 add_or_update_referral(ref)
                 close_chat_window(driver)
+                wait_for_chat_closed(driver, timeout=5)
+                logger.info("Chat closed. Moving to next contact.")
                 continue
+
             elif action == "quit":
-                logger.info("Quitting referral outreach pipeline as requested.")
+                # ── CRITICAL: exit code 2 signals the pipeline runner to stop
+                # all remaining pipeline steps, whether running as individual
+                # pipeline or as part of Run Complete Pipeline.
+                logger.info("[Quality Gate] User selected Quit. Stopping pipeline.")
+                ref['Referral_Status'] = 'Skipped'
+                add_or_update_referral(ref)
                 close_chat_window(driver)
+                user_quit = True
                 break
-                
+
+            # ── Step 10: Send message ────────────────────────────────────────
+            logger.info("[Step 10] Sending message...")
             sent = click_send_message(driver)
             if sent:
-                # Delivery Verification
+                time.sleep(2)  # let LinkedIn process the send
+                # ── Step 11: Verify delivery ─────────────────────────────────
+                logger.info("[Step 11] Verifying message delivery...")
                 verified = verify_delivery(driver, message_text)
                 if verified:
+                    logger.info(f"[Step 11] Message to {name} confirmed in chat history.")
                     ref['Referral_Status'] = 'Sent'
                     ref['Sent_Time'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     ref['Error_Reason'] = ''
                     sent_count += 1
                 else:
+                    logger.warning(f"[Step 11] Delivery not confirmed in chat history for {name}.")
                     ref['Referral_Status'] = 'Failed'
                     ref['Error_Reason'] = 'Message clicked but did not appear in chat history'
             else:
+                logger.warning(f"[Step 10] Send button click failed for {name}.")
                 ref['Referral_Status'] = 'Failed'
                 ref['Error_Reason'] = 'Failed to click send button'
                 
             add_or_update_referral(ref)
+
+            # ── Step 12: Close chat and wait for stable state ─────────────────
+            logger.info("[Step 12] Closing chat window and returning to stable state...")
             close_chat_window(driver)
+            wait_for_chat_closed(driver, timeout=6)
             
-            logger.info(f"Referrals sent: {sent_count}/{max_referrals}")
-            if idx < len(pending) - 1 and sent_count < max_referrals:
-                logger.info(f"Waiting for {interval} seconds before next outreach...")
+            logger.info(f"Referrals sent this run: {sent_count}/{max_referrals}")
+            if idx < len(pending) - 1 and sent_count < max_referrals and not user_quit:
+                logger.info(f"Waiting {interval}s before next contact...")
                 time.sleep(interval)
 
+    except SystemExit:
+        # Re-raise SystemExit so exit codes propagate correctly through the runner
+        raise
     except Exception as e:
         logger.error(f"Fatal error in connection outreach: {e}")
         sys.exit(1)
     finally:
         logger.info("Closing browser...")
-        driver.quit()
+        try:
+            driver.quit()
+        except Exception:
+            pass
+
+    # ── Propagate Quit as exit code 2 ─────────────────────────────────────────
+    # Exit code 2 is the contract with SubprocessRunner: non-zero stops the
+    # pipeline step chain immediately, preventing any further pipeline scripts
+    # from launching (whether this is an individual run or Run Complete Pipeline).
+    if user_quit:
+        logger.info("Exiting with code 2 — pipeline stopped by user Quit action.")
+        sys.exit(2)
