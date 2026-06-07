@@ -1184,33 +1184,6 @@
                                 </div>
                             </div>
 
-                            <div style="margin-top: 20px;">
-                                <div class="form-group">
-                                    <label style="margin-bottom: 2px;">Available Invite Note Tokens</label>
-                                    <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:8px;">
-                                        Click a token below to insert it at your cursor position inside the Invitation Note Studio:
-                                    </p>
-                                    <!-- Variable tokens reference -->
-                                    <div class="template-var-legend" style="flex-wrap: wrap; gap: 6px;">
-                                        <span class="tvar-title"><i class="fa-solid fa-brackets-curly"></i> Click to Insert:</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{FIRST_NAME}')" title="Click to insert">{FIRST_NAME}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{LAST_NAME}')" title="Click to insert">{LAST_NAME}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{EMAIL}')" title="Click to insert">{EMAIL}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{PHONE_NUMBER}')" title="Click to insert">{PHONE_NUMBER}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{EXPERIENCE}')" title="Click to insert">{EXPERIENCE}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{LINKEDIN_PROFILE_URL}')" title="Click to insert">{LINKEDIN_PROFILE_URL}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{CURRENT_LOCATION}')" title="Click to insert">{CURRENT_LOCATION}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{PREFERRED_LOCATIONS}')" title="Click to insert">{PREFERRED_LOCATIONS}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{CURRENT_CTC}')" title="Click to insert">{CURRENT_CTC}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{EXPECTED_CTC}')" title="Click to insert">{EXPECTED_CTC}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{company}')" title="Click to insert">{company}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{job_url}')" title="Click to insert">{job_url}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{resume}')" title="Click to insert">{resume}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{PERSON_NAME}')" title="Click to insert">{PERSON_NAME}</span>
-                                    </div>
-                                </div>
-                            </div>
-
                             <!-- Referral Message Studio -->
                             <div style="margin-top: 20px;">
                                 <div class="form-group">
@@ -1221,6 +1194,27 @@
                                                 Referral messages are delivered to existing 1st-degree connections — you can write a longer, detailed request.
                                             </p>
                                         </div>
+                                    </div>
+
+                                    <div class="template-var-legend" style="flex-wrap: wrap; gap: 6px; margin-bottom: 10px;">
+                                        <span class="tvar-title"><i class="fa-solid fa-brackets-curly"></i> Click to Insert Referral Token:</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{FIRST_NAME}')" title="Your first name">{FIRST_NAME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{LAST_NAME}')" title="Your last name">{LAST_NAME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{EMAIL}')" title="Your email">{EMAIL}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{PHONE_NUMBER}')" title="Your phone number">{PHONE_NUMBER}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{EXPERIENCE}')" title="Your experience">{EXPERIENCE}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{LINKEDIN_PROFILE_URL}')" title="Your LinkedIn profile URL">{LINKEDIN_PROFILE_URL}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{CURRENT_LOCATION}')" title="Your current location">{CURRENT_LOCATION}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{PREFERRED_LOCATIONS}')" title="Your preferred locations">{PREFERRED_LOCATIONS}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{CURRENT_CTC}')" title="Your current CTC">{CURRENT_CTC}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{EXPECTED_CTC}')" title="Your expected CTC">{EXPECTED_CTC}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{company}')" title="Target company name">{company}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{job_url}')" title="Target job apply URL">{job_url}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{resume}')" title="Your resume link">{resume}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{PERSON_NAME}')" title="Recipient's name">{PERSON_NAME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{employee_designation}')" title="Recipient's title/designation">{employee_designation}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{target_role}')" title="Target job title/role">{target_role}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{candidate_name}')" title="Your full name">{candidate_name}</span>
                                     </div>
 
                                     <div class="template-editor-container">
@@ -1275,6 +1269,24 @@
                                         </div>
                                     </div>
 
+                                    <div class="template-var-legend" style="flex-wrap: wrap; gap: 6px; margin-bottom: 10px;">
+                                        <span class="tvar-title"><i class="fa-solid fa-brackets-curly"></i> Click to Insert Invite Note Token:</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{FIRST_NAME}')" title="Your first name">{FIRST_NAME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{LAST_NAME}')" title="Your last name">{LAST_NAME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{EMAIL}')" title="Your email">{EMAIL}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{PHONE_NUMBER}')" title="Your phone number">{PHONE_NUMBER}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{EXPERIENCE}')" title="Your experience">{EXPERIENCE}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{LINKEDIN_PROFILE_URL}')" title="Your LinkedIn profile URL">{LINKEDIN_PROFILE_URL}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{CURRENT_LOCATION}')" title="Your current location">{CURRENT_LOCATION}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{PREFERRED_LOCATIONS}')" title="Your preferred locations">{PREFERRED_LOCATIONS}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{CURRENT_CTC}')" title="Your current CTC">{CURRENT_CTC}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{EXPECTED_CTC}')" title="Your expected CTC">{EXPECTED_CTC}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{company}')" title="Target company name">{company}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{job_url}')" title="Target job apply URL">{job_url}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{resume}')" title="Your resume link">{resume}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{PERSON_NAME}')" title="Recipient's name">{PERSON_NAME}</span>
+                                    </div>
+
                                     <div class="template-editor-container">
                                         <div class="template-editor-header">
                                             <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;"><i class="fa-solid fa-comment-dots"></i> Invitation Note Studio</span>
@@ -1287,19 +1299,6 @@
                                             </div>
                                         </div>
                                         <textarea id="connect-message-template" class="template-textarea" placeholder="Connection request message..." maxlength="300" oninput="updateConnectCharCount()"></textarea>
-                                        <div class="invite-note-tokens-box" style="margin-top: 10px; padding: 10px; border-radius: 6px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.02);">
-                                            <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-primary); display: block; margin-bottom: 6px;">
-                                                <i class="fa-solid fa-tags"></i> Available Invite Note Tokens
-                                            </span>
-                                            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
-                                                <span class="token-pill" onclick="insertToken('{PERSON_NAME}')" title="Recipient's first name">{PERSON_NAME}</span>
-                                                <span class="token-pill" onclick="insertToken('{company}')" title="Company name">{company}</span>
-                                                <span class="token-pill" onclick="insertToken('{job_url}')" title="Shortened apply URL">{job_url}</span>
-                                                <span class="token-pill" onclick="insertToken('{resume}')" title="Resume URL">{resume}</span>
-                                                <span class="token-pill" onclick="insertToken('{FIRST_NAME}')" title="Your first name">{FIRST_NAME}</span>
-                                                <span class="token-pill" onclick="insertToken('{LAST_NAME}')" title="Your last name">{LAST_NAME}</span>
-                                            </div>
-                                        </div>
                                         
                                         <!-- Mock LinkedIn Invitation Window -->
                                         <div id="connect-template-preview" class="linkedin-mockup-window hidden">

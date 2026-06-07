@@ -2464,8 +2464,16 @@ body {
     font-size: 0.78rem;
     font-family: var(--font-mono);
     font-weight: 600;
-    cursor: default;
+    cursor: pointer;
     user-select: all;
+    transition: all 0.2s ease;
+}
+
+.tvar-badge:hover {
+    background: rgba(0,176,255,0.25);
+    border-color: rgba(0,176,255,0.5);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,176,255,0.15);
 }
 
 .btn-reset-template {
