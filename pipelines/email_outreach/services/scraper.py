@@ -288,6 +288,10 @@ class LinkedInScraper:
                 else:
                     no_posts_found_count = 0
                 for post in posts:
+                    # Enforce timeout mid-batch — don't wait for the entire post list to finish
+                    if time.time() - start_time > timeout_seconds:
+                        logger.info(f"Keyword '{keyword}' per-keyword timeout reached mid-batch. Moving to next keyword.")
+                        return
                     post_id = post.get_attribute("data-urn") or str(hash(post.text))
                     if post_id in processed_ids:
                         continue
@@ -308,6 +312,7 @@ class LinkedInScraper:
                         else:
                             logger.debug("Post did not contain any target keyword – skipped.")
                     processed_ids.add(post_id)
+
 
             except Exception as e:
                 logger.error(f"Error during post processing: {e}")

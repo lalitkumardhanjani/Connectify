@@ -17,6 +17,15 @@ def run_phase_one(scraper):
     user_conf = get_selected_user_config()
     email_scraper_conf = user_conf.get("email_scraper", {})
     keywords = email_scraper_conf.get("keywords", DBA_KEYWORDS_DEFAULT)
+
+    # Read the user-configured per-keyword timeout (Search Execution Frequency setting).
+    # Default to 60s if not set. This is the maximum time spent scrolling each keyword
+    # before moving on to the next one.
+    try:
+        timeout_seconds = int(email_scraper_conf.get("interval") or 60)
+    except (ValueError, TypeError):
+        timeout_seconds = 60
+    logger.info(f"Per-keyword timeout set to {timeout_seconds}s (from Search Execution Frequency setting).")
     
     # Retrieve preferred locations from candidate profile
     profile = user_conf.get("profile", {})
@@ -30,9 +39,10 @@ def run_phase_one(scraper):
             search_query = f"{kw} {loc}".strip() if loc else kw
             logger.info(f"=== Processing keyword: '{kw}' at location: '{loc}' (Search query: '{search_query}') ===")
             if scraper.search_for_keyword(search_query):
-                scraper.process_keyword(kw, timeout_seconds=60)
+                scraper.process_keyword(kw, timeout_seconds=timeout_seconds)
             else:
                 logger.warning(f"Skipping query '{search_query}' due to navigation failure.")
+
 
 def run_phase_two(scraper, review_mode=None):
     """Executes composing and sending emails via Selenium browser to discovered addresses."""
