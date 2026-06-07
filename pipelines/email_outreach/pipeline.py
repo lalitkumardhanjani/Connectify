@@ -53,7 +53,7 @@ def run_phase_two(scraper, review_mode=None):
     pending_rows = []
     for row in range(2, ws.max_row + 1):
         status = (ws.cell(row=row, column=status_col).value or '').strip().lower()
-        if status == 'sent':
+        if status in ('sent', 'skipped'):
             continue
         email = ws.cell(row=row, column=email_col).value
         if not email:
@@ -78,7 +78,8 @@ def run_phase_two(scraper, review_mode=None):
         logger.info(f"Processing email outreach for {email} (row {row})")
         sent = send_email_via_gmail(scraper.driver, email, review_mode=review_mode)
         if sent == "skipped":
-            logger.info(f"Email to {email} skipped – leaving status unchanged.")
+            logger.info(f"Email to {email} skipped – updating status to 'skipped'.")
+            update_status(email, 'skipped')
             continue
         elif sent == "quit":
             logger.info("Quitting email outreach pipeline as requested by user.")

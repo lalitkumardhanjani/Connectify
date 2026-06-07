@@ -26,6 +26,7 @@ const PALETTE = {
     orange: '#ff6d00',
     pink:   '#f72585',
     indigo: '#7b2ff7',
+    gray:   '#9ea4c0',
 };
 
 const BAR_COLORS = [
@@ -248,9 +249,10 @@ async function loadEmailDashboard() {
     // Status Pie Chart
     const sentVal    = d.sent    || 0;
     const pendingVal = d.pending || 0;
-    const statusLabels = ['Sent', 'Pending'];
-    const statusData   = [sentVal, pendingVal];
-    const statusColors = [PALETTE.cyan, PALETTE.yellow];
+    const skippedVal = d.skipped || 0;
+    const statusLabels = ['Sent', 'Pending', 'Skipped'];
+    const statusData   = [sentVal, pendingVal, skippedVal];
+    const statusColors = [PALETTE.cyan, PALETTE.yellow, PALETTE.gray];
 
     if (emailStatusChartInst) emailStatusChartInst.destroy();
     emailStatusChartInst = makePieChart('emailStatusChart', statusLabels, statusData, statusColors);

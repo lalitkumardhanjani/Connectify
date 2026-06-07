@@ -2259,7 +2259,13 @@ function showEditScraperModal(id, email, status, keyword) {
     if (idField) idField.value = id;
     if (emailField) emailField.value = email;
     if (statusField) {
-        const formattedStatus = status.toLowerCase() === 'sent' ? 'Sent' : 'New';
+        let formattedStatus = 'New';
+        const lower = status.toLowerCase();
+        if (lower === 'sent') {
+            formattedStatus = 'Sent';
+        } else if (lower === 'skipped') {
+            formattedStatus = 'Skipped';
+        }
         statusField.value = formattedStatus;
     }
     if (keywordField) keywordField.value = keyword === 'None' || keyword === 'null' || !keyword ? '' : keyword;

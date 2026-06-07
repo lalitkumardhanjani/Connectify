@@ -36,8 +36,9 @@ def get_email_metrics():
         "sent": 0,
         "pending": 0,
         "new": 0,
+        "skipped": 0,
         "added_today": 0,
-        "status_distribution": {"sent": 0, "pending": 0, "new": 0},
+        "status_distribution": {"sent": 0, "pending": 0, "new": 0, "skipped": 0},
         "keyword_counts": {},
         "daily_counts": [],
         "pending_queue": [],
@@ -62,6 +63,7 @@ def get_email_metrics():
     total_emails = len(df)
     sent    = int((df['_status'] == 'sent').sum())
     new_count = int((df['_status'] == 'new').sum())
+    skipped = int((df['_status'] == 'skipped').sum())
 
     # Added today (based on timestamp)
     added_today = 0
@@ -69,7 +71,7 @@ def get_email_metrics():
         today_str = datetime.now().strftime('%Y-%m-%d')
         added_today = int(df[timestamp_col].astype(str).str.startswith(today_str).sum())
 
-    status_distribution = {"sent": sent, "pending": new_count, "new": new_count}
+    status_distribution = {"sent": sent, "pending": new_count, "new": new_count, "skipped": skipped}
 
     # Keyword counts — only count non-null, non-empty values
     keyword_counts = {}
@@ -120,6 +122,7 @@ def get_email_metrics():
         "sent":                sent,
         "pending":             new_count,
         "new":                 new_count,
+        "skipped":             skipped,
         "added_today":         added_today,
         "status_distribution": status_distribution,
         "keyword_counts":      keyword_counts,
