@@ -23,7 +23,7 @@ import openpyxl
 
 # Connectify Consolidated Configurations and Core Imports
 from config.settings import (
-    BASE_DIR, get_job_tracker_file, get_job_leads_file, get_resumes_dir, get_active_user
+    BASE_DIR, get_job_tracker_file, get_job_leads_file, get_referrals_file, get_resumes_dir, get_active_user
 )
 from config.user_profiles import (
     load_all_configs, save_all_configs, get_selected_user_name,
@@ -873,7 +873,7 @@ def edit_table_row():
 def referrals_data():
     from core.storage.database import init_referrals_store, load_all_referrals
     init_referrals_store()
-    return jsonify(load_all_referrals(get_job_leads_file()))
+    return jsonify(load_all_referrals(get_referrals_file()))
 
 
 @app.route('/api/data/update_referral_status', methods=['POST'])
@@ -891,7 +891,7 @@ def update_referral_status():
         pass
         
     from core.storage.database import edit_referral_contact_row
-    success = edit_referral_contact_row(referral_id, {"Referral_Status": status}, get_job_leads_file())
+    success = edit_referral_contact_row(referral_id, {"Referral_Status": status}, get_referrals_file())
     if success:
         return jsonify({"status": "success"})
     return jsonify({"status": "error", "message": "ReferralID not found"}), 404
@@ -935,7 +935,7 @@ def edit_referral_row():
     }
     
     from core.storage.database import edit_referral_contact_row
-    success = edit_referral_contact_row(referral_id, update_data, get_job_leads_file())
+    success = edit_referral_contact_row(referral_id, update_data, get_referrals_file())
     if success:
         return jsonify({"status": "success"})
     return jsonify({"status": "error", "message": "ReferralID not found"}), 404
@@ -953,7 +953,7 @@ def delete_referral_row():
     except ValueError:
         pass
         
-    path = get_job_leads_file()
+    path = get_referrals_file()
     if not os.path.exists(path):
         return jsonify({"status": "error", "message": "File not found"}), 404
         

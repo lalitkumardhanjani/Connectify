@@ -4,7 +4,7 @@ import openpyxl
 from datetime import datetime
 from openpyxl.worksheet.table import Table, TableStyleInfo
 from config.settings import (
-    BASE_DIR, get_data_dir, get_job_tracker_file, get_job_leads_file
+    BASE_DIR, get_data_dir, get_job_tracker_file, get_job_leads_file, get_referrals_file
 )
 from config.constants import SCRAPER_HEADERS, JOB_LEADS_HEADERS, REFERRAL_HEADERS
 from core.logging.config import logger
@@ -33,8 +33,92 @@ def migrate_old_data_files():
             except Exception as e:
                 logger.error(f"Failed to migrate legacy file {old_name}: {e}")
 
+def migrate_referrals_data():
+    """Migrates existing referrals worksheet data from LinkedIn_Job_Tracker.xlsx to referrals.xlsx for all users."""
+    users_dir = os.path.join(BASE_DIR, "users")
+    if not os.path.exists(users_dir):
+        return
+        
+    for user_name in os.listdir(users_dir):
+        user_path = os.path.join(users_dir, user_name)
+        if not os.path.isdir(user_path) or user_name == "default":
+            continue
+            
+        data_dir = os.path.join(user_path, "data")
+        tracker_path = os.path.join(data_dir, "LinkedIn_Job_Tracker.xlsx")
+        referrals_path = os.path.join(data_dir, "referrals.xlsx")
+        
+        if os.path.exists(tracker_path):
+            try:
+                wb_tracker = openpyxl.load_workbook(tracker_path)
+                if "Referrals" in wb_tracker.sheetnames:
+                    ws_src = wb_tracker["Referrals"]
+                    
+                    # Read rows from source
+                    src_headers = [cell.value for cell in ws_src[1]]
+                    if not src_headers or len(src_headers) == 0:
+                        continue
+                        
+                    rows_data = []
+                    for r in range(2, ws_src.max_row + 1):
+                        row_dict = {}
+                        for col_idx, h in enumerate(src_headers, start=1):
+                            if h:
+                                row_dict[h] = ws_src.cell(row=r, column=col_idx).value
+                        if any(val is not None for val in row_dict.values()):
+                            rows_data.append(row_dict)
+                            
+                    if rows_data:
+                        logger.info(f"Found {len(rows_data)} referral records to migrate for user {user_name}.")
+                        if os.path.exists(referrals_path):
+                            wb_dest = openpyxl.load_workbook(referrals_path)
+                        else:
+                            wb_dest = openpyxl.Workbook()
+                            
+                        if "Referrals" not in wb_dest.sheetnames:
+                            ws_dest = wb_dest.create_sheet(title="Referrals")
+                        else:
+                            ws_dest = wb_dest["Referrals"]
+                            
+                        if ws_dest.max_row <= 1:
+                            ws_dest.append(REFERRAL_HEADERS)
+                            
+                        for row_dict in rows_data:
+                            row_data = []
+                            for header in REFERRAL_HEADERS:
+                                row_data.append(row_dict.get(header))
+                            ws_dest.append(row_data)
+                            
+                        ws_dest._tables.clear()
+                        ref_range = f"A1:{chr(64 + len(REFERRAL_HEADERS))}{ws_dest.max_row}"
+                        from openpyxl.worksheet.table import Table, TableStyleInfo
+                        tab = Table(displayName="ReferralsTable", ref=ref_range)
+                        style = TableStyleInfo(
+                            name="TableStyleLight9",
+                            showFirstColumn=False,
+                            showLastColumn=False,
+                            showRowStripes=True,
+                            showColumnStripes=False,
+                        )
+                        tab.tableStyleInfo = style
+                        ws_dest.add_table(tab)
+                        
+                        if "Sheet" in wb_dest.sheetnames:
+                            del wb_dest["Sheet"]
+                            
+                        wb_dest.save(referrals_path)
+                        logger.info(f"Successfully migrated referrals to {referrals_path}")
+                        
+                    # Delete worksheet
+                    del wb_tracker["Referrals"]
+                    wb_tracker.save(tracker_path)
+                    logger.info(f"Removed 'Referrals' worksheet from {tracker_path}")
+            except Exception as e:
+                logger.error(f"Failed to migrate referrals for user {user_name}: {e}")
+
 # Run data files migration automatically upon module import
 migrate_old_data_files()
+migrate_referrals_data()
 
 
 def _trigger_mac_excel_reload(path):
@@ -633,9 +717,9 @@ def edit_lead_row(job_id, company, url, shorten, keyword, position, status, path
 # =========================================================================
 
 def init_referrals_store(path=None):
-    """Initializes the referrals worksheet inside LinkedIn_Job_Tracker.xlsx if it doesn't exist."""
+    """Initializes the referrals worksheet inside referrals.xlsx if it doesn't exist."""
     if path is None:
-        path = get_job_leads_file()
+        path = get_referrals_file()
     
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     
@@ -644,8 +728,8 @@ def init_referrals_store(path=None):
     else:
         wb = openpyxl.Workbook()
         if wb.active.title == "Sheet":
-            wb.active.title = "Jobs"
-            wb.active.append(JOB_LEADS_HEADERS)
+            wb.active.title = "Referrals"
+            wb.active.append(REFERRAL_HEADERS)
             
     if "Referrals" not in wb.sheetnames:
         try:
@@ -667,6 +751,9 @@ def init_referrals_store(path=None):
         except Exception as e:
             logger.error(f"Unable to initialize Referrals sheet: {str(e)}")
     else:
+        ws = wb["Referrals"]
+        if ws.max_row <= 1:
+            ws.append(REFERRAL_HEADERS)
         try:
             trim_referrals_excel_to_schema(path)
         except Exception as e:
@@ -675,7 +762,7 @@ def init_referrals_store(path=None):
 def trim_referrals_excel_to_schema(path=None):
     """Enforces Referrals Excel sheet headers conform to standard schema."""
     if path is None:
-        path = get_job_leads_file()
+        path = get_referrals_file()
     if not os.path.exists(path):
         return
     wb = openpyxl.load_workbook(path)
@@ -728,7 +815,7 @@ def trim_referrals_excel_to_schema(path=None):
 def load_all_referrals(path=None):
     """Loads all referral contact records from the Referrals sheet."""
     if path is None:
-        path = get_job_leads_file()
+        path = get_referrals_file()
     init_referrals_store(path)
     wb = openpyxl.load_workbook(path)
     if "Referrals" not in wb.sheetnames:
@@ -745,7 +832,7 @@ def load_all_referrals(path=None):
 def add_or_update_referral(referral_data, path=None):
     """Adds a new referral contact or updates status/fields of an existing one by profile URL."""
     if path is None:
-        path = get_job_leads_file()
+        path = get_referrals_file()
     init_referrals_store(path)
     wb = openpyxl.load_workbook(path)
     ws = wb["Referrals"]
@@ -813,7 +900,7 @@ def add_or_update_referral(referral_data, path=None):
 def is_profile_already_contacted(profile_url, path=None):
     """Checks if connection profile URL has been contacted or skipped before."""
     if path is None:
-        path = get_job_leads_file()
+        path = get_referrals_file()
     init_referrals_store(path)
     wb = openpyxl.load_workbook(path)
     ws = wb["Referrals"]
@@ -836,7 +923,7 @@ def is_profile_already_contacted(profile_url, path=None):
 def edit_referral_contact_row(referral_id, referral_data, path=None):
     """Modifies an existing referral contact record directly by ReferralID."""
     if path is None:
-        path = get_job_leads_file()
+        path = get_referrals_file()
     init_referrals_store(path)
     wb = openpyxl.load_workbook(path)
     ws = wb["Referrals"]
@@ -864,7 +951,7 @@ def edit_referral_contact_row(referral_id, referral_data, path=None):
 def get_company_sent_count(company_name, path=None):
     """Counts successfully sent referral/outreach messages or connection requests for a company."""
     if path is None:
-        path = get_job_leads_file()
+        path = get_referrals_file()
     if not os.path.exists(path):
         return 0
     init_referrals_store(path)
