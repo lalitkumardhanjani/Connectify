@@ -61,7 +61,9 @@ Connectify/
 ├── docs/
 │   └── architecture_docs.md           # Detailed technical architecture reference
 │
-├── run_email_outreach.py              # Pipeline 1 runner (graceful SIGTERM handling)
+├── run_email_outreach.py              # Pipeline 1 runner (full: scrape + send, graceful SIGTERM handling)
+├── run_email_scraper.py               # Pipeline 1a runner: Scrape emails from LinkedIn posts only
+├── run_email_sender.py                # Pipeline 1b runner: Send outreach emails to scraped contacts only
 ├── run_job_search.py                  # Pipeline 2 runner: Find job opportunities
 ├── run_referral_review.py             # Pipeline 3 runner: CLI job evaluator
 ├── run_linkedin_connect.py            # Pipeline 4 runner: Outreach & messaging
@@ -182,8 +184,14 @@ You can run any pipeline or utility directly from the command line using the roo
 
 All available runner scripts:
 ```bash
-# Pipeline 1 – Email Scraper & Outreach
-python run_email_outreach.py --phase full
+# Pipeline 1 – Full Email Scraper & Outreach (scrape + send in one run)
+python run_email_outreach.py
+
+# Pipeline 1a – Scrape emails from LinkedIn posts only
+python run_email_scraper.py
+
+# Pipeline 1b – Send outreach emails to already-scraped contacts only
+python run_email_sender.py
 
 # Pipeline 2 – Find Job Opportunities (LinkedIn Job Search)
 python run_job_search.py

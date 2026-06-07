@@ -466,33 +466,33 @@ function updateScraperPipelineSteps(taskData) {
     const steps = document.querySelectorAll('#card-scraper .p-step-seq');
     steps.forEach(el => el.classList.remove('active', 'completed'));
 
-    const args = taskData.args || [];
-    const hasPhase1 = args.includes('phase1');
-    const hasPhase2 = args.includes('phase2');
-    const isFull = !hasPhase1 && !hasPhase2;
-
     const step1El = document.querySelector('#card-scraper .p-step-seq[data-step="1"]');
     const step2El = document.querySelector('#card-scraper .p-step-seq[data-step="2"]');
+    const activeStepName = taskData.current_step_name || '';
+    const isSingle = taskData.is_single_step;
 
-    if (hasPhase1) {
+    // Dedicated script mode: detect step by current running script name
+    if (activeStepName.includes('run_email_scraper.py')) {
+        // Step 1 only — dedicated scraper script
         if (taskData.status === 'success') {
             if (step1El) step1El.classList.add('completed');
         } else if (taskData.status === 'running') {
             if (step1El) step1El.classList.add('active');
         }
-    } else if (hasPhase2) {
+    } else if (activeStepName.includes('run_email_sender.py')) {
+        // Step 2 only — dedicated sender script
         if (taskData.status === 'success') {
             if (step2El) step2El.classList.add('completed');
         } else if (taskData.status === 'running') {
             if (step2El) step2El.classList.add('active');
         }
-    } else if (isFull) {
-        // Check logs to see if we reached phase 2 (emails sending)
+    } else {
+        // Full pipeline mode (run_email_outreach.py) — detect phase from logs
         let reachedPhase2 = false;
         if (taskData.logs) {
             for (let i = 0; i < taskData.logs.length; i++) {
                 const line = taskData.logs[i];
-                if (line.includes('Sending email to') || line.includes('sending email') || line.includes('Phase 2') || line.includes('phase2')) {
+                if (line.includes('Sending email to') || line.includes('sending email') || line.includes('Phase 2') || line.includes('Email sending')) {
                     reachedPhase2 = true;
                     break;
                 }

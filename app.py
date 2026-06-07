@@ -277,11 +277,16 @@ def start_scraper():
         body = request.get_json(silent=True) or {}
         phase = body.get("phase", "full")
         
-        args = []
-        if phase in ("phase1", "phase2"):
-            args = ["--phase", phase]
+        # Route each phase to its dedicated runner script for clean separation of concerns.
+        # The combined run_email_outreach.py is used only for the full pipeline run.
+        if phase == "phase1":
+            commands = [("run_email_scraper.py", [])]
+        elif phase == "phase2":
+            commands = [("run_email_sender.py", [])]
+        else:
+            commands = [("run_email_outreach.py", [])]
         
-        runner = SubprocessRunner(task_id, [("run_email_outreach.py", args)])
+        runner = SubprocessRunner(task_id, commands)
         active_tasks[task_id] = runner
         runner.start()
         
