@@ -261,48 +261,82 @@ class LinkedInScraper:
             return None
 
     def process_keyword(self, keyword, timeout_seconds=60):
-        """Scroll and scrape emails for the given keyword."""
+        """Scroll and scrape emails for the given keyword.
+        
+        Runs until timeout_seconds has elapsed. Handles LinkedIn's lazy-loading
+        by retrying with scroll-back + extended waits when the page height stops
+        growing, rather than exiting early.
+        """
         start_time = time.time()
         processed_ids = set()
-        last_height = self.driver.execute_script("return document.body.scrollHeight")
         no_posts_found_count = 0
-        no_scroll_change_count = 0
-        
+        consecutive_no_new_content = 0   # tracks consecutive scroll attempts with no height change
+        max_consecutive_no_new = 6       # try up to 6 times with back-scroll + longer wait before giving up
+        search_url = self.driver.current_url  # remember the search URL to re-navigate if redirected
+
         user_conf = get_selected_user_config()
         email_scraper = user_conf.get("email_scraper", {})
         search_keywords = email_scraper.get("keywords", DBA_KEYWORDS_DEFAULT)
         excluded_keywords = [kw.lower().strip() for kw in email_scraper.get("excluded_keywords", []) if kw.strip()]
 
+        logger.info(f"Starting keyword '{keyword}' scrape — timeout: {timeout_seconds}s")
+
         while True:
-            if time.time() - start_time > timeout_seconds:
-                logger.info(f"Keyword '{keyword}' timed out after {timeout_seconds}s.")
+            elapsed = time.time() - start_time
+
+            # Primary exit: timeout reached
+            if elapsed >= timeout_seconds:
+                logger.info(f"Keyword '{keyword}' — timeout reached after {int(elapsed)}s. Moving to next keyword.")
                 break
+
+            # Re-navigate if LinkedIn redirected us away from search results
+            current_url = self.driver.current_url
+            if "search/results/content" not in current_url:
+                logger.warning(f"LinkedIn redirected away from search page. Re-navigating to search URL...")
+                try:
+                    self.driver.get(search_url)
+                    time.sleep(4)
+                    if "search/results/content" not in self.driver.current_url:
+                        logger.warning("Re-navigation failed — LinkedIn rejected the search URL. Stopping keyword.")
+                        break
+                    consecutive_no_new_content = 0
+                except Exception as nav_err:
+                    logger.error(f"Re-navigation error: {nav_err}")
+                    break
+
+            # Record height BEFORE processing this batch
+            pre_scroll_height = self.driver.execute_script("return document.body.scrollHeight")
+            new_posts_this_batch = 0
+
             try:
                 posts = self._find_post_containers()
                 if not posts:
                     logger.warning("No posts found on the current page.")
                     no_posts_found_count += 1
-                    if no_posts_found_count >= 3:
-                        logger.info("No posts found for 3 consecutive checks – exiting search loop.")
+                    if no_posts_found_count >= 5:
+                        logger.info("No posts found for 5 consecutive checks — page may be empty. Stopping keyword.")
                         break
+                    time.sleep(3)
+                    continue
                 else:
                     no_posts_found_count = 0
+
                 for post in posts:
-                    # Enforce timeout mid-batch — don't wait for the entire post list to finish
-                    if time.time() - start_time > timeout_seconds:
-                        logger.info(f"Keyword '{keyword}' per-keyword timeout reached mid-batch. Moving to next keyword.")
+                    # Enforce timeout mid-batch
+                    if time.time() - start_time >= timeout_seconds:
+                        logger.info(f"Keyword '{keyword}' timeout reached mid-batch. Moving to next keyword.")
                         return
-                    post_id = post.get_attribute("data-urn") or str(hash(post.text))
+                    post_id = post.get_attribute("data-urn") or str(hash(post.text[:100] if post.text else ""))
                     if post_id in processed_ids:
                         continue
+                    new_posts_this_batch += 1
                     data = self.extract_post_data(post)
                     if data and data.get('content'):
                         content = data['content']
                         if any(kw.lower() in content.lower() for kw in search_keywords):
-                            # Check exclusion keywords against post content
                             excluded_hit = next((kw for kw in excluded_keywords if kw in content.lower()), None)
                             if excluded_hit:
-                                logger.debug(f"Post excluded by exclusion keyword '{excluded_hit}' – skipped.")
+                                logger.debug(f"Post excluded by exclusion keyword '{excluded_hit}' — skipped.")
                             else:
                                 emails = extract_emails(content)
                                 for email in emails:
@@ -310,23 +344,41 @@ class LinkedInScraper:
                                     if appended:
                                         logger.info(f"Collected new email: {email}")
                         else:
-                            logger.debug("Post did not contain any target keyword – skipped.")
+                            logger.debug("Post did not contain any target keyword — skipped.")
                     processed_ids.add(post_id)
-
 
             except Exception as e:
                 logger.error(f"Error during post processing: {e}")
 
-            # Scroll down
+            # Scroll to bottom to trigger LinkedIn lazy-loading
             self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
             time.sleep(random.uniform(2, 3))
-            new_height = self.driver.execute_script("return document.body.scrollHeight")
-            if new_height == last_height:
-                no_scroll_change_count += 1
-                logger.info(f"No new posts loaded / scroll height unchanged (attempt {no_scroll_change_count}/3)")
-                if no_scroll_change_count >= 3:
-                    logger.info("Reached bottom of page – exiting scroll loop.")
+
+            post_scroll_height = self.driver.execute_script("return document.body.scrollHeight")
+
+            if post_scroll_height <= pre_scroll_height and new_posts_this_batch == 0:
+                consecutive_no_new_content += 1
+                remaining = timeout_seconds - (time.time() - start_time)
+                logger.info(
+                    f"Scroll height unchanged (attempt {consecutive_no_new_content}/{max_consecutive_no_new}). "
+                    f"Elapsed: {int(time.time() - start_time)}s / {timeout_seconds}s — {int(remaining)}s remaining."
+                )
+
+                if consecutive_no_new_content >= max_consecutive_no_new:
+                    logger.info(
+                        f"Keyword '{keyword}' — LinkedIn feed exhausted after {max_consecutive_no_new} extended retries. "
+                        f"Stopping early at {int(time.time() - start_time)}s (timeout was {timeout_seconds}s)."
+                    )
                     break
+
+                # LinkedIn lazy-loader trick: scroll back up halfway, wait, then scroll to bottom again
+                # This often triggers LinkedIn to load the next batch of posts
+                scroll_back_wait = min(5 + consecutive_no_new_content * 3, 20)
+                logger.info(f"Attempting lazy-load trigger: scrolling back up, waiting {scroll_back_wait}s, then re-scrolling down...")
+                self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight / 2);")
+                time.sleep(scroll_back_wait)
+                self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                time.sleep(random.uniform(2, 3))
             else:
-                no_scroll_change_count = 0
-            last_height = new_height
+                # New content loaded — reset counter
+                consecutive_no_new_content = 0
