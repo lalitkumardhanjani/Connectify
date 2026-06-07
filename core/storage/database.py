@@ -723,18 +723,13 @@ def init_referrals_store(path=None):
     
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     
-    if os.path.exists(path):
-        wb = openpyxl.load_workbook(path)
-    else:
-        wb = openpyxl.Workbook()
-        if wb.active.title == "Sheet":
-            wb.active.title = "Referrals"
-            wb.active.append(REFERRAL_HEADERS)
-            
-    if "Referrals" not in wb.sheetnames:
+    if not os.path.exists(path):
         try:
-            ws = wb.create_sheet(title="Referrals")
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Referrals"
             ws.append(REFERRAL_HEADERS)
+            
             ref_range = f"A1:{chr(64 + len(REFERRAL_HEADERS))}1"
             tab = Table(displayName="ReferralsTable", ref=ref_range)
             style = TableStyleInfo(
@@ -747,13 +742,10 @@ def init_referrals_store(path=None):
             tab.tableStyleInfo = style
             ws.add_table(tab)
             wb.save(path)
-            logger.info(f"Initialized new Referrals sheet in tracker: {path}")
+            logger.info(f"Initialized new Referrals tracker: {path}")
         except Exception as e:
-            logger.error(f"Unable to initialize Referrals sheet: {str(e)}")
+            logger.error(f"Unable to initialize Referrals tracker: {str(e)}")
     else:
-        ws = wb["Referrals"]
-        if ws.max_row <= 1:
-            ws.append(REFERRAL_HEADERS)
         try:
             trim_referrals_excel_to_schema(path)
         except Exception as e:
