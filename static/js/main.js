@@ -1684,7 +1684,6 @@ async function loadSettings() {
         renderKeywords('scraper-excluded');
         
         // 3. LinkedIn Connect fields
-        setVal('connect-interval', connect.interval || '120');
         setChecked('connect-review-mode', connect.review_mode === true);
         setVal('connect-max-connections', connect.max_connections_per_run || '5');
         setVal('connect-message-template', connect.message_template);
@@ -2160,7 +2159,7 @@ async function saveConfiguration(module) {
         }
 
         cachedConfig.config.linkedin_connect = {
-            "interval": getVal('connect-interval'),
+            "interval": cachedConfig.config.linkedin_connect?.interval || '60',
             "review_mode": getChecked('connect-review-mode'),
             "max_connections_per_run": maxConnsVal.toString(),
             "keywords": connectKeywords,

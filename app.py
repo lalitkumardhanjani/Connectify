@@ -555,13 +555,71 @@ def save_user_configuration():
     
     if username not in config.get("users", {}):
         return jsonify({"status": "error", "message": f"User {username} not found"}), 404
-        
-    user_profile = body.get("profile", {})
-    email_scraper = body.get("email_scraper", {})
-    linkedin_connect = body.get("linkedin_connect", {})
-    recruiter_outreach = body.get("recruiter_outreach", {})
-    referral_outreach = body.get("referral_outreach", {})
-    global_settings = body.get("global_settings", {})
+    
+    existing_user = config["users"][username]
+    
+    # Helper: deep merge incoming section over existing section so no fields are lost
+    def merge_section(existing, incoming):
+        if not incoming:
+            return existing
+        merged = dict(existing)
+        merged.update({k: v for k, v in incoming.items() if v is not None and v != ''})
+        return merged
+    
+    # For profile and global_settings, always use the full incoming value (they are fully managed by UI)
+    user_profile = body.get("profile") or {}
+    global_settings = body.get("global_settings") or {}
+    
+    # For pipeline sections, merge incoming over existing so stale/missing fields are preserved
+    email_scraper_incoming = body.get("email_scraper") or {}
+    linkedin_connect_incoming = body.get("linkedin_connect") or {}
+    recruiter_outreach_incoming = body.get("recruiter_outreach") or {}
+    referral_outreach_incoming = body.get("referral_outreach") or {}
+    
+    existing_scraper = existing_user.get("email_scraper") or {}
+    existing_connect = existing_user.get("linkedin_connect") or {}
+    existing_recruiter = existing_user.get("recruiter_outreach") or {}
+    existing_referral = existing_user.get("referral_outreach") or {}
+    
+    # Apply scraper defaults for missing fields
+    scraper_defaults = {
+        "interval": "60",
+        "review_mode": True,
+        "max_emails_per_run": "5",
+        "keywords": [],
+        "excluded_keywords": [],
+        "email_subject": "",
+        "email_template": "",
+        "sender_email": ""
+    }
+    existing_scraper = {**scraper_defaults, **existing_scraper}
+    
+    # Apply connect defaults for missing fields
+    connect_defaults = {
+        "interval": "60",
+        "review_mode": True,
+        "max_connections_per_run": "5",
+        "keywords": [],
+        "excluded_keywords": [],
+        "message_template": ""
+    }
+    existing_connect = {**connect_defaults, **existing_connect}
+    
+    # Apply recruiter defaults for missing fields
+    recruiter_defaults = {
+        "interval": "120",
+        "target_count": "2",
+        "review_mode": True,
+        "message_template": "",
+        "direct_message_template": ""
+    }
+    existing_recruiter = {**recruiter_defaults, **existing_recruiter}
+    
+    # Merge: incoming takes precedence, but existing fills gaps
+    email_scraper = {**existing_scraper, **{k: v for k, v in email_scraper_incoming.items() if v is not None}}
+    linkedin_connect = {**existing_connect, **{k: v for k, v in linkedin_connect_incoming.items() if v is not None}}
+    recruiter_outreach = {**existing_recruiter, **{k: v for k, v in recruiter_outreach_incoming.items() if v is not None}}
+    referral_outreach = {**existing_referral, **{k: v for k, v in referral_outreach_incoming.items() if v is not None}}
     
     config["users"][username]["profile"] = user_profile
     config["users"][username]["email_scraper"] = email_scraper
