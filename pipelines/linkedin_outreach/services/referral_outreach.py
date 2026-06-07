@@ -18,7 +18,8 @@ from core.storage.database import (
     add_or_update_referral,
     is_profile_already_contacted,
     load_all_referrals,
-    get_company_sent_count
+    get_company_sent_count,
+    get_company_referrals_count
 )
 from core.logging.config import setup_logger
 
@@ -1087,13 +1088,13 @@ def run_phase_one_discovery():
             company = job.get('CompanyName') or ''
             job_id = job.get('JobID') or ''
             
-            # Check company target connections count
-            sent_count = get_company_sent_count(company)
-            if sent_count >= max_referrals:
-                logger.info(f"Target connection count of {max_referrals} already reached for {company} (sent: {sent_count}). Skipping discovery.")
+            # Check company target connections count (total contacts stored in referrals spreadsheet)
+            total_discovered = get_company_referrals_count(company)
+            if total_discovered >= max_referrals:
+                logger.info(f"Target connection count of {max_referrals} already reached/discovered for {company} (total contacts: {total_discovered}). Skipping discovery.")
                 continue
                 
-            remaining_cap = max_referrals - sent_count
+            remaining_cap = max_referrals - total_discovered
             logger.info(f"\nProcessing company: {company} (JobID {job_id}). Remaining target capacity: {remaining_cap}")
             search_url = find_company_employees_search_url(driver, company)
             if not search_url:

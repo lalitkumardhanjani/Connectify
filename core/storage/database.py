@@ -968,3 +968,29 @@ def get_company_sent_count(company_name, path=None):
     return count
 
 
+def get_company_referrals_count(company_name, path=None):
+    """Counts total existing referral contacts (regardless of status) in database for a company."""
+    if path is None:
+        path = get_referrals_file()
+    if not os.path.exists(path):
+        return 0
+    init_referrals_store(path)
+    wb = openpyxl.load_workbook(path)
+    if "Referrals" not in wb.sheetnames:
+        return 0
+    ws = wb["Referrals"]
+    col_indices = {cell.value: idx for idx, cell in enumerate(ws[1], start=1)}
+    company_col = col_indices.get('CompanyName')
+    if not company_col:
+        return 0
+    
+    count = 0
+    normalized_company = str(company_name or '').strip().lower()
+    for row in range(2, ws.max_row + 1):
+        row_company = str(ws.cell(row=row, column=company_col).value or '').strip().lower()
+        if row_company == normalized_company:
+            count += 1
+    return count
+
+
+
