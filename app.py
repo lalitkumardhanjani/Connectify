@@ -917,6 +917,7 @@ def edit_referral_row():
     status = body.get("status")
     company = body.get("company")
     notes = body.get("notes")
+    verification = body.get("employment_verification_status") or "Verified"
     
     if not name or not profile_url or not status or not company:
         return jsonify({"status": "error", "message": "Missing required fields"}), 400
@@ -929,6 +930,7 @@ def edit_referral_row():
         "Referral_Person_Designation": designation or "",
         "Referral_Source": source or "Existing Connection",
         "Referral_Status": status,
+        "Employment_Verification_Status": verification,
         "Error_Reason": notes or ""
     }
     

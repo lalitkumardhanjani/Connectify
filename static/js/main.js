@@ -729,6 +729,10 @@ function renderReferralsTable(data) {
         const badgeClass = `badge-${statusClean.replace(/\s+/g, '_')}`;
         const statusHtml = `<span class="badge ${badgeClass}">${statusClean.toUpperCase()}</span>`;
         
+        const verificationClean = String(row.Employment_Verification_Status || 'Verified').toLowerCase().trim();
+        const verificationBadgeClass = `badge-${verificationClean.replace(/\s+/g, '_')}`;
+        const verificationHtml = `<span class="badge ${verificationBadgeClass}">${verificationClean.toUpperCase()}</span>`;
+        
         const encName = encodeURIComponent(row.Referral_Person_Name || "");
         const encEmail = encodeURIComponent(row.Referral_Person_Email || "");
         const encUrl = encodeURIComponent(row.Referral_Person_Profile_URL || "");
@@ -738,6 +742,7 @@ function renderReferralsTable(data) {
         const encStatus = encodeURIComponent(row.Referral_Status || "");
         const encCompany = encodeURIComponent(row.CompanyName || "");
         const encNotes = encodeURIComponent(row.Error_Reason || "");
+        const encVerification = encodeURIComponent(row.Employment_Verification_Status || "Verified");
         
         tr.innerHTML = `
             <td>${row.ReferralID || ""}</td>
@@ -745,11 +750,12 @@ function renderReferralsTable(data) {
             <td>${row.Referral_Person_Name || ""}</td>
             <td><span style="font-size: 0.8rem; color: var(--text-secondary);">${row.Referral_Person_Designation || ""}</span></td>
             <td><span style="font-size: 0.8rem;">${normalizedSource}</span></td>
+            <td>${verificationHtml}</td>
             <td>${statusHtml}</td>
             <td>${row.Sent_Time ? formatDisplayDate(row.Sent_Time) : ""}</td>
             <td style="text-align: center;">
                 <div style="display: flex; gap: 8px; justify-content: center;">
-                    <button class="table-action-btn btn-edit" onclick="showEditReferralContactModal(${row.ReferralID}, '${encName}', '${encEmail}', '${encUrl}', '${encDesignation}', '${encSource}', '${encStatus}', '${encCompany}', '${encNotes}')" title="Edit contact">
+                    <button class="table-action-btn btn-edit" onclick="showEditReferralContactModal(${row.ReferralID}, '${encName}', '${encEmail}', '${encUrl}', '${encDesignation}', '${encSource}', '${encStatus}', '${encCompany}', '${encNotes}', '${encVerification}')" title="Edit contact">
                         <i class="fa-solid fa-pen-to-square"></i>
                     </button>
                     <button class="table-action-btn btn-delete" onclick="deleteRow('referrals', ${row.ReferralID})" title="Delete contact">
@@ -2546,7 +2552,7 @@ async function saveReferralEditForm(event) {
 }
 
 // ── Referral Contact Modal Triggers ──────────────────────────────────
-function showEditReferralContactModal(id, name, email, profileUrl, designation, source, status, company, notes) {
+function showEditReferralContactModal(id, name, email, profileUrl, designation, source, status, company, notes, verification) {
     document.getElementById('edit-referral-contact-id').value = id;
     document.getElementById('edit-referral-contact-name').value = decodeURIComponent(name);
     document.getElementById('edit-referral-contact-email').value = decodeURIComponent(email === 'None' || email === 'null' || !email ? '' : email);
@@ -2556,6 +2562,12 @@ function showEditReferralContactModal(id, name, email, profileUrl, designation, 
     document.getElementById('edit-referral-contact-status').value = decodeURIComponent(status || 'Pending');
     document.getElementById('edit-referral-contact-company').value = decodeURIComponent(company === 'None' || company === 'null' || !company ? '' : company);
     document.getElementById('edit-referral-contact-notes').value = decodeURIComponent(notes === 'None' || notes === 'null' || !notes ? '' : notes);
+    
+    const verificationVal = decodeURIComponent(verification || 'Verified');
+    const verificationEl = document.getElementById('edit-referral-contact-verification');
+    if (verificationEl) {
+        verificationEl.value = verificationVal;
+    }
     
     const modal = document.getElementById('edit-referral-contact-modal');
     if (modal) modal.classList.remove('hidden');
@@ -2579,6 +2591,9 @@ async function saveReferralContactEditForm(event) {
     const company = document.getElementById('edit-referral-contact-company').value;
     const notes = document.getElementById('edit-referral-contact-notes').value;
     
+    const verificationEl = document.getElementById('edit-referral-contact-verification');
+    const verification = verificationEl ? verificationEl.value : 'Verified';
+    
     try {
         const response = await fetch('/api/data/edit_referral_row', {
             method: 'POST',
@@ -2592,7 +2607,8 @@ async function saveReferralContactEditForm(event) {
                 source: source,
                 status: status,
                 company: company,
-                notes: notes
+                notes: notes,
+                employment_verification_status: verification
             })
         });
         const data = await response.json();

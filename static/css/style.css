@@ -1365,6 +1365,17 @@ body {
     color: var(--text-secondary);
 }
 
+/* Verification Status Badges */
+.badge-verified {
+    background: rgba(0, 230, 118, 0.15);
+    color: var(--accent-green);
+}
+
+.badge-unverified {
+    background: rgba(255, 179, 0, 0.15);
+    color: var(--accent-yellow);
+}
+
 /* Specific select dropdown pill coloring in Referral Tracker */
 .status-select-wrapper.new .status-inline-select,
 .status-select-wrapper.pending .status-inline-select {

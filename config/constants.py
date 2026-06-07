@@ -15,5 +15,5 @@ JOB_LEADS_HEADERS = [
 REFERRAL_HEADERS = [
     'ReferralID', 'JobID', 'CompanyName', 'Referral_Person_Name', 'Referral_Person_Email',
     'Referral_Person_Profile_URL', 'Referral_Person_Designation', 'Referral_Source',
-    'Referral_Status', 'Sent_Time', 'Error_Reason'
+    'Referral_Status', 'Employment_Verification_Status', 'Sent_Time', 'Error_Reason'
 ]

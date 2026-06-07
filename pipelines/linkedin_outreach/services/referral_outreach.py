@@ -800,6 +800,184 @@ def wait_for_chat_closed(driver, timeout=6):
         time.sleep(0.5)
     logger.warning("Chat overlay did not close within timeout — continuing anyway.")
     return False
+def clean_company_name(name):
+    if not name:
+        return ""
+    import re
+    # Lowercase
+    name = name.lower()
+    # Remove punctuation
+    name = re.sub(r'[^\w\s]', ' ', name)
+    # Tokenize
+    words = name.split()
+    # Remove common corporate suffixes
+    suffixes = {'inc', 'llc', 'ltd', 'corp', 'corporation', 'gmbh', 'co', 'pvt', 'limited', 'private', 'incorporated'}
+    filtered = [w for w in words if w not in suffixes]
+    return " ".join(filtered)
+
+
+def company_names_match(target, extracted):
+    target_clean = clean_company_name(target)
+    extracted_clean = clean_company_name(extracted)
+    
+    if not target_clean or not extracted_clean:
+        return False
+        
+    # Exact match of cleaned strings
+    if target_clean == extracted_clean:
+        return True
+        
+    # Word token matching
+    target_words = target_clean.split()
+    extracted_words = extracted_clean.split()
+    
+    if not target_words or not extracted_words:
+        return False
+        
+    # Check if target_words is subset of extracted_words or vice versa
+    if set(target_words).issubset(set(extracted_words)) or set(extracted_words).issubset(set(target_words)):
+        matching_words = set(target_words).intersection(set(extracted_words))
+        non_trivial = [w for w in matching_words if len(w) > 2]
+        if non_trivial:
+            return True
+            
+    return False
+
+
+def scroll_to_experience_section(driver):
+    logger.info("Scrolling page incrementally to trigger lazy loading of experience section...")
+    for offset in range(400, 2600, 400):
+        driver.execute_script(f"window.scrollTo(0, {offset});")
+        time.sleep(0.6)
+    # Also attempt to scroll experience element into view directly if it exists
+    driver.execute_script("""
+        const exp = document.getElementById('experience');
+        if (exp) {
+            exp.scrollIntoView({block: 'center'});
+        }
+    """)
+    time.sleep(1)
+
+
+def extract_active_roles(driver):
+    logger.info("Running DOM extraction script on profile...")
+    try:
+        active_roles = driver.execute_script("""
+            const getActiveRoles = () => {
+                let expAnchor = document.getElementById('experience');
+                if (!expAnchor) {
+                    const headings = document.querySelectorAll('h2, h3, h4');
+                    for (const h of headings) {
+                        if (h.textContent.trim().toLowerCase() === 'experience') {
+                            expAnchor = h.closest('section');
+                            break;
+                        }
+                    }
+                } else {
+                    expAnchor = expAnchor.closest('section');
+                }
+                if (!expAnchor) return [];
+
+                const list = expAnchor.querySelector('ul');
+                if (!list) return [];
+
+                const activeRoles = [];
+                const topLevelItems = Array.from(list.children).filter(el => el.tagName === 'LI');
+
+                topLevelItems.forEach(item => {
+                    const nestedList = item.querySelector('ul');
+                    if (nestedList) {
+                        // Grouped roles under one company
+                        const clone = item.cloneNode(true);
+                        const nestedUl = clone.querySelector('ul');
+                        if (nestedUl) clone.removeChild(nestedUl);
+                        const text = clone.innerText || clone.textContent;
+                        const lines = text.split('\\n').map(l => l.trim()).filter(l => l.length > 0);
+                        let company = lines[0] || '';
+                        if (company.includes(' · ')) {
+                            company = company.split(' · ')[0];
+                        }
+
+                        const nestedItems = Array.from(nestedList.children).filter(el => el.tagName === 'LI');
+                        nestedItems.forEach(subItem => {
+                            const roleText = subItem.innerText || subItem.textContent;
+                            const roleLines = roleText.split('\\n').map(l => l.trim()).filter(l => l.length > 0);
+                            if (roleLines.length > 0) {
+                                const title = roleLines[0];
+                                let dateRange = "";
+                                for (const line of roleLines) {
+                                    if (line.toLowerCase().includes('present') || line.match(/^[A-Za-z]{3}\\s\\d{4}/) || line.match(/^\\d{4}/)) {
+                                        dateRange = line;
+                                        break;
+                                    }
+                                }
+                                if (dateRange.toLowerCase().includes('present')) {
+                                    activeRoles.push({ company, title, date_range: dateRange });
+                                }
+                            }
+                        });
+                    } else {
+                        // Flat layout
+                        const text = item.innerText || item.textContent;
+                        const lines = text.split('\\n').map(l => l.trim()).filter(l => l.length > 0);
+                        if (lines.length >= 2) {
+                            const title = lines[0];
+                            let company = lines[1];
+                            if (company.includes(' · ')) {
+                                company = company.split(' · ')[0];
+                            }
+                            let dateRange = "";
+                            for (const line of lines) {
+                                if (line.toLowerCase().includes('present') || line.match(/^[A-Za-z]{3}\\s\\d{4}/) || line.match(/^\\d{4}/)) {
+                                    dateRange = line;
+                                    break;
+                                }
+                            }
+                            if (dateRange.toLowerCase().includes('present')) {
+                                activeRoles.push({ company, title, date_range: dateRange });
+                            }
+                        }
+                    }
+                });
+                return activeRoles;
+            };
+            return getActiveRoles();
+        """)
+        return active_roles or []
+    except Exception as e:
+        logger.warning(f"Error executing active roles extractor JS: {e}")
+        return []
+
+
+def go_to_next_page(driver):
+    try:
+        next_button = driver.execute_script("""
+            const btn = document.querySelector('button.artdeco-pagination__button--next') ||
+                        document.querySelector('button[aria-label="Next"]') ||
+                        document.querySelector('button[data-testid="pagination-controls-next-button"]');
+            if (btn) return btn;
+            const buttons = Array.from(document.querySelectorAll('button'));
+            for (const b of buttons) {
+                if (b.innerText && b.innerText.trim().toLowerCase() === 'next') {
+                    return b;
+                }
+            }
+            return null;
+        """)
+        if not next_button:
+            return False
+
+        is_disabled = driver.execute_script("return arguments[0].disabled;", next_button)
+        if is_disabled:
+            return False
+
+        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", next_button)
+        time.sleep(1)
+        driver.execute_script("arguments[0].click();", next_button)
+        time.sleep(5)
+        return True
+    except Exception:
+        return False
 
 
 def run_phase_one_discovery():
@@ -853,36 +1031,109 @@ def run_phase_one_discovery():
             driver.get(search_url)
             time.sleep(4)
             
-            connections = scrape_connections_from_search(driver, max_people=remaining_cap)
-            if not connections:
-                logger.info(f"No 1st-degree connections found at {company}.")
-                continue
-                
-            discovered_count = 0
-            for conn in connections:
-                profile_url = conn['profile_url']
-                
-                # Check eligibility
-                if is_profile_already_contacted(profile_url):
-                    logger.info(f"Connection {conn['name']} already messaged or skipped. Skipping.")
-                    continue
+            verified_connections = []
+            page_num = 1
+            
+            while len(verified_connections) < remaining_cap:
+                # Scrape candidates on current search page (up to 15 to grab all 10 on page)
+                candidates = scrape_connections_from_search(driver, max_people=15)
+                if not candidates:
+                    logger.info(f"No connections found on page {page_num} for {company}.")
+                    break
                     
+                logger.info(f"Found {len(candidates)} candidates on page {page_num} for {company}. Starting verification...")
+                
+                # Check eligibility and verify each candidate one by one
+                for conn in candidates:
+                    if len(verified_connections) >= remaining_cap:
+                        break
+                        
+                    profile_url = conn['profile_url']
+                    
+                    if is_profile_already_contacted(profile_url):
+                        logger.info(f"Connection {conn['name']} already messaged or skipped. Skipping.")
+                        continue
+                        
+                    logger.info(f"Navigating to {conn['name']}'s profile: {profile_url}")
+                    try:
+                        driver.get(profile_url)
+                        time.sleep(3)
+                        
+                        # Scroll to trigger lazy loading of experience section
+                        scroll_to_experience_section(driver)
+                        
+                        # Extract experience active roles
+                        active_roles = extract_active_roles(driver)
+                        
+                        is_verified = False
+                        verified_company = ""
+                        verified_designation = conn['designation']
+                        
+                        for role in active_roles:
+                            extracted_comp = role.get('company') or ''
+                            if company_names_match(company, extracted_comp):
+                                comp_lower = extracted_comp.lower()
+                                if any(k in comp_lower for k in ['former', 'ex-', 'ex ', 'past', 'previous', 'retired']):
+                                    continue
+                                is_verified = True
+                                verified_company = extracted_comp
+                                if role.get('title'):
+                                    verified_designation = role.get('title')
+                                break
+                                
+                        if is_verified:
+                            logger.info(f"✅ VERIFIED: {conn['name']} currently works at {verified_company} as {verified_designation}")
+                            verified_connections.append({
+                                'name': conn['name'],
+                                'profile_url': profile_url,
+                                'designation': verified_designation,
+                                'actual_company': verified_company
+                            })
+                        else:
+                            logger.warning(f"❌ REJECTED: {conn['name']} does NOT currently work at target company {company}. Active roles: {active_roles}")
+                    except Exception as pe:
+                        logger.error(f"Error checking candidate {conn['name']}'s profile: {pe}")
+                        
+                # Go back to search and move to next page if capacity not met
+                if len(verified_connections) < remaining_cap:
+                    logger.info(f"Capacity of {remaining_cap} not met (currently verified: {len(verified_connections)}). Trying next search results page...")
+                    driver.get(search_url)
+                    time.sleep(4)
+                    
+                    # Navigate page_num times next
+                    current_p = 1
+                    navigated_ok = True
+                    while current_p <= page_num:
+                        if go_to_next_page(driver):
+                            current_p += 1
+                        else:
+                            logger.info("No more search pages available.")
+                            navigated_ok = False
+                            break
+                    if navigated_ok:
+                        page_num += 1
+                    else:
+                        break # exit while loop
+            
+            # Store all verified connections to database
+            discovered_count = 0
+            for conn in verified_connections:
                 referral_data = {
                     'JobID': job_id,
-                    'CompanyName': company,
+                    'CompanyName': conn['actual_company'], # actual verified company name
                     'Referral_Person_Name': conn['name'],
                     'Referral_Person_Email': '',
-                    'Referral_Person_Profile_URL': profile_url,
+                    'Referral_Person_Profile_URL': conn['profile_url'],
                     'Referral_Person_Designation': conn['designation'],
                     'Referral_Source': 'Existing Employee',
-                    'Referral_Status': 'Pending'
+                    'Referral_Status': 'Pending',
+                    'Employment_Verification_Status': 'Verified'
                 }
-                
                 add_or_update_referral(referral_data)
                 discovered_count += 1
-                logger.info(f"Discovered: {conn['name']} ({conn['designation']}) - Pending outreach")
+                logger.info(f"Discovered and Saved: {conn['name']} ({conn['designation']}) - Pending outreach")
                 
-            logger.info(f"Found and stored {discovered_count} new 1st-degree connection contacts for {company}.")
+            logger.info(f"Found and stored {discovered_count} verified 1st-degree connection contacts for {company}.")
             time.sleep(2)
             
     except Exception as e:

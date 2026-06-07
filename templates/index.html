@@ -897,6 +897,7 @@
                                     <th>Contact Name</th>
                                     <th>Designation</th>
                                     <th>Source</th>
+                                    <th>Verification Status</th>
                                     <th>Status</th>
                                     <th>Sent Time</th>
                                     <th style="width: 100px; text-align: center;">Actions</th>
@@ -904,7 +905,7 @@
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td colspan="8" class="table-empty">Loading referral contacts...</td>
+                                    <td colspan="9" class="table-empty">Loading referral contacts...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -1659,6 +1660,14 @@
                         <option value="Referral Received">Referral Received</option>
                         <option value="Failed">Failed</option>
                         <option value="Skipped">Skipped</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="edit-referral-contact-verification">Verification Status</label>
+                    <select id="edit-referral-contact-verification" required>
+                        <option value="Verified">Verified</option>
+                        <option value="Unverified">Unverified</option>
+                        <option value="Failed">Failed</option>
                     </select>
                 </div>
                 <div class="form-group" style="margin-bottom: 16px;">
