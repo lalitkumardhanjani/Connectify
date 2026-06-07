@@ -792,7 +792,10 @@ function renderTable(type, data) {
         const shortenUrl = row.ShortenURL || "";
         const shortenLinkHtml = shortenUrl.startsWith("http") ? `<a href="${shortenUrl}" target="_blank">${shortenUrl}</a>` : shortenUrl;
         
-        const statusOptions = ['new', 'interested', 'not interested', 'asked for referral', 'done'];
+        const statusOptions = [
+            'new', 'interested', 'not interested', 'asked for referral', 'done', 
+            'in progress', 'completed – target not met', 'cancelled', 'failed'
+        ];
         let statusOptionsHtml = '';
         statusOptions.forEach(opt => {
             const selected = (row.Status || 'new').toLowerCase().trim() === opt ? 'selected' : '';

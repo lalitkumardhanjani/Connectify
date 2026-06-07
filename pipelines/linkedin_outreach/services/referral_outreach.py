@@ -19,7 +19,8 @@ from core.storage.database import (
     is_profile_already_contacted,
     load_all_referrals,
     get_company_sent_count,
-    get_company_referrals_count
+    update_status_by_id,
+    get_employee_outreach_progress
 )
 from core.logging.config import setup_logger
 
@@ -1088,13 +1089,23 @@ def run_phase_one_discovery():
             company = job.get('CompanyName') or ''
             job_id = job.get('JobID') or ''
             
-            # Check company target connections count (total contacts stored in referrals spreadsheet)
-            total_discovered = get_company_referrals_count(company)
-            if total_discovered >= max_referrals:
-                logger.info(f"Target connection count of {max_referrals} already reached/discovered for {company} (total contacts: {total_discovered}). Skipping discovery.")
+            # Update current Job Lead status to In Progress
+            try:
+                update_status_by_id(job_id, 'In Progress')
+            except Exception as e:
+                logger.warning(f"Failed to update status to In Progress: {e}")
+
+            # Check company target connections progress (active connection outreach/discovery count)
+            total_progress = get_employee_outreach_progress(company)
+            if total_progress >= max_referrals:
+                logger.info(f"Target connection count of {max_referrals} already reached/discovered for {company} (progress: {total_progress}). Skipping discovery.")
+                try:
+                    update_status_by_id(job_id, 'Asked for Referral')
+                except Exception as e:
+                    logger.warning(f"Failed to update status to Asked for Referral: {e}")
                 continue
                 
-            remaining_cap = max_referrals - total_discovered
+            remaining_cap = max_referrals - total_progress
             logger.info(f"\nProcessing company: {company} (JobID {job_id}). Remaining target capacity: {remaining_cap}")
             search_url = find_company_employees_search_url(driver, company)
             if not search_url:
@@ -1313,11 +1324,11 @@ def run_phase_two_messaging():
             job_id = str(ref.get('JobID'))
             company = ref.get('CompanyName')
             
-            # Check company target connections count
-            sent_for_company = get_company_sent_count(company)
-            if sent_for_company >= max_referrals:
+            # Check company target connections progress
+            total_progress = get_employee_outreach_progress(company)
+            if total_progress >= max_referrals:
                 logger.info(f"Target connection count of {max_referrals} already reached for "
-                            f"{company} (sent: {sent_for_company}). "
+                            f"{company} (progress: {total_progress}). "
                             f"Skipping message to {ref.get('Referral_Person_Name')}.")
                 continue
                 
@@ -1443,12 +1454,11 @@ def run_phase_two_messaging():
                 continue
 
             elif action == "quit":
-                # ── CRITICAL: exit code 2 signals the pipeline runner to stop
-                # all remaining pipeline steps, whether running as individual
-                # pipeline or as part of Run Complete Pipeline.
                 logger.info("[Quality Gate] User selected Quit. Stopping pipeline.")
-                ref['Referral_Status'] = 'Skipped'
-                add_or_update_referral(ref)
+                try:
+                    update_status_by_id(job_id, 'Cancelled')
+                except Exception as e:
+                    logger.warning(f"Failed to update Job status to Cancelled: {e}")
                 close_chat_window(driver)
                 user_quit = True
                 break

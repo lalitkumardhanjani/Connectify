@@ -14,7 +14,7 @@ from config.settings import LINKEDIN_CONNECT_LOG_FILE
 from config.user_profiles import get_selected_user_config, get_global_settings, substitute_template_variables
 from config.email_templates import DEFAULT_CONNECTION_TEMPLATE
 from core.integrations.selenium_driver import get_driver
-from core.storage.database import load_jobs_for_referral, update_status_by_id, get_company_sent_count
+from core.storage.database import load_jobs_for_referral, update_status_by_id, get_company_sent_count, get_employee_outreach_progress
 from core.logging.config import setup_logger
 
 # Configure a dedicated logger for LinkedIn connection automation
@@ -906,10 +906,10 @@ def run_connector():
 
             company = job.get('CompanyName') or ''
             
-            # Check company target connections count
-            sent_for_company = get_company_sent_count(company)
-            if sent_for_company >= max_connections:
-                logger.info(f"Company '{company}' has already reached its target connection count of {max_connections} (sent: {sent_for_company}). Skipping.")
+            # Check company target connections progress
+            total_progress = get_employee_outreach_progress(company)
+            if total_progress >= max_connections:
+                logger.info(f"Company '{company}' has already reached its target connection count of {max_connections} (progress: {total_progress}). Skipping.")
                 continue
                 
             position = job.get('SearchKeyword') or ''
@@ -917,8 +917,8 @@ def run_connector():
             job_url = job.get('ShortenURL') or job.get('CompanyURL') or ''
             
             # Compute remaining target capacity for this company
-            max_apply = max_connections - sent_for_company
-            logger.info(f"Company '{company}' remaining target count is {max_apply} (sent: {sent_for_company}).")
+            max_apply = max_connections - total_progress
+            logger.info(f"Company '{company}' remaining target count is {max_apply} (progress: {total_progress}).")
             linkedin_id = job.get('linkedin_id', '')
 
             logger.info("\n" + "=" * 60)
@@ -983,17 +983,15 @@ def run_connector():
                                 status_val = 'Skipped'
                             elif sent == "quit":
                                 logger.info("Quitting connect requests loop as requested by user.")
-                                return
+                                try:
+                                    update_status_by_id(job_id, 'Cancelled')
+                                except Exception as e:
+                                    logger.warning(f"Failed to update Job status to Cancelled: {e}")
+                                sys.exit(2)
                             elif sent:
                                 success_count += 1
                                 total_connections_sent += 1
-                                try:
-                                    if success_count >= 5:
-                                        update_status_by_id(job_id, 'Asked for Referral')
-                                    else:
-                                        update_status_by_id(job_id, 'Interested')
-                                except Exception as e:
-                                    logger.warning(f"Failed to record referral info: {e}")
+                                logger.info("Recorded connection request success.")
                                 logger.info(f"Connect requests sent: {success_count}/{max_apply}")
                                 logger.info(f"Total connections sent in this run: {total_connections_sent}/{max_connections}")
                             else:
@@ -1088,6 +1086,22 @@ def run_connector():
                     logger.info("No already connected people found")
 
             logger.info(f"\n✓ Completed {company}: {success_count} connect requests, {msg_count} messages sent")
+            
+            # Calculate total progress for this company
+            total_progress = get_employee_outreach_progress(company)
+            if total_progress >= max_connections:
+                try:
+                    update_status_by_id(job_id, 'Asked for Referral')
+                    logger.info(f"Target of {max_connections} reached for {company}. Status updated to 'Asked for Referral'.")
+                except Exception as e:
+                    logger.warning(f"Failed to update Job status: {e}")
+            else:
+                try:
+                    update_status_by_id(job_id, 'Completed – Target Not Met')
+                    logger.info(f"Finished processing {company} but target {max_connections} not reached (current progress: {total_progress}). Updated status to 'Completed – Target Not Met'.")
+                except Exception as e:
+                    logger.warning(f"Failed to update Job status: {e}")
+            
             time.sleep(5)
 
         logger.info("\n" + "=" * 60)

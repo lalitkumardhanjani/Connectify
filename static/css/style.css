@@ -1406,6 +1406,29 @@ body {
     color: #81c784;
 }
 
+.status-select-wrapper.in_progress .status-inline-select {
+    background: rgba(33, 150, 243, 0.15);
+    color: #90caf9;
+}
+
+.status-select-wrapper.completed_–_target_not_met .status-inline-select,
+.status-select-wrapper.completed_-_target_not_met .status-inline-select,
+.status-select-wrapper.completed-target-not-met .status-inline-select {
+    background: rgba(158, 158, 158, 0.15);
+    color: #e0e0e0;
+}
+
+.status-select-wrapper.cancelled .status-inline-select {
+    background: rgba(239, 83, 80, 0.15);
+    color: #e57373;
+}
+
+.status-select-wrapper.failed .status-inline-select {
+    background: rgba(211, 47, 47, 0.20);
+    color: var(--accent-red);
+}
+
+
 /* Styles inside dropdown options */
 .status-inline-select option {
     background: var(--bg-secondary);

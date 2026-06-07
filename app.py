@@ -277,7 +277,7 @@ def start_scraper():
     with task_lock:
         task_id = "scraper_pipeline"
         if task_id in active_tasks and active_tasks[task_id].status == "running":
-            return jsonify({"status": "error", "message": "Scraper pipeline is already running"}), 400
+            return jsonify({"status": "error", "message": "Pipeline is already running."}), 400
         
         body = request.get_json(silent=True) or {}
         phase = body.get("phase", "full")
@@ -303,7 +303,7 @@ def start_referral():
     with task_lock:
         task_id = "referral_pipeline"
         if task_id in active_tasks and active_tasks[task_id].status == "running":
-            return jsonify({"status": "error", "message": "Referral pipeline is already running"}), 400
+            return jsonify({"status": "error", "message": "Pipeline is already running."}), 400
         
         body = request.get_json() or {}
         step = body.get("step")
@@ -340,7 +340,7 @@ def start_recruiter():
     with task_lock:
         task_id = "recruiter_pipeline"
         if task_id in active_tasks and active_tasks[task_id].status == "running":
-            return jsonify({"status": "error", "message": "Recruiter outreach pipeline is already running"}), 400
+            return jsonify({"status": "error", "message": "Pipeline is already running."}), 400
         
         body = request.get_json() or {}
         step = body.get("step")

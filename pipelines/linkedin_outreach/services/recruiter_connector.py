@@ -17,7 +17,8 @@ from core.storage.database import (
     update_status_by_id,
     is_profile_already_contacted,
     load_all_referrals,
-    add_or_update_referral
+    add_or_update_referral,
+    get_recruiter_outreach_progress
 )
 from core.logging.config import setup_logger
 
@@ -134,7 +135,24 @@ def run_recruiter_discovery():
             company = job.get('CompanyName') or ''
             job_id = job.get('JobID') or ''
             
-            logger.info(f"\nProcessing company for recruiter discovery: {company} (JobID {job_id})")
+            # Update current Job Lead status to In Progress
+            try:
+                update_status_by_id(job_id, 'In Progress')
+            except Exception as e:
+                logger.warning(f"Failed to update Job status to In Progress: {e}")
+
+            # Check company target recruiters progress (total active/pending recruiter outreach count)
+            total_progress = get_recruiter_outreach_progress(company)
+            if total_progress >= max_recruits:
+                logger.info(f"Target recruiter count of {max_recruits} already reached/discovered for {company} (progress: {total_progress}). Skipping discovery.")
+                try:
+                    update_status_by_id(job_id, 'Done')
+                except Exception as e:
+                    logger.warning(f"Failed to update Job status to Done: {e}")
+                continue
+
+            remaining_cap = max_recruits - total_progress
+            logger.info(f"\nProcessing company for recruiter discovery: {company} (JobID {job_id}). Remaining target capacity: {remaining_cap}")
             
             search_query = f"{company} Talent Acquisition"
             search_url = f"https://www.linkedin.com/search/results/people/?keywords={search_query.replace(' ', '%20')}&network=%5B%22F%22%5D"
@@ -143,7 +161,7 @@ def run_recruiter_discovery():
             driver.get(search_url)
             time.sleep(4)
             
-            connections = scrape_connections_from_search(driver, max_people=max_recruits)
+            connections = scrape_connections_from_search(driver, max_people=remaining_cap)
             if not connections:
                 logger.info(f"No 1st-degree recruiters found at {company}.")
                 continue
@@ -195,6 +213,7 @@ def run_recruiter_messaging():
     recruiter_conf = user_conf.get("recruiter_outreach", {})
     review_mode = recruiter_conf.get("review_mode", True)
     interval = int(recruiter_conf.get("interval") or 5)
+    max_recruits = int(recruiter_conf.get("target_count") or 2)
     
     email = global_conf.get("linkedin_email")
     password = global_conf.get("linkedin_password")
@@ -247,6 +266,12 @@ def run_recruiter_messaging():
             profile_url = ref.get('Referral_Person_Profile_URL')
             designation = ref.get('Referral_Person_Designation')
             
+            # Check company target recruiters progress
+            total_progress = get_recruiter_outreach_progress(company)
+            if total_progress >= max_recruits:
+                logger.info(f"Target recruiter count of {max_recruits} already reached for {company} (progress: {total_progress}). Skipping messaging.")
+                continue
+
             logger.info("\n" + "=" * 60)
             logger.info(f"Processing recruiter message to {name} ({company})")
             logger.info("=" * 60)
@@ -304,8 +329,12 @@ def run_recruiter_messaging():
                 continue
             elif action == "quit":
                 logger.info("Quitting recruiter outreach pipeline as requested.")
+                try:
+                    update_status_by_id(job_id, 'Cancelled')
+                except Exception as e:
+                    logger.warning(f"Failed to update Job status to Cancelled: {e}")
                 close_chat_window(driver)
-                break
+                sys.exit(2)
                 
             sent = click_send_message(driver)
             if sent:
@@ -385,6 +414,16 @@ def run_recruiter_connector():
             company = job.get('CompanyName') or ''
             job_id = job.get('JobID') or ''
 
+            # Check company target recruiters progress
+            total_progress = get_recruiter_outreach_progress(company)
+            if total_progress >= target_count:
+                logger.info(f"Company '{company}' has already reached its target recruiter count of {target_count} (progress: {total_progress}). Skipping.")
+                try:
+                    update_status_by_id(job_id, 'Done')
+                except Exception as e:
+                    logger.warning(f"Failed to update Job status to Done: {e}")
+                continue
+
             logger.info("\n" + "=" * 60)
             logger.info(f"Processing Recruiter Outreach for: {company}")
             logger.info("=" * 60)
@@ -400,7 +439,7 @@ def run_recruiter_connector():
             # Send connect requests to recruiters found in search results
             page_number = 1
             company_requests_sent = 0
-            max_recruiters_per_company = target_count
+            max_recruiters_per_company = target_count - total_progress
 
             while company_requests_sent < max_recruiters_per_company:
                 logger.info(f"\nProcessing search page {page_number} for recruiters")
@@ -440,7 +479,11 @@ def run_recruiter_connector():
                             status_val = 'Skipped'
                         elif sent == "quit":
                             logger.info("Quitting recruiter outreach loop as requested by user.")
-                            return
+                            try:
+                                update_status_by_id(job_id, 'Cancelled')
+                            except Exception as e:
+                                logger.warning(f"Failed to update Job status to Cancelled: {e}")
+                            sys.exit(2)
                         elif sent:
                             company_requests_sent += 1
                             total_requests_sent += 1
@@ -483,14 +526,20 @@ def run_recruiter_connector():
                 page_number += 1
 
             # Mark this job as Done after outreach attempts if recruiter target reached
-            if company_requests_sent >= max_recruiters_per_company:
+            # Calculate total recruiter outreach progress
+            total_recruits_progress = get_recruiter_outreach_progress(company)
+            if total_recruits_progress >= target_count:
                 try:
                     update_status_by_id(job_id, 'Done')
                     logger.info(f"Updated company '{company}' status in tracker to 'Done'.")
                 except Exception as e:
                     logger.warning(f"Failed to record status update: {e}")
             else:
-                logger.info(f"Finished processing '{company}' but target count {max_recruiters_per_company} not reached ({company_requests_sent} sent). Keeping status.")
+                try:
+                    update_status_by_id(job_id, 'Completed – Target Not Met')
+                    logger.info(f"Finished recruiter processing for '{company}' but target count {target_count} not reached (current progress: {total_recruits_progress}). Updated status to 'Completed – Target Not Met'.")
+                except Exception as e:
+                    logger.warning(f"Failed to record status update: {e}")
 
             time.sleep(5)
 
