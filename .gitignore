@@ -40,3 +40,6 @@ debug_html_*
 # OS-specific files
 .DS_Store
 Thumbs.db
+
+# Local-only scratch / test scripts (never pushed to GitHub)
+scratch/
