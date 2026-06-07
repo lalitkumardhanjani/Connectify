@@ -2188,7 +2188,7 @@ async function saveConfiguration(module) {
         }
 
         cachedConfig.config.recruiter_outreach = {
-            "interval": getVal('recruiter-interval'),
+            "interval": cachedConfig.config.recruiter_outreach?.interval || '120',
             "target_count": targetCountVal.toString(),
             "review_mode": getChecked('recruiter-review-mode'),
             "message_template": recruiterTemplate,
