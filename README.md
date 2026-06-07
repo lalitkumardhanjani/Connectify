@@ -1,6 +1,6 @@
 # Connectify – Automated LinkedIn Job Application & Outreach Hub
 
-Connectify is a clean, modular Python and Selenium-based automation framework that automates the process of finding job postings, scraping recruiter/contact emails, sending referral request messages, and logging all applications in structured Excel sheets. It includes a user-friendly Flask-based web dashboard.
+Connectify is a clean, modular Python and Selenium-based automation framework that automates the process of finding job postings, scraping recruiter/contact emails, sending referral request messages, connecting with recruiters, and logging all activity in structured Excel sheets. It includes a user-friendly Flask-based web dashboard with real-time log streaming and full pipeline control.
 
 ---
 
@@ -8,59 +8,70 @@ Connectify is a clean, modular Python and Selenium-based automation framework th
 
 ```
 Connectify/
-├── app.py                         # Web dashboard server (Flask)
+├── app.py                             # Web dashboard server (Flask)
 │
-├── config/                        # Dynamic profile & settings configuration
-│   ├── settings.py                # Runtime dynamic user path resolution
-│   ├── constants.py               # Central schema definitions and default keywords
-│   ├── user_profiles.py           # Sandboxed profile management & upgrade scripts
-│   └── email_templates.py         # Static fallback outreach templates
+├── config/                            # Dynamic profile & settings configuration
+│   ├── settings.py                    # Runtime dynamic user path resolution
+│   ├── constants.py                   # Central schema definitions and default keywords
+│   ├── user_profiles.py               # Sandboxed profile management & upgrade scripts
+│   └── email_templates.py             # Static fallback outreach templates
 │
-├── core/                          # Shared library & support package
+├── core/                              # Shared library & support package
 │   ├── analytics/
-│   │   └── metrics.py             # Sandboxed stats calculator
+│   │   └── metrics.py                 # Sandboxed stats calculator
 │   ├── storage/
-│   │   └── database.py            # Unified openpyxl Excel read/write CRUD database
+│   │   └── database.py                # Unified openpyxl Excel read/write CRUD database
 │   ├── integrations/
-│   │   ├── selenium_driver.py     # Centralized Chrome WebDriver configurations
-│   │   └── url_shortener.py       # TinyURL shortening service
+│   │   ├── selenium_driver.py         # Centralized Chrome WebDriver configurations
+│   │   └── url_shortener.py           # TinyURL shortening service
 │   ├── logging/
-│   │   └── config.py              # DynamicUserFileHandler (sandboxed logger)
+│   │   └── config.py                  # DynamicUserFileHandler (sandboxed logger)
 │   └── utils/
-│       ├── string_utils.py        # Email address extraction regex
-│       └── url_utils.py           # URL normalization, decoding, and parsing
+│       ├── string_utils.py            # Email address extraction regex
+│       └── url_utils.py               # URL normalization, decoding, and parsing
 │
-├── pipelines/                     # Pipeline execution modules
-│   ├── email_outreach/            # Pipeline 1: Email Scraper & Sender
+├── pipelines/                         # Pipeline execution modules
+│   ├── email_outreach/                # Pipeline 1: Email Scraper & Sender
 │   │   ├── services/
-│   │   │   ├── scraper.py         # Selenium post content email scraper
-│   │   │   └── sender.py          # SMTP & Gmail Web automation senders
-│   │   └── pipeline.py            # Phase 1 & 2 coordinator
+│   │   │   ├── scraper.py             # Selenium post content email scraper
+│   │   │   └── sender.py              # SMTP & Gmail Web automation senders
+│   │   └── pipeline.py                # Phase 1 & 2 coordinator
 │   │
-│   └── linkedin_outreach/         # Pipeline 2: LinkedIn Job Search & Connect
-│   │   ├── services/
-│   │   │   ├── job_finder.py      # Scrapes external job postings (location-aware)
-│   │   │   ├── reviewer.py        # Terminal CLI reviewer for new jobs
-│   │   │   └── connector.py       # Connects and messages referral targets
-│   │   └── pipeline.py            # Outreach step coordinator
-│   │
-│   └── [GIT IGNORED] users/       # Local sandboxed profile data (NEVER committed)
-│       ├── active_user.json       # Tracks active user profile key
-│       └── <username>/            # Dedicated sandbox directory per user
-│           ├── config.json        # Profile credentials, keywords, preferred locations
-│           ├── data/              # job_tracker.xlsx, LinkedIn_Job_Tracker.xlsx
-│           ├── logs/              # private automation.log, linkedin_connect.log
-│           ├── resumes/           # private uploaded applicant resumes
-│           └── chrome-profile/    # private isolated Chrome Selenium profiles
+│   └── linkedin_outreach/             # Pipeline 2–6: LinkedIn Job Search, Referral & Recruiter Outreach
+│       ├── services/
+│       │   ├── job_finder.py          # Scrapes external job postings (location-aware, sequential)
+│       │   ├── reviewer.py            # Terminal CLI reviewer for new jobs
+│       │   ├── connector.py           # LinkedIn Connect & referral message sender
+│       │   ├── referral_outreach.py   # Discover connected employees & send referral messages
+│       │   ├── recruiter_connector.py # Discover & message recruiters at target companies
+│       │   └── shortener.py          # TinyURL shortener service for job links
+│       └── pipeline.py                # Step coordinator interface
 │
-├── static/                        # CSS/JS dashboard assets
-├── templates/                     # Flask dashboard view templates
+├── [GIT IGNORED] users/               # Local sandboxed profile data (NEVER committed)
+│   ├── active_user.json               # Tracks active user profile key
+│   └── <username>/                    # Dedicated sandbox directory per user
+│       ├── config.json                # Profile credentials, keywords, preferred locations
+│       ├── data/                      # job_tracker.xlsx, LinkedIn_Job_Tracker.xlsx
+│       ├── logs/                      # private automation.log, linkedin_connect.log
+│       ├── resumes/                   # private uploaded applicant resumes
+│       └── chrome-profile/            # private isolated Chrome Selenium profiles
 │
-├── run_email_outreach.py          # Pipeline 1 runner (graceful SIGTERM handling)
-├── run_job_search.py              # Pipeline 2 runner: Find job opportunities (graceful SIGTERM handling)
-├── run_referral_review.py         # Pipeline 2 runner: CLI job evaluator (graceful SIGTERM handling)
-├── run_linkedin_connect.py        # Pipeline 2 runner: Outreach & messaging (graceful SIGTERM handling)
-└── run_url_shortener.py           # Utility runner to shorten job URLs (graceful SIGTERM handling)
+├── static/                            # CSS/JS dashboard assets
+├── templates/                         # Flask dashboard view templates
+├── docs/
+│   └── architecture_docs.md           # Detailed technical architecture reference
+│
+├── run_email_outreach.py              # Pipeline 1 runner (graceful SIGTERM handling)
+├── run_job_search.py                  # Pipeline 2 runner: Find job opportunities
+├── run_referral_review.py             # Pipeline 3 runner: CLI job evaluator
+├── run_linkedin_connect.py            # Pipeline 4 runner: Outreach & messaging
+├── run_referral_outreach_discover.py  # Pipeline 5a runner: Discover connected employees
+├── run_referral_outreach_send.py      # Pipeline 5b runner: Send referral messages
+├── run_recruiter_outreach_discover.py # Pipeline 6a runner: Discover recruiters
+├── run_recruiter_outreach_send.py     # Pipeline 6b runner: Message recruiters
+├── run_recruiter_outreach.py          # Pipeline 6 runner: Complete recruiter pipeline
+├── run_url_shortener.py               # Utility runner to shorten job URLs
+└── update_project.py                  # One-command project updater (git fetch + reset)
 ```
 
 ---
@@ -71,7 +82,7 @@ If your friend or colleague wants to clone and run this project, they can follow
 
 ### Step 1: Install System Dependencies
 - **All OS**: Make sure you have the standard [Google Chrome](https://www.google.com/chrome/) browser installed.
-- **Windows**: 
+- **Windows**:
   1. Download and install [Git for Windows](https://gitforwindows.org/).
   2. Download and install [Python 3.9+](https://www.python.org/). Make sure to check the box **"Add Python to PATH"** during installation.
 
@@ -125,6 +136,21 @@ cd Connectify
 
 ---
 
+## 🔄 Updating the Project
+
+To pull the latest code changes from GitHub without losing any local user data:
+```bash
+python update_project.py
+```
+
+This script performs a safe `git fetch` + `git reset --hard origin/main`, which:
+- Updates all source code files to the latest version.
+- **Never touches** your `users/` directory (which is git-ignored), so all profiles, data, and logs remain intact.
+
+After updating, re-run `pip install -r requirements.txt` if dependencies have changed.
+
+---
+
 ## 🛠️ Running the Application
 
 ### Option A: Running the Web Dashboard (Recommended)
@@ -135,7 +161,7 @@ python app.py
 Open your browser and navigate to **`http://127.0.0.1:5001`**. From here, you can:
 - Swap profile contexts (e.g. Yuvashree, Lalit) using the avatar switcher in the top-right corner.
 - Upload resumes and manage your candidate profile.
-- Edit configurations dynamically under the **Settings** tab — keyword changes apply immediately to the JSON config.
+- Edit configurations dynamically under the **Settings** tab — keyword changes apply immediately to your JSON config.
 - Browse and search the **Outreach Leads** (email scraper) database with full pagination.
 - Browse and manage the **Referral Opportunities** (LinkedIn jobs) database with full pagination.
 - Monitor real-time execution logs and launch or stop pipeline steps from the **Pipelines** tab.
@@ -154,19 +180,37 @@ You can run any pipeline or utility directly from the command line using the roo
   python run_email_outreach.py --phase full
   ```
 
-Other runner scripts:
+All available runner scripts:
 ```bash
-# 1. Run Job Search Automation
+# Pipeline 1 – Email Scraper & Outreach
+python run_email_outreach.py --phase full
+
+# Pipeline 2 – Find Job Opportunities (LinkedIn Job Search)
 python run_job_search.py
 
-# 2. Launch Terminal Reviewer (Flags new jobs as Interested/Skip)
+# Pipeline 3 – CLI Job Reviewer (mark jobs as Interested / Skip)
 python run_referral_review.py
 
-# 3. Run TinyURL url shortener on gathered URLs
-python run_url_shortener.py
-
-# 4. Execute LinkedIn Connections & Referrals messaging outreach
+# Pipeline 4 – LinkedIn Connect & Referral Messaging
 python run_linkedin_connect.py
+
+# Pipeline 5a – Discover Connected Employees (for referral outreach)
+python run_referral_outreach_discover.py
+
+# Pipeline 5b – Send Referral Messages to discovered employees
+python run_referral_outreach_send.py
+
+# Pipeline 6a – Discover Recruiters at target companies
+python run_recruiter_outreach_discover.py
+
+# Pipeline 6b – Send messages to discovered recruiters
+python run_recruiter_outreach_send.py
+
+# Pipeline 6 (Complete) – Run full Recruiter Outreach pipeline end-to-end
+python run_recruiter_outreach.py
+
+# Utility – Shorten job URLs with TinyURL
+python run_url_shortener.py
 ```
 
 > **Note:** All pipeline runners support graceful termination — pressing `Ctrl+C` or clicking Stop in the dashboard will cleanly shut down the Chrome browser and save all in-progress data before exiting.
@@ -175,11 +219,67 @@ python run_linkedin_connect.py
 
 ## 🖥️ Dashboard Overview
 
-### Settings Tab
-The Settings panel is split into two sub-sections:
+### Pipelines Tab
+All 6 pipeline stages (plus their sub-steps) are available directly from the **Pipelines** tab. Each pipeline card provides:
+- A **Start** / **Stop** button to launch or kill the automation process.
+- A **real-time console** that streams live log output until the pipeline completes or is stopped.
+- **Graceful stop**: Clicking Stop sends a termination signal to the subprocess, which cleanly quits the Chrome driver. The status correctly reflects `stopped` — it will never incorrectly show `failed` after a manual stop.
 
-- **Outreach Engine**: Configure the email scraper pipeline — set the search execution frequency, enable/disable the Outreach Quality Gate (review mode), manage target post keywords (changes save instantly to your profile config), and compose your outreach email template with a real-time preview inside a mock email window.
-- **LinkedIn Automator**: Configure the LinkedIn connection pipeline — set the action timing delay, enable/disable the Invite Quality Gate (review mode), manage target network keywords (changes save instantly to your profile config), and compose your 300-character LinkedIn invite note with a live preview rendered in a mock LinkedIn invitation bubble.
+Available pipeline steps in the UI:
+| Step | Name | Description |
+|------|------|-------------|
+| 1 | Email Scraper & Outreach | Scrapes LinkedIn posts for emails and sends outreach |
+| 2 | Find Job Opportunities | Searches LinkedIn Jobs for postings matching your keywords |
+| 3 | Review Job Applications | Terminal CLI to flag jobs as Interested or Skip |
+| 4 | LinkedIn Connect & Referral | Sends connection requests with personalized notes |
+| 5a | Discover Connected Employees | Finds employees at target companies via LinkedIn |
+| 5b | Send Referral Messages | Sends templated referral request messages to found contacts |
+| 6 | Run Complete Recruiter Pipeline | Discovers recruiters and messages them in one run |
+| 6a | Discover Recruiters | Finds recruiters at target companies |
+| 6b | Message Recruiters | Sends personalized messages to discovered recruiters |
+
+### Settings Tab
+The Settings panel uses a **horizontal tab layout** and is split into two sub-sections:
+
+#### Outreach Engine (Email Scraper Settings)
+- **Search Execution Frequency**: Controls how frequently the scraper paginates LinkedIn feeds between post reads.
+- **Outreach Quality Gate**: When enabled, emails are held in the database for manual review before sending. When disabled, outreach is sent automatically after scraping.
+- **Target Post Keywords**: Tag-based keyword manager. Add or remove terms searched on LinkedIn content boards. **Changes are persisted immediately** to the user's `config.json` on every add/remove action — no save button required.
+- **Outreach Email Template Studio**: Rich text editor with clickable variable tokens and a **Real-time Preview** mode that renders your template inside a mock email window.
+
+  **Available Tokens for Email Templates:**
+  | Token | Description |
+  |-------|-------------|
+  | `{FIRST_NAME}` | Recipient's first name |
+  | `{LAST_NAME}` | Recipient's last name |
+  | `{COMPANY}` | Company name |
+  | `{POSITION}` | Job position |
+  | `{MY_NAME}` | Your name |
+  | `{MY_EXPERIENCE}` | Your experience summary |
+
+#### LinkedIn Automator (LinkedIn Connect Settings)
+- **Action Timing Delay**: Controls wait time between LinkedIn browser automation steps.
+- **Invite Quality Gate**: When enabled, connection requests are staged for review before being sent. When disabled, requests are sent automatically.
+- **Target Connections Per Run**: Sets the maximum number of new LinkedIn connections to send per pipeline run.
+- **Target Network Keywords**: Tag-based keyword manager. Add or remove terms used for LinkedIn people search during connection routines. **Changes are persisted immediately** to the user's `config.json`.
+- **Available Invite Note Tokens** *(displayed above the editor)*: All tokens available for your LinkedIn invite notes, identical to the message template tokens. Click any token to insert it at the cursor.
+- **LinkedIn Invite Note Studio**: Rich text editor with a character counter (300-char LinkedIn limit enforced). **Real-time Preview** renders your note inside a mock LinkedIn invitation modal.
+
+  **Available Tokens for LinkedIn Invite Notes & All Message Templates:**
+  | Token | Description |
+  |-------|-------------|
+  | `{FIRST_NAME}` | Recipient's first name |
+  | `{LAST_NAME}` | Recipient's last name |
+  | `{COMPANY}` | Company name |
+  | `{POSITION}` | Job position |
+  | `{MY_NAME}` | Your name |
+  | `{MY_EXPERIENCE}` | Your experience summary |
+  | `{JOB_TITLE}` | Job title from the opportunity |
+  | `{JOB_URL}` | Direct URL to the job posting |
+  | `{SHORT_URL}` | TinyURL-shortened job URL |
+  | `{REFERRAL_INTRO}` | Introductory referral phrase |
+
+- **Referral Message Template Studio**: Compose referral request messages with the full token set. Tokens insert at cursor position.
 
 ### Preferred Location Support
 Each user profile supports a **Preferred Location** field in the User Profile section. When set:
@@ -191,12 +291,6 @@ Each user profile supports a **Preferred Location** field in the User Profile se
 - **Outreach Leads**: Displays emails scraped from LinkedIn posts. Records are sorted by ID (ascending). Supports per-column filtering, status-based filtering, keyword dropdown, and paginated browsing (10 records per page).
 - **Referral Opportunities**: Displays job opportunities tracked for LinkedIn referral outreach. Records are sorted by ID (ascending). Supports full-text search, status and date filters, and paginated browsing (10 records per page).
 
-### Pipelines Tab
-- Start or stop any of the 6 individual pipeline steps directly from the UI.
-- **Real-time log streaming**: The console panel streams live output from the running process until the pipeline completes or is manually stopped.
-- **Graceful stop**: Clicking Stop sends a termination signal to the pipeline subprocess, which cleanly quits the Chrome driver before exiting. The status correctly reflects `stopped` — it will never incorrectly show `failed` after a manual stop.
-- **Smart scroll detection**: The email scraper automatically moves to the next keyword as soon as it reaches the end of available posts, without waiting for the full timeout window.
-
 ### Company Analytics Dashboard
 The **Company Analytics** panel in the Dashboard tab shows status breakdowns for your tracked companies:
 - 🔵 **New** — Blue badge: Companies newly added, not yet actioned.
@@ -204,6 +298,42 @@ The **Company Analytics** panel in the Dashboard tab shows status breakdowns for
 - 🔴 **Not Interested** — Red badge: Companies marked as not relevant.
 
 Status colors are consistent across KPI cards, the status pie chart, the keyword-vs-status table, and the column header pills.
+
+---
+
+## 🔁 Referral Outreach Workflow
+
+The Referral Outreach system is a two-stage pipeline for finding contacts at target companies and sending them personalized referral request messages.
+
+### Stage 1 – Discover Connected Employees (Pipeline 5a)
+- Reads target companies from your **Referral Opportunities** database with status `Interested`.
+- Searches LinkedIn for people working at each company.
+- Prioritizes **1st-degree connections** (people you already know) and **2nd-degree connections**.
+- Saves discovered contacts into the database and marks the company as `Discovered`.
+- Respects the **Target Connections Per Run** limit from Settings.
+
+### Stage 2 – Send Referral Messages (Pipeline 5b)
+- Reads discovered contacts with status `Pending Message`.
+- Opens each contact's LinkedIn profile and sends your configured **Referral Message Template**.
+- Marks each contact as `Message Sent` after successful delivery.
+- Marks the parent company as `Done` once all contacts have been messaged.
+
+---
+
+## 📨 Recruiter Outreach Workflow
+
+The Recruiter Outreach system finds recruiters at target companies and messages them directly.
+
+### Recruiter Discovery (Pipeline 6a)
+- Searches LinkedIn for people with recruiter titles (e.g., "Talent Acquisition", "HR Manager") at each target company.
+- Saves discovered recruiters into the outreach database.
+
+### Recruiter Messaging (Pipeline 6b)
+- Sends personalized messages to each discovered recruiter using your message template.
+- Updates status to `Sent` after each successful message.
+
+### Complete Pipeline (Pipeline 6)
+- Runs both discovery and messaging sequentially in one go.
 
 ---
 
@@ -219,3 +349,56 @@ Status colors are consistent across KPI cards, the status pie chart, the keyword
 - **Google Sign-In**: Avoid choosing "Continue with Google" during automated sessions as Google security blocks automated login pages. Sign in directly using email and password.
 - **Empty Data for a New Profile**: Each user profile starts with an empty `data/` directory. Data files (`job_tracker.xlsx`, `LinkedIn_Job_Tracker.xlsx`) are automatically created the first time a pipeline is run under that profile.
 - **urllib3 SSL Warning**: If you see a `NotOpenSSLWarning` from urllib3, this is a known macOS LibreSSL compatibility notice and is automatically suppressed in all pipeline runners — it has no effect on functionality.
+- **LinkedIn Rate Limiting**: If LinkedIn temporarily restricts your account activity, increase the **Action Timing Delay** in the LinkedIn Automator settings to add more wait time between automation steps.
+
+---
+
+## 🧪 Testing
+
+The project includes a comprehensive automated test suite under the `scratch/` directory. Tests use Python's `unittest` framework with mocking (no real browser required).
+
+### Running Tests
+```bash
+# Activate your virtual environment first
+source .venv/bin/activate   # macOS/Linux
+# .venv\Scripts\activate    # Windows
+
+# Run a specific test file
+python -m pytest scratch/test_e2e_referral_recruiter_outreach.py -v
+
+# Run all tests in the scratch directory
+python -m pytest scratch/ -v
+```
+
+### Test Coverage
+
+| Test File | What It Tests |
+|-----------|---------------|
+| `test_e2e_referral_recruiter_outreach.py` | End-to-end Referral Outreach and Recruiter Outreach workflows, status transitions, target-capping, and pipeline handoff logic |
+| `test_e2e_email_scraper_outreach.py` | End-to-end Email Scraper and Outreach pipeline including keyword iteration, duplicate detection, and SMTP sending |
+| `test_e2e_job_finder.py` | Sequential job iteration, Easy Apply filtering, pagination logic, and external URL extraction |
+| `test_referral_outreach_logic.py` | Referral outreach discover & send logic, contact creation, DB sync |
+| `test_referral_message_generation.py` | Token substitution in referral messages (`{FIRST_NAME}`, `{COMPANY}`, etc.) |
+| `test_recruiter_connector.py` | Recruiter discovery and messaging pipeline logic |
+| `test_pipeline.py` | Pipeline step orchestration and coordinator logic |
+| `test_pipelines_integration.py` | Cross-pipeline integration: email + LinkedIn orchestration |
+| `test_linkedin_connect_gate.py` | Invite Quality Gate: staging vs. auto-send mode |
+| `test_outreach_quality_gate.py` | Email Quality Gate: hold-for-review vs. auto-send mode |
+| `test_visual_outreach_quality_gate.py` | UI-level quality gate rendering and status badge display |
+| `test_config_target_count.py` | Target Connections Per Run config loading, persistence, and enforcement |
+| `test_person_name_token.py` | `{FIRST_NAME}` and `{LAST_NAME}` token extraction from LinkedIn profile names |
+| `test_run_limits.py` | Per-run connection limits and stop-after-N logic |
+| `test_runner_skip_logic.py` | Skipping already-processed companies and contacts |
+| `test_signal_handling.py` | SIGTERM/SIGINT graceful shutdown and `driver.quit()` invocation |
+| `test_locations_logic.py` | Preferred location expansion: keyword × location cartesian product |
+| `test_resume_upload.py` | Resume upload, storage, and profile association |
+| `test_import_app.py` | App module imports and Flask app initialization checks |
+| `test_live_extraction.py` | Live LinkedIn data extraction patterns (email regex, URL parsing) |
+
+---
+
+## 📖 Additional Documentation
+
+- **Technical Architecture**: See [`docs/architecture_docs.md`](docs/architecture_docs.md) for an in-depth breakdown of the system architecture, data flow diagrams, module responsibilities, and extension guidelines.
+- **Example Config**: See [`users_config.json.example`](users_config.json.example) for a reference user profile structure.
+- **Environment Variables**: See [`.env.example`](.env.example) for all supported environment variable overrides.

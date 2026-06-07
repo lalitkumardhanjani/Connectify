@@ -23,10 +23,13 @@ Connectify follows clean architectural principles by separating cross-cutting co
                                v
 +-------------------------------------------------------------+
 |                     Pipelines Package                       |
-|  - email_outreach/           - linkedin_outreach/            |
-|    - scraper.py                 - job_finder.py              |
-|    - sender.py                  - reviewer.py                |
-|    - pipeline.py                - connector.py               |
+|  - email_outreach/           - linkedin_outreach/           |
+|    - scraper.py                 - job_finder.py             |
+|    - sender.py                  - reviewer.py               |
+|    - pipeline.py                - connector.py              |
+|                                 - referral_outreach.py      |
+|                                 - recruiter_connector.py    |
+|                                 - shortener.py              |
 +------------------------------+------------------------------+
                                | uses
                                v
@@ -74,10 +77,16 @@ Scrapes emails from posts and sends outreach emails.
 - **`pipeline.py`**: Standard orchestrator combining scraper (Phase 1) and sender (Phase 2) workflows. Iterates over all keyword + location combinations automatically when multiple preferred locations are configured.
 
 #### Job Search & Connect (`pipelines/linkedin_outreach/`)
-Finds job listings and sends connection/direct message requests.
-- **`services/job_finder.py`**: Scrapes job listings filtered by **preferred location** (supports multiple locations via comma-separated values in the user profile). Checks for duplicate postings in `data/LinkedIn_Job_Tracker.xlsx`, and opens external apply links to cache actual settled career URLs.
+Finds job listings, performs referral outreach, and sends recruiter messages.
+
+- **`services/job_finder.py`**: Scrapes job listings sequentially (card-by-card) filtered by **preferred location** (supports multiple locations via comma-separated values in the user profile). Checks for duplicate postings in `data/LinkedIn_Job_Tracker.xlsx`, opens external apply links to cache actual settled career URLs, and handles multi-page pagination automatically. Easy Apply jobs are detected and optionally filtered.
 - **`services/reviewer.py`**: Terminal CLI prompt allowing users to choose whether to request referrals for a listed company or mark it as skipped.
 - **`services/connector.py`**: Leverages Selenium to search for people working at target companies, and sends connection invites (with personalized notes) or direct messages (to 1st degree connections).
+- **`services/referral_outreach.py`**: Two-stage referral outreach engine:
+  - **Stage 1 (Discover)**: Searches LinkedIn for connected employees at companies with status `Interested`. Creates contact records per person found. Marks company as `Discovered` after finding contacts.
+  - **Stage 2 (Send)**: Reads contacts with status `Pending Message`, opens their LinkedIn profiles, sends personalized referral message templates (with full token substitution), marks each contact `Message Sent`, and marks parent company `Done` when all contacts are messaged.
+- **`services/recruiter_connector.py`**: Searches LinkedIn for recruiters (title-filtered: "Talent Acquisition", "HR", "Recruiter", etc.) at target companies, saves discovered recruiters, and sends them personalized LinkedIn messages.
+- **`services/shortener.py`**: Reads job URLs from the tracker and sends them to TinyURL for shortening. Updates the `Short URL` column in the Excel database.
 - **`pipeline.py`**: Step coordinator interface.
 
 ---
@@ -103,12 +112,12 @@ Finds job listings and sends connection/direct message requests.
 [SMTP Server / Gmail UI] <--(Send Mail Compose)-- [users/<user>/data/job_tracker.xlsx]
 ```
 
-### 2. LinkedIn Job & Connect Pipeline Data Flow
+### 2. LinkedIn Job Search Data Flow
 ```
 [User Profile Config]
   preferred_locations: ["Bangalore", "Remote"]
         |
-        | (per location)
+        | (per location, sequential card iteration)
         v
 [LinkedIn Search Jobs] --(Discovers Job Card)--> [External Apply Button]
                                                          |
@@ -116,13 +125,49 @@ Finds job listings and sends connection/direct message requests.
                                                          v
 [Review Option (CLI)] <--(Presents NEW Job)-- [users/<user>/data/LinkedIn_Job_Tracker.xlsx]
           |
-     (Sets status)
+     (Sets status: Interested / Skip)
           v
-[Ask For Referral] --(TinyURL shortens links)--> [ShortenURL column updated]
-                                                         |
-                                               (Selenium Search People)
-                                                         v
-[Send Connection / Note] --(Status marked Done/Sent)--> [Status column updated]
+[Next Pipeline Stage: Referral / Recruiter Outreach]
+```
+
+### 3. Referral Outreach Data Flow (Pipeline 5)
+```
+[LinkedIn_Job_Tracker.xlsx]
+  Companies with status = "Interested"
+        |
+        | Stage 1: Discover Connected Employees
+        v
+[LinkedIn People Search] --(per company)--> [Employee Profiles]
+                                                    |
+                                          (save contacts to DB)
+                                                    |
+                                          (company → "Discovered")
+        |
+        | Stage 2: Send Referral Messages
+        v
+[Contacts with status = "Pending Message"]
+        |
+[Open LinkedIn Profile] --(send message with token substitution)--> [Message Sent]
+        |
+        | (all contacts messaged)
+        v
+[Company → "Done"]
+```
+
+### 4. Recruiter Outreach Data Flow (Pipeline 6)
+```
+[LinkedIn_Job_Tracker.xlsx]
+  Companies with status = "Interested" or "Discovered"
+        |
+        | Stage 1: Discover Recruiters
+        v
+[LinkedIn People Search] --(title filter: "Recruiter", "Talent Acquisition", "HR")--> [Recruiter Profiles]
+                                                    |
+                                          (save to recruiter DB)
+        |
+        | Stage 2: Message Recruiters
+        v
+[Discovered Recruiters] --(personalized message + token substitution)--> [Status: "Sent"]
 ```
 
 ---
@@ -175,6 +220,8 @@ app.py SubprocessRunner
 
 ## ⚙️ Dashboard Settings Tabs
 
+The Settings panel uses a **horizontal tab layout** consistent with the Pipelines tab.
+
 ### Outreach Engine (Email Scraper Settings)
 - **Search Execution Frequency**: Controls how frequently the scraper paginates LinkedIn feeds between post reads.
 - **Outreach Quality Gate**: When enabled, emails are held in the database for manual review before sending. When disabled, outreach is sent automatically after scraping.
@@ -184,8 +231,11 @@ app.py SubprocessRunner
 ### LinkedIn Automator (LinkedIn Connect Settings)
 - **Action Timing Delay**: Controls wait time between LinkedIn browser automation steps.
 - **Invite Quality Gate**: When enabled, connection requests are staged in the Referral Opportunities database for review before being sent. When disabled, requests are sent automatically.
+- **Target Connections Per Run**: Sets the maximum number of new connections to send per run.
 - **Target Network Keywords**: Tag-based keyword manager. Add or remove terms used for LinkedIn people search during connection routines. **Changes are persisted immediately** to the user's `config.json`.
-- **LinkedIn Invite Note Studio**: Rich text editor with clickable variable tokens and character counter (300-char LinkedIn limit enforced). **Real-time Preview** renders your note inside a mock LinkedIn invitation modal.
+- **Available Invite Note Tokens** *(shown above the note editor)*: Full token legend covering all substitution tokens available. Click any token pill to insert it at the current cursor position in the note editor.
+- **LinkedIn Invite Note Studio**: Rich text editor with character counter (300-char LinkedIn limit enforced). **Real-time Preview** renders your note inside a mock LinkedIn invitation modal.
+- **Referral Message Template Studio**: Compose referral request messages with the full token set above the textarea.
 
 ---
 
@@ -243,3 +293,9 @@ for keyword in keywords:
     else:
         run_search(keyword)
 ```
+
+### Token Substitution in Message Templates
+Message templates support dynamic variable substitution via `get_selected_user_config()` and the `substitute_template_variables()` helper in `config/user_profiles.py`. Add new tokens by:
+1. Extending the token map inside `substitute_template_variables()`.
+2. Adding the token pill to the relevant Studio UI in `templates/index.html`.
+3. Updating the `insertToken(type, token)` function in `static/js/main.js` to handle the new `type` → textarea ID mapping.
