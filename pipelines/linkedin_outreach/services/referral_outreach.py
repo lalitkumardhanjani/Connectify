@@ -97,11 +97,77 @@ def find_company_employees_search_url(driver, company_name):
             logger.error(f"Failed to find company page: {e}")
             return None
 
-    # Try extracting the search link from the company page
+    # Step 1: Extract company ID using robust JS
+    try:
+        company_id = driver.execute_script("""
+            const getCompanyId = () => {
+                // 1. Try meta tags
+                const metaSelectors = [
+                    'meta[property="al:android:url"]',
+                    'meta[name="twitter:app:url:iphone"]',
+                    'meta[name="twitter:app:url:ipad"]',
+                    'meta[name="twitter:app:url:googleplay"]'
+                ];
+                for (const sel of metaSelectors) {
+                    const el = document.querySelector(sel);
+                    if (el) {
+                        const content = el.getAttribute('content') || '';
+                        const match = content.match(/company\\/(\\d+)/) || content.match(/urn:li:company:(\\d+)/);
+                        if (match) return match[1];
+                    }
+                }
+                
+                // 2. Try page source script tags
+                const scripts = document.querySelectorAll('script');
+                for (const script of scripts) {
+                    const text = script.textContent || '';
+                    const match = text.match(/"objectUrn"\\s*:\\s*"urn:li:company:(\\d+)"/) || text.match(/"urn:li:company:(\\d+)"/);
+                    if (match) return match[1];
+                }
+                
+                // 3. Try finding employee search link inside main top card
+                const mainSection = document.querySelector('.org-top-card, section.artdeco-card, main');
+                if (mainSection) {
+                    const link = mainSection.querySelector('a[href*="/search/results/people/"]');
+                    if (link) {
+                        const href = link.getAttribute('href') || '';
+                        const match = href.match(/currentCompany=%5B%22(\\d+)%22%5D/) || href.match(/currentCompany=(\\d+)/);
+                        if (match) return match[1];
+                    }
+                }
+                
+                // 4. Try any link with currentCompany that is NOT in a sidebar/similar pages container
+                const links = Array.from(document.querySelectorAll('a[href*="/search/results/people/"]'));
+                for (const link of links) {
+                    if (link.closest('aside') || link.closest('.org-similar-pages') || link.closest('.org-people-also-viewed') || link.closest('.org-people-also-viewed-module')) {
+                        continue;
+                    }
+                    const href = link.getAttribute('href') || '';
+                    const match = href.match(/currentCompany=%5B%22(\\d+)%22%5D/) || href.match(/currentCompany=(\\d+)/);
+                    if (match) return match[1];
+                }
+                return null;
+            };
+            return getCompanyId();
+        """)
+        if company_id:
+            constructed_url = f"https://www.linkedin.com/search/results/people/?currentCompany=%5B%22{company_id}%22%5D&network=%5B%22F%22%5D"
+            logger.info(f"Successfully resolved company ID {company_id} and constructed search URL: {constructed_url}")
+            return constructed_url
+    except Exception as e:
+        logger.warning(f"Error resolving company ID via JS: {e}")
+
+    # Step 2: Fallback search link parsing (excluding sidebars)
     search_url = None
     links = driver.find_elements(By.TAG_NAME, "a")
     for link in links:
         try:
+            is_sidebar = driver.execute_script("""
+                const el = arguments[0];
+                return !!(el.closest('aside') || el.closest('.org-similar-pages') || el.closest('.org-people-also-viewed') || el.closest('.org-people-also-viewed-module'));
+            """, link)
+            if is_sidebar:
+                continue
             href = link.get_attribute("href") or ""
             if "/search/results/people/" in href:
                 search_url = href
@@ -111,7 +177,7 @@ def find_company_employees_search_url(driver, company_name):
             continue
 
     if search_url:
-        logger.info(f"Discovered employees search URL: {search_url}")
+        logger.info(f"Discovered employees search URL via page links: {search_url}")
         if "network" not in search_url.lower() and "facetnetwork" not in search_url.lower():
             if "?" in search_url:
                 search_url += "&network=%5B%22F%22%5D"
@@ -119,7 +185,7 @@ def find_company_employees_search_url(driver, company_name):
                 search_url += "?network=%5B%22F%22%5D"
         return search_url
 
-    # Second fallback: navigate to people tab directly
+    # Step 3: Second fallback: navigate to people tab directly
     people_url = driver.current_url.rstrip("/") + "/people/"
     logger.info(f"Navigating directly to people tab: {people_url}")
     try:
@@ -128,6 +194,12 @@ def find_company_employees_search_url(driver, company_name):
         links = driver.find_elements(By.TAG_NAME, "a")
         for link in links:
             try:
+                is_sidebar = driver.execute_script("""
+                    const el = arguments[0];
+                    return !!(el.closest('aside') || el.closest('.org-similar-pages') || el.closest('.org-people-also-viewed') || el.closest('.org-people-also-viewed-module'));
+                """, link)
+                if is_sidebar:
+                    continue
                 href = link.get_attribute("href") or ""
                 if "/search/results/people/" in href:
                     search_url = href
