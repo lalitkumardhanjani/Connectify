@@ -880,9 +880,10 @@
                             <div class="filter-group">
                                 <select id="filter-source-referrals-outreach">
                                     <option value="all">All Sources</option>
-                                    <option value="existing connection">Existing Connection</option>
-                                    <option value="connection request">Connection Request</option>
-                                    <option value="recruiter outreach">Recruiter Outreach</option>
+                                    <option value="existing employee">Existing Employee</option>
+                                    <option value="existing recruiter">Existing Recruiter</option>
+                                    <option value="sent employee connection">Sent Employee Connection</option>
+                                    <option value="sent recruiter connection">Sent Recruiter Connection</option>
                                 </select>
                             </div>
                         </div>
@@ -922,17 +923,19 @@
 
                 <div class="settings-wrapper">
                     <!-- Sub Tabs Navigation Menu -->
-                    <div class="settings-tabs-menu">
+                    <div class="settings-tabs">
                         <button type="button" class="settings-tab-btn active" data-settings-tab="email-scraper">
-                            <i class="fa-solid fa-square-envelope"></i> Outreach Engine
+                            <i class="fa-solid fa-envelope"></i> Outreach Engine
+                            <span class="unsaved-dot hidden" id="unsaved-dot-scraper" style="color: var(--accent-yellow); margin-left: 5px; font-weight: bold;">*</span>
                         </button>
                         <button type="button" class="settings-tab-btn" data-settings-tab="linkedin-connect">
                             <i class="fa-solid fa-circle-nodes"></i> LinkedIn Automator
+                            <span class="unsaved-dot hidden" id="unsaved-dot-connect" style="color: var(--accent-yellow); margin-left: 5px; font-weight: bold;">*</span>
                         </button>
                         <button type="button" class="settings-tab-btn" data-settings-tab="recruiter-outreach">
                             <i class="fa-solid fa-user-tie"></i> Recruiter Outreach
+                            <span class="unsaved-dot hidden" id="unsaved-dot-recruiter" style="color: var(--accent-yellow); margin-left: 5px; font-weight: bold;">*</span>
                         </button>
-
                     </div>
 
                     <form id="settings-form" onsubmit="saveSettingsForm(event)">
@@ -1087,6 +1090,12 @@
                                     </div>
                                 </div>
                             </div>
+                            <div class="settings-actions" style="margin-top: 20px;">
+                                <button type="button" class="btn btn-success btn-glow-success" onclick="saveConfiguration('scraper')">
+                                    <i class="fa-solid fa-floppy-disk"></i> Save Outreach Engine Configuration
+                                </button>
+                                <span id="save-status-scraper" class="save-status"></span>
+                            </div>
                         </div>
 
 
@@ -1097,7 +1106,7 @@
                                     <h3><i class="fa-solid fa-sliders glow-icon-teal"></i> Connection Automation Control</h3>
                                     <p class="card-subtitle">Configure connection intervals and pipeline gates</p>
                                     <div class="form-group">
-                                        <label for="connect-interval">Action Timing Delay</label>
+                                        <label for="connect-interval">Keyword Search Timing</label>
                                         <select id="connect-interval">
                                             <option value="5">5 Seconds</option>
                                             <option value="15">15 Seconds</option>
@@ -1278,6 +1287,19 @@
                                             </div>
                                         </div>
                                         <textarea id="connect-message-template" class="template-textarea" placeholder="Connection request message..." maxlength="300" oninput="updateConnectCharCount()"></textarea>
+                                        <div class="invite-note-tokens-box" style="margin-top: 10px; padding: 10px; border-radius: 6px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.02);">
+                                            <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-primary); display: block; margin-bottom: 6px;">
+                                                <i class="fa-solid fa-tags"></i> Available Invite Note Tokens
+                                            </span>
+                                            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                                <span class="token-pill" onclick="insertToken('{PERSON_NAME}')" title="Recipient's first name">{PERSON_NAME}</span>
+                                                <span class="token-pill" onclick="insertToken('{company}')" title="Company name">{company}</span>
+                                                <span class="token-pill" onclick="insertToken('{job_url}')" title="Shortened apply URL">{job_url}</span>
+                                                <span class="token-pill" onclick="insertToken('{resume}')" title="Resume URL">{resume}</span>
+                                                <span class="token-pill" onclick="insertToken('{FIRST_NAME}')" title="Your first name">{FIRST_NAME}</span>
+                                                <span class="token-pill" onclick="insertToken('{LAST_NAME}')" title="Your last name">{LAST_NAME}</span>
+                                            </div>
+                                        </div>
                                         
                                         <!-- Mock LinkedIn Invitation Window -->
                                         <div id="connect-template-preview" class="linkedin-mockup-window hidden">
@@ -1306,6 +1328,12 @@
                                     </div>
                                 </div>
                             </div>
+                            <div class="settings-actions" style="margin-top: 20px;">
+                                <button type="button" class="btn btn-success btn-glow-success" onclick="saveConfiguration('connect')">
+                                    <i class="fa-solid fa-floppy-disk"></i> Save LinkedIn Automator Configuration
+                                </button>
+                                <span id="save-status-connect" class="save-status"></span>
+                            </div>
                         </div>
 
 
@@ -1318,7 +1346,7 @@
                                     <p class="card-subtitle">Configure connection intervals, limits, target recruiters, and pipeline gates</p>
                                     
                                     <div class="form-group">
-                                        <label for="recruiter-interval">Action Timing Delay</label>
+                                        <label for="recruiter-interval">Keyword Search Timing</label>
                                         <select id="recruiter-interval">
                                             <option value="5">5 Seconds</option>
                                             <option value="15">15 Seconds</option>
@@ -1478,12 +1506,12 @@
                                  </div>
 
 
-                        <!-- Actions bar -->
-                        <div class="settings-actions">
-                            <button type="submit" class="btn btn-success btn-glow-success">
-                                <i class="fa-solid fa-floppy-disk"></i> Save System Configurations
-                            </button>
-                            <span id="save-status" class="save-status"></span>
+                            <div class="settings-actions" style="margin-top: 20px;">
+                                <button type="button" class="btn btn-success btn-glow-success" onclick="saveConfiguration('recruiter')">
+                                    <i class="fa-solid fa-floppy-disk"></i> Save Recruiter Outreach Configuration
+                                </button>
+                                <span id="save-status-recruiter" class="save-status"></span>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -1607,18 +1635,23 @@
                     <input type="text" id="edit-referral-contact-url" required>
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="edit-referral-contact-company">Company Name</label>
+                    <input type="text" id="edit-referral-contact-company" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
                     <label for="edit-referral-contact-designation">Designation</label>
                     <input type="text" id="edit-referral-contact-designation">
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
                     <label for="edit-referral-contact-source">Source</label>
                     <select id="edit-referral-contact-source" required>
-                        <option value="Existing Connection">Existing Connection</option>
-                        <option value="Connection Request">Connection Request</option>
-                        <option value="Recruiter Outreach">Recruiter Outreach</option>
+                        <option value="Existing Employee">Existing Employee</option>
+                        <option value="Existing Recruiter">Existing Recruiter</option>
+                        <option value="Sent Employee Connection">Sent Employee Connection</option>
+                        <option value="Sent Recruiter Connection">Sent Recruiter Connection</option>
                     </select>
                 </div>
-                <div class="form-group" style="margin-bottom: 16px;">
+                <div class="form-group" style="margin-bottom: 12px;">
                     <label for="edit-referral-contact-status">Status</label>
                     <select id="edit-referral-contact-status" required>
                         <option value="Pending">Pending</option>
@@ -1628,6 +1661,10 @@
                         <option value="Failed">Failed</option>
                         <option value="Skipped">Skipped</option>
                     </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label for="edit-referral-contact-notes">Notes / Error Reason</label>
+                    <textarea id="edit-referral-contact-notes" rows="2" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--glass-border); background:rgba(0,0,0,0.4); color:var(--text-primary); font-size: 0.9rem; font-family: inherit;"></textarea>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="hideEditReferralContactModal()">Cancel</button>

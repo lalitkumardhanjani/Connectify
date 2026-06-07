@@ -3119,3 +3119,62 @@ body {
     color: #ef4444;
 }
 
+/* Custom Token Pills and Unsaved Dots */
+.token-pill {
+    background: rgba(127, 90, 240, 0.1);
+    border: 1px solid rgba(127, 90, 240, 0.25);
+    color: #c9c3fc;
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-block;
+}
+
+.token-pill:hover {
+    background: rgba(127, 90, 240, 0.25);
+    border-color: rgba(127, 90, 240, 0.5);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(127, 90, 240, 0.2);
+}
+
+.unsaved-dot {
+    display: inline-block;
+    color: var(--accent-yellow);
+    font-weight: bold;
+    margin-left: 4px;
+    animation: pulse 1.5s infinite;
+}
+
+.unsaved-dot.hidden {
+    display: none !important;
+}
+
+.btn-glow-warning {
+    box-shadow: 0 0 15px rgba(255, 179, 0, 0.4);
+    transition: all 0.3s ease;
+}
+
+.btn-glow-warning:hover {
+    box-shadow: 0 0 25px rgba(255, 179, 0, 0.7);
+    transform: translateY(-1px);
+}
+
+.btn-glow-success {
+    box-shadow: 0 0 15px rgba(0, 230, 118, 0.4);
+    transition: all 0.3s ease;
+}
+
+.btn-glow-success:hover {
+    box-shadow: 0 0 25px rgba(0, 230, 118, 0.7);
+    transform: translateY(-1px);
+}
+
+@keyframes pulse {
+    0% { opacity: 0.4; }
+    50% { opacity: 1; }
+    100% { opacity: 0.4; }
+}
+

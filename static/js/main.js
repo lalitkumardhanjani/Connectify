@@ -4,6 +4,10 @@ const tabPanes = document.querySelectorAll('.main-content .tab-pane');
 
 navItems.forEach(item => {
     item.addEventListener('click', () => {
+        // Find if we were on settings tab
+        const currentActive = document.querySelector('.nav-menu .nav-item.active');
+        const wasOnSettings = currentActive ? currentActive.getAttribute('data-tab') === 'settings' : false;
+        
         // Toggle Nav Items Active State
         navItems.forEach(i => i.classList.remove('active'));
         item.classList.add('active');
@@ -26,6 +30,11 @@ navItems.forEach(item => {
         } else if (targetTab === 'dashboard') {
             loadStats();
             if (typeof loadDashboardAnalytics === 'function') loadDashboardAnalytics();
+        }
+
+        // If navigating away from settings, reset settings inputs to saved config
+        if (wasOnSettings && targetTab !== 'settings') {
+            loadSettings();
         }
     });
 });
@@ -674,7 +683,7 @@ function applyReferralsFiltersAndRender() {
         // 3. Source Match
         let sourceMatch = true;
         if (sourceVal !== 'all') {
-            const currentSource = (row.Referral_Source || 'existing connection').toLowerCase().trim();
+            const currentSource = normalizeReferralSource(row.Referral_Source).toLowerCase();
             sourceMatch = currentSource === sourceVal;
         }
         
@@ -724,20 +733,23 @@ function renderReferralsTable(data) {
         const encEmail = encodeURIComponent(row.Referral_Person_Email || "");
         const encUrl = encodeURIComponent(row.Referral_Person_Profile_URL || "");
         const encDesignation = encodeURIComponent(row.Referral_Person_Designation || "");
-        const encSource = encodeURIComponent(row.Referral_Source || "");
+        const normalizedSource = normalizeReferralSource(row.Referral_Source);
+        const encSource = encodeURIComponent(normalizedSource);
         const encStatus = encodeURIComponent(row.Referral_Status || "");
+        const encCompany = encodeURIComponent(row.CompanyName || "");
+        const encNotes = encodeURIComponent(row.Error_Reason || "");
         
         tr.innerHTML = `
             <td>${row.ReferralID || ""}</td>
             <td><strong>${row.CompanyName || ""}</strong></td>
             <td>${row.Referral_Person_Name || ""}</td>
             <td><span style="font-size: 0.8rem; color: var(--text-secondary);">${row.Referral_Person_Designation || ""}</span></td>
-            <td><span style="font-size: 0.8rem;">${row.Referral_Source || ""}</span></td>
+            <td><span style="font-size: 0.8rem;">${normalizedSource}</span></td>
             <td>${statusHtml}</td>
             <td>${row.Sent_Time ? formatDisplayDate(row.Sent_Time) : ""}</td>
             <td style="text-align: center;">
                 <div style="display: flex; gap: 8px; justify-content: center;">
-                    <button class="table-action-btn btn-edit" onclick="showEditReferralContactModal(${row.ReferralID}, '${encName}', '${encEmail}', '${encUrl}', '${encDesignation}', '${encSource}', '${encStatus}')" title="Edit contact">
+                    <button class="table-action-btn btn-edit" onclick="showEditReferralContactModal(${row.ReferralID}, '${encName}', '${encEmail}', '${encUrl}', '${encDesignation}', '${encSource}', '${encStatus}', '${encCompany}', '${encNotes}')" title="Edit contact">
                         <i class="fa-solid fa-pen-to-square"></i>
                     </button>
                     <button class="table-action-btn btn-delete" onclick="deleteRow('referrals', ${row.ReferralID})" title="Delete contact">
@@ -1311,47 +1323,12 @@ function renderKeywords(type) {
     });
 }
 
-// Immediately save keywords to backend JSON files
-async function saveKeywordsToBackend(type) {
-    let keywordsList;
-    if (type === 'scraper') keywordsList = scraperKeywords;
-    else if (type === 'connect') keywordsList = connectKeywords;
-    else if (type === 'scraper-excluded') keywordsList = scraperExcludedKeywords;
-    else if (type === 'connect-excluded') keywordsList = connectExcludedKeywords;
-    else return;
-
-    try {
-        const response = await fetch('/api/users/config/keywords', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                type: type,
-                keywords: keywordsList
-            })
-        });
-        const res = await response.json();
-        if (res.status === 'success') {
-            console.log(`Keywords updated successfully for ${type}`);
-            if (cachedConfig && cachedConfig.config) {
-                if (type === 'scraper') {
-                    if (!cachedConfig.config.email_scraper) cachedConfig.config.email_scraper = {};
-                    cachedConfig.config.email_scraper.keywords = [...keywordsList];
-                } else if (type === 'connect') {
-                    if (!cachedConfig.config.linkedin_connect) cachedConfig.config.linkedin_connect = {};
-                    cachedConfig.config.linkedin_connect.keywords = [...keywordsList];
-                } else if (type === 'scraper-excluded') {
-                    if (!cachedConfig.config.email_scraper) cachedConfig.config.email_scraper = {};
-                    cachedConfig.config.email_scraper.excluded_keywords = [...keywordsList];
-                } else if (type === 'connect-excluded') {
-                    if (!cachedConfig.config.linkedin_connect) cachedConfig.config.linkedin_connect = {};
-                    cachedConfig.config.linkedin_connect.excluded_keywords = [...keywordsList];
-                }
-            }
-        } else {
-            console.error('Failed to save keywords:', res.message);
-        }
-    } catch (e) {
-        console.error('Error saving keywords:', e);
+// Immediately save keywords to backend JSON files - NOW DISABLED, updates unsaved state in UI instead
+function saveKeywordsToBackend(type) {
+    if (type === 'scraper' || type === 'scraper-excluded') {
+        updateTabUnsavedState('scraper', true);
+    } else if (type === 'connect' || type === 'connect-excluded') {
+        updateTabUnsavedState('connect', true);
     }
 }
 
@@ -1739,6 +1716,11 @@ async function loadSettings() {
         setChecked('setting-dry-run', globalSettings.dry_run === '1');
         setVal('setting-smtp-password', globalSettings.smtp_password);
         
+        // Reset unsaved indicators
+        updateTabUnsavedState('scraper', false);
+        updateTabUnsavedState('connect', false);
+        updateTabUnsavedState('recruiter', false);
+        
     } catch (e) {
         console.error("Failed to load settings:", e);
     }
@@ -1748,22 +1730,11 @@ async function loadSettings() {
 async function saveSettingsForm(event) {
     if (event) event.preventDefault();
     
-    const saveStatus = document.getElementById('save-status');
     const profileSaveStatus = document.getElementById('profile-save-status');
-    if (saveStatus) {
-        saveStatus.innerText = 'Saving configurations...';
-        saveStatus.className = 'save-status';
-    }
     if (profileSaveStatus) {
         profileSaveStatus.innerText = 'Saving profile...';
         profileSaveStatus.className = 'save-status';
     }
-    
-    // Add any remaining tags entered in input fields
-    addKeyword('scraper');
-    addKeyword('connect');
-    addKeyword('scraper-excluded');
-    addKeyword('connect-excluded');
     
     const profile = cachedConfig.config?.profile || {};
     const emailScraper = cachedConfig.config?.email_scraper || {};
@@ -1775,10 +1746,6 @@ async function saveSettingsForm(event) {
     const getVal = (id, fallback) => {
         const el = document.getElementById(id);
         return el ? el.value : fallback;
-    };
-    const getChecked = (id, fallback) => {
-        const el = document.getElementById(id);
-        return el ? el.checked : fallback;
     };
     
     const body = {
@@ -1798,34 +1765,10 @@ async function saveSettingsForm(event) {
             "current_ctc": getVal('profile-current-ctc', profile.current_ctc),
             "expected_ctc": getVal('profile-expected-ctc', profile.expected_ctc)
         },
-        "email_scraper": {
-            "sender_email": emailScraper.sender_email || "",
-            "interval": getVal('scraper-interval', emailScraper.interval || '60'),
-            "review_mode": getChecked('scraper-review-mode', emailScraper.review_mode),
-            "max_emails_per_run": getVal('scraper-max-emails', emailScraper.max_emails_per_run || '5'),
-            "keywords": scraperKeywords,
-            "excluded_keywords": scraperExcludedKeywords,
-            "email_subject": getVal('scraper-email-subject', emailScraper.email_subject || ""),
-            "email_template": getVal('scraper-email-template', emailScraper.email_template)
-        },
-        "linkedin_connect": {
-            "interval": getVal('connect-interval', linkedinConnect.interval || '120'),
-            "review_mode": getChecked('connect-review-mode', linkedinConnect.review_mode),
-            "max_connections_per_run": getVal('connect-max-connections', linkedinConnect.max_connections_per_run || '5'),
-            "keywords": connectKeywords,
-            "excluded_keywords": connectExcludedKeywords,
-            "message_template": getVal('connect-message-template', linkedinConnect.message_template)
-        },
-        "recruiter_outreach": {
-            "interval": getVal('recruiter-interval', recruiterOutreach.interval || '120'),
-            "target_count": getVal('recruiter-target-count', recruiterOutreach.target_count || '2'),
-            "review_mode": getChecked('recruiter-review-mode', recruiterOutreach.review_mode),
-            "message_template": getVal('recruiter-message-template', recruiterOutreach.message_template),
-            "direct_message_template": getVal('recruiter-direct-message-template', recruiterOutreach.direct_message_template || '')
-        },
-        "referral_outreach": {
-            "message_template": getVal('referral-message-template', referralOutreach.message_template || '')
-        },
+        "email_scraper": emailScraper,
+        "linkedin_connect": linkedinConnect,
+        "recruiter_outreach": recruiterOutreach,
+        "referral_outreach": referralOutreach,
         "global_settings": {
             "linkedin_email": getVal('setting-linkedin-email', globalSettings.linkedin_email || ""),
             "linkedin_password": getVal('setting-linkedin-password', globalSettings.linkedin_password || ""),
@@ -1849,11 +1792,6 @@ async function saveSettingsForm(event) {
         });
         const data = await response.json();
         if (data.status === 'success') {
-            if (saveStatus) {
-                saveStatus.innerText = '✓ Settings successfully saved & applied!';
-                saveStatus.className = 'save-status success';
-                setTimeout(() => { saveStatus.innerText = ''; }, 3000);
-            }
             if (profileSaveStatus) {
                 profileSaveStatus.innerText = '✓ Profile successfully saved!';
                 profileSaveStatus.className = 'save-status success';
@@ -1863,10 +1801,6 @@ async function saveSettingsForm(event) {
             // Reload settings to refresh fields/labels
             await loadSettings();
         } else {
-            if (saveStatus) {
-                saveStatus.innerText = '✕ Error saving configurations.';
-                saveStatus.className = 'save-status error';
-            }
             if (profileSaveStatus) {
                 profileSaveStatus.innerText = '✕ Error saving profile.';
                 profileSaveStatus.className = 'save-status error';
@@ -1874,10 +1808,6 @@ async function saveSettingsForm(event) {
         }
     } catch (e) {
         console.error("Failed to save settings:", e);
-        if (saveStatus) {
-            saveStatus.innerText = '✕ Failed to save settings.';
-            saveStatus.className = 'save-status error';
-        }
         if (profileSaveStatus) {
             profileSaveStatus.innerText = '✕ Failed to save profile.';
             profileSaveStatus.className = 'save-status error';
@@ -2127,8 +2057,199 @@ const DEFAULT_EMAIL_TEMPLATE = ``;
 
 const DEFAULT_CONNECT_TEMPLATE = ``;
 
+let unsavedChanges = {
+    scraper: false,
+    connect: false,
+    recruiter: false
+};
+
+function updateTabUnsavedState(module, hasUnsaved) {
+    unsavedChanges[module] = hasUnsaved;
+    const dot = document.getElementById(`unsaved-dot-${module}`);
+    if (dot) {
+        if (hasUnsaved) {
+            dot.classList.remove('hidden');
+        } else {
+            dot.classList.add('hidden');
+        }
+    }
+}
+
+function normalizeReferralSource(source) {
+    if (!source) return "Existing Employee";
+    const src = source.toLowerCase().trim();
+    if (src.includes('existing') || src.includes('connection')) {
+        if (src.includes('recruiter')) {
+            return "Existing Recruiter";
+        }
+        return "Existing Employee";
+    }
+    if (src.includes('sent') || src.includes('connector')) {
+        if (src.includes('recruiter')) {
+            return "Sent Recruiter Connection";
+        }
+        return "Sent Employee Connection";
+    }
+    return "Existing Employee"; // default fallback
+}
+
+async function saveConfiguration(module) {
+    const statusEl = document.getElementById(`save-status-${module}`);
+    if (statusEl) {
+        statusEl.innerText = 'Saving configuration...';
+        statusEl.className = 'save-status';
+    }
+
+    // Read form values
+    const getVal = (id) => {
+        const el = document.getElementById(id);
+        return el ? el.value : '';
+    };
+    const getChecked = (id) => {
+        const el = document.getElementById(id);
+        return el ? el.checked : false;
+    };
+
+    // Make sure cachedConfig structure is initialized
+    if (!cachedConfig) cachedConfig = {};
+    if (!cachedConfig.config) cachedConfig.config = {};
+    if (!cachedConfig.config.profile) cachedConfig.config.profile = {};
+    if (!cachedConfig.config.email_scraper) cachedConfig.config.email_scraper = {};
+    if (!cachedConfig.config.linkedin_connect) cachedConfig.config.linkedin_connect = {};
+    if (!cachedConfig.config.recruiter_outreach) cachedConfig.config.recruiter_outreach = {};
+    if (!cachedConfig.config.referral_outreach) cachedConfig.config.referral_outreach = {};
+    if (!cachedConfig.global_settings) cachedConfig.global_settings = {};
+
+    // Validate and update cachedConfig locally depending on the module
+    if (module === 'scraper') {
+        const maxEmailsVal = parseInt(getVal('scraper-max-emails'), 10);
+        if (isNaN(maxEmailsVal) || maxEmailsVal < 1 || maxEmailsVal > 100) {
+            showSaveError(statusEl, '✕ Target Emails per Run must be between 1 and 100.');
+            return;
+        }
+        
+        cachedConfig.config.email_scraper = {
+            "sender_email": cachedConfig.config.email_scraper.sender_email || "",
+            "interval": getVal('scraper-interval'),
+            "review_mode": getChecked('scraper-review-mode'),
+            "max_emails_per_run": maxEmailsVal.toString(),
+            "keywords": scraperKeywords,
+            "excluded_keywords": scraperExcludedKeywords,
+            "email_subject": getVal('scraper-email-subject'),
+            "email_template": getVal('scraper-email-template')
+        };
+    } else if (module === 'connect') {
+        const maxConnsVal = parseInt(getVal('connect-max-connections'), 10);
+        if (isNaN(maxConnsVal) || maxConnsVal < 1 || maxConnsVal > 100) {
+            showSaveError(statusEl, '✕ Target Connections Per Run must be between 1 and 100.');
+            return;
+        }
+        const noteTemplate = getVal('connect-message-template');
+        if (noteTemplate.length > 300) {
+            showSaveError(statusEl, '✕ LinkedIn Invite Note Template cannot exceed 300 characters.');
+            return;
+        }
+
+        cachedConfig.config.linkedin_connect = {
+            "interval": getVal('connect-interval'),
+            "review_mode": getChecked('connect-review-mode'),
+            "max_connections_per_run": maxConnsVal.toString(),
+            "keywords": connectKeywords,
+            "excluded_keywords": connectExcludedKeywords,
+            "message_template": noteTemplate
+        };
+        cachedConfig.config.referral_outreach = {
+            "message_template": getVal('referral-message-template')
+        };
+    } else if (module === 'recruiter') {
+        const targetCountVal = parseInt(getVal('recruiter-target-count'), 10);
+        if (isNaN(targetCountVal) || targetCountVal < 1 || targetCountVal > 100) {
+            showSaveError(statusEl, '✕ Target Count must be between 1 and 100.');
+            return;
+        }
+        const recruiterTemplate = getVal('recruiter-message-template');
+        if (recruiterTemplate.length > 1000) {
+            showSaveError(statusEl, '✕ Recruiter Message Template cannot exceed 1000 characters.');
+            return;
+        }
+        const recruiterDirectTemplate = getVal('recruiter-direct-message-template');
+        if (recruiterDirectTemplate.length > 1000) {
+            showSaveError(statusEl, '✕ Recruiter Direct Message Template cannot exceed 1000 characters.');
+            return;
+        }
+
+        cachedConfig.config.recruiter_outreach = {
+            "interval": getVal('recruiter-interval'),
+            "target_count": targetCountVal.toString(),
+            "review_mode": getChecked('recruiter-review-mode'),
+            "message_template": recruiterTemplate,
+            "direct_message_template": recruiterDirectTemplate
+        };
+    }
+
+    // Now post the FULL config body
+    const body = {
+        "profile": cachedConfig.config.profile,
+        "email_scraper": cachedConfig.config.email_scraper,
+        "linkedin_connect": cachedConfig.config.linkedin_connect,
+        "recruiter_outreach": cachedConfig.config.recruiter_outreach,
+        "referral_outreach": cachedConfig.config.referral_outreach,
+        "global_settings": cachedConfig.global_settings
+    };
+
+    try {
+        const response = await fetch('/api/users/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        const data = await response.json();
+        if (data.status === 'success') {
+            statusEl.innerText = '✓ Configuration successfully saved!';
+            statusEl.className = 'save-status success';
+            updateTabUnsavedState(module, false);
+            setTimeout(() => { statusEl.innerText = ''; }, 3000);
+            
+            // Reload settings to refresh fields/labels
+            await loadSettings();
+        } else {
+            showSaveError(statusEl, '✕ Error saving configurations.');
+        }
+    } catch (e) {
+        console.error("Failed to save configuration:", e);
+        showSaveError(statusEl, '✕ Failed to save configuration.');
+    }
+}
+
+function showSaveError(statusEl, msg) {
+    if (statusEl) {
+        statusEl.innerText = msg;
+        statusEl.className = 'save-status error';
+    }
+}
+
 function insertToken(type, token) {
-    const el = document.getElementById(`${type}-${type === 'scraper' ? 'email' : 'message'}-template`);
+    if (token === undefined) {
+        token = type;
+        type = 'connect';
+    }
+    
+    let targetId = '';
+    if (type === 'scraper') {
+        targetId = 'scraper-email-template';
+    } else if (type === 'connect') {
+        targetId = 'connect-message-template';
+    } else if (type === 'referral') {
+        targetId = 'referral-message-template';
+    } else if (type === 'recruiter') {
+        targetId = 'recruiter-message-template';
+    } else if (type === 'recruiter-direct') {
+        targetId = 'recruiter-direct-message-template';
+    } else {
+        targetId = `${type}-message-template`;
+    }
+
+    const el = document.getElementById(targetId);
     if (!el) return;
     const start = el.selectionStart;
     const end = el.selectionEnd;
@@ -2136,12 +2257,24 @@ function insertToken(type, token) {
     el.value = text.substring(0, start) + token + text.substring(end);
     el.focus();
     el.selectionStart = el.selectionEnd = start + token.length;
+    
     if (type === 'connect' && typeof updateConnectCharCount === 'function') {
         updateConnectCharCount();
+    } else if (type === 'referral' && typeof updateReferralCharCount === 'function') {
+        updateReferralCharCount();
     } else if (type === 'recruiter' && typeof updateRecruiterCharCount === 'function') {
         updateRecruiterCharCount();
     } else if (type === 'recruiter-direct' && typeof updateRecruiterDirectCharCount === 'function') {
         updateRecruiterDirectCharCount();
+    }
+
+    // Trigger unsaved state change since we inserted text
+    if (type === 'scraper') {
+        updateTabUnsavedState('scraper', true);
+    } else if (type === 'connect' || type === 'referral') {
+        updateTabUnsavedState('connect', true);
+    } else if (type === 'recruiter' || type === 'recruiter-direct') {
+        updateTabUnsavedState('recruiter', true);
     }
 }
 
@@ -2201,14 +2334,36 @@ document.addEventListener('DOMContentLoaded', () => {
     const referralTa = document.getElementById('referral-message-template');
     if (referralTa) referralTa.addEventListener('input', updateReferralCharCount);
     
-    // Auto-save settings and profile on any field changes
-    const settingsForm = document.getElementById('settings-form');
-    if (settingsForm) {
-        settingsForm.addEventListener('change', () => saveSettingsForm(null));
+    // Set unsaved indicators on settings modification
+    const scraperContainer = document.getElementById('subtab-email-scraper');
+    if (scraperContainer) {
+        ['input', 'change'].forEach(evtType => {
+            scraperContainer.addEventListener(evtType, (e) => {
+                if (e.target.id !== 'scraper-tag-input' && e.target.id !== 'scraper-excluded-tag-input') {
+                    updateTabUnsavedState('scraper', true);
+                }
+            });
+        });
     }
-    const profileForm = document.getElementById('profile-form');
-    if (profileForm) {
-        profileForm.addEventListener('change', () => saveSettingsForm(null));
+
+    const connectContainer = document.getElementById('subtab-linkedin-connect');
+    if (connectContainer) {
+        ['input', 'change'].forEach(evtType => {
+            connectContainer.addEventListener(evtType, (e) => {
+                if (e.target.id !== 'connect-tag-input' && e.target.id !== 'connect-excluded-tag-input') {
+                    updateTabUnsavedState('connect', true);
+                }
+            });
+        });
+    }
+
+    const recruiterContainer = document.getElementById('subtab-recruiter-outreach');
+    if (recruiterContainer) {
+        ['input', 'change'].forEach(evtType => {
+            recruiterContainer.addEventListener(evtType, () => {
+                updateTabUnsavedState('recruiter', true);
+            });
+        });
     }
     
     // Initialize scraper header filters
@@ -2391,14 +2546,16 @@ async function saveReferralEditForm(event) {
 }
 
 // ── Referral Contact Modal Triggers ──────────────────────────────────
-function showEditReferralContactModal(id, name, email, profileUrl, designation, source, status) {
+function showEditReferralContactModal(id, name, email, profileUrl, designation, source, status, company, notes) {
     document.getElementById('edit-referral-contact-id').value = id;
     document.getElementById('edit-referral-contact-name').value = decodeURIComponent(name);
     document.getElementById('edit-referral-contact-email').value = decodeURIComponent(email === 'None' || email === 'null' || !email ? '' : email);
     document.getElementById('edit-referral-contact-url').value = decodeURIComponent(profileUrl);
     document.getElementById('edit-referral-contact-designation').value = decodeURIComponent(designation === 'None' || designation === 'null' || !designation ? '' : designation);
-    document.getElementById('edit-referral-contact-source').value = decodeURIComponent(source || 'Existing Connection');
+    document.getElementById('edit-referral-contact-source').value = normalizeReferralSource(decodeURIComponent(source));
     document.getElementById('edit-referral-contact-status').value = decodeURIComponent(status || 'Pending');
+    document.getElementById('edit-referral-contact-company').value = decodeURIComponent(company === 'None' || company === 'null' || !company ? '' : company);
+    document.getElementById('edit-referral-contact-notes').value = decodeURIComponent(notes === 'None' || notes === 'null' || !notes ? '' : notes);
     
     const modal = document.getElementById('edit-referral-contact-modal');
     if (modal) modal.classList.remove('hidden');
@@ -2419,6 +2576,8 @@ async function saveReferralContactEditForm(event) {
     const designation = document.getElementById('edit-referral-contact-designation').value;
     const source = document.getElementById('edit-referral-contact-source').value;
     const status = document.getElementById('edit-referral-contact-status').value;
+    const company = document.getElementById('edit-referral-contact-company').value;
+    const notes = document.getElementById('edit-referral-contact-notes').value;
     
     try {
         const response = await fetch('/api/data/edit_referral_row', {
@@ -2431,7 +2590,9 @@ async function saveReferralContactEditForm(event) {
                 profile_url: profile_url,
                 designation: designation,
                 source: source,
-                status: status
+                status: status,
+                company: company,
+                notes: notes
             })
         });
         const data = await response.json();

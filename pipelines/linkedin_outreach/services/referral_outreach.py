@@ -17,7 +17,8 @@ from core.storage.database import (
     load_jobs_for_referral,
     add_or_update_referral,
     is_profile_already_contacted,
-    load_all_referrals
+    load_all_referrals,
+    get_company_sent_count
 )
 from core.logging.config import setup_logger
 
@@ -735,7 +736,14 @@ def run_phase_one_discovery():
             company = job.get('CompanyName') or ''
             job_id = job.get('JobID') or ''
             
-            logger.info(f"\nProcessing company: {company} (JobID {job_id})")
+            # Check company target connections count
+            sent_count = get_company_sent_count(company)
+            if sent_count >= max_referrals:
+                logger.info(f"Target connection count of {max_referrals} already reached for {company} (sent: {sent_count}). Skipping discovery.")
+                continue
+                
+            remaining_cap = max_referrals - sent_count
+            logger.info(f"\nProcessing company: {company} (JobID {job_id}). Remaining target capacity: {remaining_cap}")
             search_url = find_company_employees_search_url(driver, company)
             if not search_url:
                 logger.warning(f"Could not find employees search link for: {company}")
@@ -744,7 +752,7 @@ def run_phase_one_discovery():
             driver.get(search_url)
             time.sleep(4)
             
-            connections = scrape_connections_from_search(driver, max_people=max_referrals)
+            connections = scrape_connections_from_search(driver, max_people=remaining_cap)
             if not connections:
                 logger.info(f"No 1st-degree connections found at {company}.")
                 continue
@@ -765,7 +773,7 @@ def run_phase_one_discovery():
                     'Referral_Person_Email': '',
                     'Referral_Person_Profile_URL': profile_url,
                     'Referral_Person_Designation': conn['designation'],
-                    'Referral_Source': 'Existing Connection',
+                    'Referral_Source': 'Existing Employee',
                     'Referral_Status': 'Pending'
                 }
                 
@@ -870,6 +878,13 @@ def run_phase_two_messaging():
             ref_id = ref.get('ReferralID')
             job_id = str(ref.get('JobID'))
             company = ref.get('CompanyName')
+            
+            # Check company target connections count
+            sent_for_company = get_company_sent_count(company)
+            if sent_for_company >= max_referrals:
+                logger.info(f"Target connection count of {max_referrals} already reached for {company} (sent: {sent_for_company}). Skipping message to {ref.get('Referral_Person_Name')}.")
+                continue
+                
             name = ref.get('Referral_Person_Name')
             profile_url = ref.get('Referral_Person_Profile_URL')
             designation = ref.get('Referral_Person_Designation')

@@ -164,7 +164,7 @@ def run_recruiter_discovery():
                     'Referral_Person_Email': '',
                     'Referral_Person_Profile_URL': profile_url,
                     'Referral_Person_Designation': conn['designation'],
-                    'Referral_Source': 'Recruiter Connection',
+                    'Referral_Source': 'Existing Recruiter',
                     'Referral_Status': 'Pending'
                 }
                 
@@ -460,7 +460,7 @@ def run_recruiter_connector():
                                     'Referral_Person_Email': '',
                                     'Referral_Person_Profile_URL': person.get('profile_url', ''),
                                     'Referral_Person_Designation': person.get('role', 'Recruiter'),
-                                    'Referral_Source': 'Recruiter Outreach',
+                                    'Referral_Source': 'Sent Recruiter Connection',
                                     'Referral_Status': status_val,
                                     'Sent_Time': datetime.now().strftime("%Y-%m-%d %H:%M:%S") if status_val == 'Sent' else '',
                                     'Error_Reason': error_reason

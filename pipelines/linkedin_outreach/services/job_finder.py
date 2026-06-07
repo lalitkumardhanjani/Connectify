@@ -429,6 +429,23 @@ def run_job_finder(target_url=None):
                                     processed_job_ids.add(job_id)
                                 continue
 
+                            # Check target keywords and exclusion keywords before clicking apply
+                            if not is_title_matching_keywords(position, keywords):
+                                logger.info(f"  [SKIP] Title '{position}' does not match configured keyword list.")
+                                processed_signatures.add(sig)
+                                if job_id:
+                                    processed_job_ids.add(job_id)
+                                continue
+
+                            excluded_kws = [kw.lower().strip() for kw in user_conf.get("linkedin_connect", {}).get("excluded_keywords", []) if kw.strip()]
+                            excluded_hit = next((kw for kw in excluded_kws if kw in position.lower()), None)
+                            if excluded_hit:
+                                logger.info(f"  [SKIP] Title '{position}' excluded by exclusion keyword '{excluded_hit}'.")
+                                processed_signatures.add(sig)
+                                if job_id:
+                                    processed_job_ids.add(job_id)
+                                continue
+
                             # Click job card to load right details pane
                             driver.execute_script("arguments[0].click();", card)
                             time.sleep(3)
@@ -557,27 +574,17 @@ def run_job_finder(target_url=None):
                                     processed_job_ids.add(job_id)
                                 continue
 
-                            if is_title_matching_keywords(position, keywords):
-                                # Check exclusion keywords against job title
-                                excluded_kws = [kw.lower().strip() for kw in user_conf.get("linkedin_connect", {}).get("excluded_keywords", []) if kw.strip()]
-                                excluded_hit = next((kw for kw in excluded_kws if kw in position.lower()), None)
-                                if excluded_hit:
-                                    logger.info(f"  [SKIP] Title '{position}' excluded by exclusion keyword '{excluded_hit}'.")
-                                else:
-                                    try:
-                                        if save_job({
-                                            "url": external_url,
-                                            "company": company,
-                                            "position": position,
-                                            "search_keyword": keyword
-                                        }):
-                                            total_saved += 1
-                                            logger.info("  [SUCCESS] Job stored in Excel tracker.")
-                                    except Exception as e:
-                                        logger.error(f"  [ERROR] Excel save error: {e}")
-
-                            else:
-                                logger.info(f"  [SKIP] Title '{position}' does not match configured keyword list.")
+                            try:
+                                if save_job({
+                                    "url": external_url,
+                                    "company": company,
+                                    "position": position,
+                                    "search_keyword": keyword
+                                }):
+                                    total_saved += 1
+                                    logger.info("  [SUCCESS] Job stored in Excel tracker.")
+                            except Exception as e:
+                                logger.error(f"  [ERROR] Excel save error: {e}")
 
                             driver.close()
                             driver.switch_to.window(original_tab)

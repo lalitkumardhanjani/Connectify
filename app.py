@@ -905,17 +905,21 @@ def edit_referral_row():
     designation = body.get("designation")
     source = body.get("source")
     status = body.get("status")
+    company = body.get("company")
+    notes = body.get("notes")
     
-    if not name or not profile_url or not status:
+    if not name or not profile_url or not status or not company:
         return jsonify({"status": "error", "message": "Missing required fields"}), 400
         
     update_data = {
+        "CompanyName": company,
         "Referral_Person_Name": name,
         "Referral_Person_Email": email or "",
         "Referral_Person_Profile_URL": profile_url,
         "Referral_Person_Designation": designation or "",
         "Referral_Source": source or "Existing Connection",
-        "Referral_Status": status
+        "Referral_Status": status,
+        "Error_Reason": notes or ""
     }
     
     from core.storage.database import edit_referral_contact_row

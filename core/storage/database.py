@@ -861,3 +861,31 @@ def edit_referral_contact_row(referral_id, referral_data, path=None):
         _trigger_mac_excel_reload(path)
     return updated
 
+def get_company_sent_count(company_name, path=None):
+    """Counts successfully sent referral/outreach messages or connection requests for a company."""
+    if path is None:
+        path = get_job_leads_file()
+    if not os.path.exists(path):
+        return 0
+    init_referrals_store(path)
+    wb = openpyxl.load_workbook(path)
+    if "Referrals" not in wb.sheetnames:
+        return 0
+    ws = wb["Referrals"]
+    col_indices = {cell.value: idx for idx, cell in enumerate(ws[1], start=1)}
+    company_col = col_indices.get('CompanyName')
+    status_col = col_indices.get('Referral_Status')
+    if not company_col or not status_col:
+        return 0
+    
+    count = 0
+    normalized_company = str(company_name or '').strip().lower()
+    for row in range(2, ws.max_row + 1):
+        row_company = str(ws.cell(row=row, column=company_col).value or '').strip().lower()
+        if row_company == normalized_company:
+            row_status = str(ws.cell(row=row, column=status_col).value or '').strip().lower()
+            if row_status == 'sent':
+                count += 1
+    return count
+
+

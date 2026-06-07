@@ -14,7 +14,7 @@ from config.settings import LINKEDIN_CONNECT_LOG_FILE
 from config.user_profiles import get_selected_user_config, get_global_settings, substitute_template_variables
 from config.email_templates import DEFAULT_CONNECTION_TEMPLATE
 from core.integrations.selenium_driver import get_driver
-from core.storage.database import load_jobs_for_referral, update_status_by_id
+from core.storage.database import load_jobs_for_referral, update_status_by_id, get_company_sent_count
 from core.logging.config import setup_logger
 
 # Configure a dedicated logger for LinkedIn connection automation
@@ -905,10 +905,20 @@ def run_connector():
                 break
 
             company = job.get('CompanyName') or ''
+            
+            # Check company target connections count
+            sent_for_company = get_company_sent_count(company)
+            if sent_for_company >= max_connections:
+                logger.info(f"Company '{company}' has already reached its target connection count of {max_connections} (sent: {sent_for_company}). Skipping.")
+                continue
+                
             position = job.get('SearchKeyword') or ''
             job_id = job.get('JobID') or ''
             job_url = job.get('ShortenURL') or job.get('CompanyURL') or ''
-            max_apply = job.get('max_apply') or 5
+            
+            # Compute remaining target capacity for this company
+            max_apply = max_connections - sent_for_company
+            logger.info(f"Company '{company}' remaining target count is {max_apply} (sent: {sent_for_company}).")
             linkedin_id = job.get('linkedin_id', '')
 
             logger.info("\n" + "=" * 60)
@@ -1000,7 +1010,7 @@ def run_connector():
                                         'Referral_Person_Email': '',
                                         'Referral_Person_Profile_URL': person.get('profile_url', ''),
                                         'Referral_Person_Designation': person.get('role', ''),
-                                        'Referral_Source': 'Connection Request',
+                                        'Referral_Source': 'Sent Employee Connection',
                                         'Referral_Status': status_val,
                                         'Sent_Time': datetime.now().strftime("%Y-%m-%d %H:%M:%S") if status_val == 'Sent' else '',
                                         'Error_Reason': error_reason
@@ -1062,7 +1072,7 @@ def run_connector():
                                 'Referral_Person_Email': '',
                                 'Referral_Person_Profile_URL': person.get('profile_url', ''),
                                 'Referral_Person_Designation': person.get('role', ''),
-                                'Referral_Source': 'Existing Connection',
+                                'Referral_Source': 'Existing Employee',
                                 'Referral_Status': status_val,
                                 'Sent_Time': datetime.now().strftime("%Y-%m-%d %H:%M:%S") if status_val == 'Sent' else '',
                                 'Error_Reason': error_reason
