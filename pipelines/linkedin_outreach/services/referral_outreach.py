@@ -920,17 +920,39 @@ def company_names_match(target, extracted):
 
 def scroll_to_experience_section(driver):
     logger.info("Scrolling page incrementally to trigger lazy loading of experience section...")
-    for offset in range(400, 2600, 400):
-        driver.execute_script(f"window.scrollTo(0, {offset});")
-        time.sleep(0.6)
-    # Also attempt to scroll experience element into view directly if it exists
-    driver.execute_script("""
-        const exp = document.getElementById('experience');
-        if (exp) {
-            exp.scrollIntoView({block: 'center'});
-        }
-    """)
-    time.sleep(1)
+    try:
+        has_workspace = driver.execute_script("return !!document.getElementById('workspace');")
+        if has_workspace:
+            for offset in range(400, 3200, 400):
+                driver.execute_script(f"const w = document.getElementById('workspace'); if (w) w.scrollTop = {offset};")
+                time.sleep(0.5)
+        else:
+            for offset in range(400, 2600, 400):
+                driver.execute_script(f"window.scrollTo(0, {offset});")
+                time.sleep(0.5)
+    except Exception as se:
+        logger.warning(f"Error scrolling workspace/window: {se}")
+
+    try:
+        # Also attempt to scroll experience element into view directly if it exists
+        driver.execute_script("""
+            let exp = document.getElementById('experience');
+            if (!exp) {
+                const headings = document.querySelectorAll('h2, h3, h4');
+                for (const h of headings) {
+                    if (h.textContent.trim().toLowerCase() === 'experience') {
+                        exp = h;
+                        break;
+                    }
+                }
+            }
+            if (exp) {
+                exp.scrollIntoView({block: 'center'});
+            }
+        """)
+        time.sleep(1)
+    except Exception as ee:
+        logger.warning(f"Error scrolling experience section element: {ee}")
 
 
 def extract_active_roles(driver):
@@ -938,6 +960,20 @@ def extract_active_roles(driver):
     try:
         active_roles = driver.execute_script("""
             const getActiveRoles = () => {
+                const activeRoles = [];
+                const normalize = (t) => t ? t.trim().replace(/\\s+/g, ' ') : '';
+                
+                const isDateRange = (line) => {
+                    if (!line) return false;
+                    const l = line.toLowerCase();
+                    return l.includes('present') || 
+                           l.match(/^[a-z]{3}\\s\\d{4}/i) || 
+                           l.match(/^\\d{4}/) ||
+                           l.includes(' - ') ||
+                           l.includes(' – ');
+                };
+
+                // Find Experience Section
                 let expAnchor = document.getElementById('experience');
                 if (!expAnchor) {
                     const headings = document.querySelectorAll('h2, h3, h4');
@@ -950,69 +986,152 @@ def extract_active_roles(driver):
                 } else {
                     expAnchor = expAnchor.closest('section');
                 }
-                if (!expAnchor) return [];
 
-                const list = expAnchor.querySelector('ul');
-                if (!list) return [];
+                if (expAnchor) {
+                    // Find all company-related links
+                    const links = Array.from(expAnchor.querySelectorAll('a')).filter(a => {
+                        return a.href && a.href.includes('/company/') && a.innerText && a.innerText.trim();
+                    });
 
-                const activeRoles = [];
-                const topLevelItems = Array.from(list.children).filter(el => el.tagName === 'LI');
-
-                topLevelItems.forEach(item => {
-                    const nestedList = item.querySelector('ul');
-                    if (nestedList) {
-                        // Grouped roles under one company
-                        const clone = item.cloneNode(true);
-                        const nestedUl = clone.querySelector('ul');
-                        if (nestedUl) clone.removeChild(nestedUl);
-                        const text = clone.innerText || clone.textContent;
+                    const empTypes = ['full-time', 'part-time', 'contract', 'freelance', 'internship', 'apprenticeship', 'self-employed', 'seasonal'];
+                    let currentCompany = '';
+                    links.forEach(a => {
+                        const text = a.innerText.trim();
                         const lines = text.split('\\n').map(l => l.trim()).filter(l => l.length > 0);
-                        let company = lines[0] || '';
-                        if (company.includes(' · ')) {
-                            company = company.split(' · ')[0];
+                        if (lines.length === 0) return;
+
+                        // Check if it is a company header (e.g. Infosys, Full-time · 3 yrs 2 mos)
+                        // It is a company header if NO line matches isDateRange
+                        let hasDateRange = false;
+                        for (let i = 0; i < lines.length; i++) {
+                            if (isDateRange(lines[i])) {
+                                hasDateRange = true;
+                                break;
+                            }
                         }
 
-                        const nestedItems = Array.from(nestedList.children).filter(el => el.tagName === 'LI');
-                        nestedItems.forEach(subItem => {
-                            const roleText = subItem.innerText || subItem.textContent;
-                            const roleLines = roleText.split('\\n').map(l => l.trim()).filter(l => l.length > 0);
-                            if (roleLines.length > 0) {
-                                const title = roleLines[0];
-                                let dateRange = "";
-                                for (const line of roleLines) {
-                                    if (line.toLowerCase().includes('present') || line.match(/^[A-Za-z]{3}\\s\\d{4}/) || line.match(/^\\d{4}/)) {
-                                        dateRange = line;
-                                        break;
+                        if (!hasDateRange) {
+                            currentCompany = lines[0];
+                            return;
+                        }
+
+                        let title = '';
+                        let company = '';
+                        let dateRange = '';
+
+                        // Grouped role: Line 0 is title, Line 1 is date range
+                        if (isDateRange(lines[1])) {
+                            title = lines[0];
+                            company = currentCompany;
+                            dateRange = lines[1];
+                        } 
+                        // Grouped role with employment type: Line 0 is title, Line 1 is empType (e.g. Full-time), Line 2 is date range
+                        else if (lines.length >= 3 && empTypes.includes(lines[1].toLowerCase().trim())) {
+                            title = lines[0];
+                            company = currentCompany;
+                            dateRange = lines[2];
+                        }
+                        // Flat role: Line 0 is title, Line 1 is company, Line 2 is date range
+                        else if (isDateRange(lines[2])) {
+                            title = lines[0];
+                            company = lines[1].split(' · ')[0];
+                            dateRange = lines[2];
+                        }
+                        // Fallback: search lines for date range
+                        else {
+                            title = lines[0];
+                            for (let i = 1; i < lines.length; i++) {
+                                if (isDateRange(lines[i])) {
+                                    dateRange = lines[i];
+                                    if (i === 1) {
+                                        company = currentCompany;
+                                    } else {
+                                        company = lines[1].split(' · ')[0];
                                     }
-                                }
-                                if (dateRange.toLowerCase().includes('present')) {
-                                    activeRoles.push({ company, title, date_range: dateRange });
-                                }
-                            }
-                        });
-                    } else {
-                        // Flat layout
-                        const text = item.innerText || item.textContent;
-                        const lines = text.split('\\n').map(l => l.trim()).filter(l => l.length > 0);
-                        if (lines.length >= 2) {
-                            const title = lines[0];
-                            let company = lines[1];
-                            if (company.includes(' · ')) {
-                                company = company.split(' · ')[0];
-                            }
-                            let dateRange = "";
-                            for (const line of lines) {
-                                if (line.toLowerCase().includes('present') || line.match(/^[A-Za-z]{3}\\s\\d{4}/) || line.match(/^\\d{4}/)) {
-                                    dateRange = line;
                                     break;
                                 }
                             }
+                        }
+
+                        if (title && company) {
+                            // Only include active roles
                             if (dateRange.toLowerCase().includes('present')) {
-                                activeRoles.push({ company, title, date_range: dateRange });
+                                activeRoles.push({
+                                    company: normalize(company),
+                                    title: normalize(title),
+                                    date_range: normalize(dateRange),
+                                    source: 'experience_link_parsed'
+                                });
                             }
                         }
+                    });
+                }
+                
+                // Fallbacks (Headline, top card, etc.)
+                // Always append them to activeRoles to ensure maximum backwards compatibility/safety
+                const headlineEl = document.querySelector('.text-body-medium') || 
+                                   document.querySelector('[data-field=\"headline\"]') || 
+                                   document.querySelector('.pv-text-details__left-panel h2') ||
+                                   document.querySelector('div[class*=\"headline\"]') ||
+                                   document.querySelector('.pv-top-card-layout__headline');
+                if (headlineEl) {
+                    const headlineText = normalize(headlineEl.innerText || headlineEl.textContent);
+                    if (headlineText) {
+                        activeRoles.push({
+                            company: headlineText,
+                            title: headlineText,
+                            date_range: 'Present',
+                            source: 'headline'
+                        });
+                    }
+                }
+
+                const rightPanelItems = document.querySelectorAll('.pv-text-details__right-panel-item, li.pv-text-details__right-panel-item');
+                rightPanelItems.forEach(el => {
+                    const text = normalize(el.innerText || el.textContent);
+                    if (text) {
+                        activeRoles.push({
+                            company: text,
+                            title: '',
+                            date_range: 'Present',
+                            source: 'header_panel'
+                        });
                     }
                 });
+
+                const currentCompanyBtn = document.querySelector('button[aria-label*=\"Current company\"]') || 
+                                         document.querySelector('[data-field=\"experience_company_logo\"]') ||
+                                         document.querySelector('a[data-field=\"company_link\"]');
+                if (currentCompanyBtn) {
+                    const text = normalize(currentCompanyBtn.innerText || currentCompanyBtn.textContent);
+                    if (text) {
+                        activeRoles.push({
+                            company: text,
+                            title: '',
+                            date_range: 'Present',
+                            source: 'header_company_button'
+                        });
+                    }
+                }
+
+                const topCardSection = document.querySelector('.pv-top-card') || 
+                                       document.querySelector('.pv-top-card-layout') ||
+                                       document.querySelector('section.artdeco-card');
+                if (topCardSection) {
+                    const textEls = topCardSection.querySelectorAll('p, span, div, a');
+                    textEls.forEach(el => {
+                        const text = normalize(el.innerText || el.textContent);
+                        if (text.length > 2 && text.length < 100) {
+                            activeRoles.push({
+                                company: text,
+                                title: '',
+                                date_range: 'Present',
+                                source: 'top_card_text_element'
+                            });
+                        }
+                    });
+                }
+
                 return activeRoles;
             };
             return getActiveRoles();

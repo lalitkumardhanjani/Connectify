@@ -615,7 +615,7 @@ def save_job(data, path=None):
         logger.error(f"Error saving job to Excel tracker: {str(e)}")
         return False
 
-def load_jobs_for_referral(path=None, status_filter='Ask for referral'):
+def load_jobs_for_referral(path=None, status_filter='Asked for Referral'):
     """Loads all lead row dictionaries filtered by status."""
     if path is None:
         path = get_job_leads_file()

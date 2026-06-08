@@ -83,38 +83,58 @@ class SubprocessRunner:
                     
                     referrals = load_all_referrals()
                     today_str = datetime.now().strftime("%Y-%m-%d")
+                    
+                    # Target connections per run vs completed outreach count (referrals sent + connections sent)
                     ref_sent_count = sum(
                         1 for r in referrals
                         if str(r.get('Referral_Status') or '').strip().lower() == 'sent'
                         and str(r.get('Sent_Time') or '').strip().startswith(today_str)
+                        and not str(r.get('Referral_Source') or '').strip().startswith('Recruiter')
                     )
-                    if ref_sent_count >= max_connections:
-                        self.log(f"Target count of {max_connections} reached via referral messages today. Skipping subsequent connection requests pipeline.")
-                        break
+                    conn_sent_count = sum(
+                        1 for r in referrals
+                        if str(r.get('Referral_Status') or '').strip().lower() == 'sent'
+                        and str(r.get('Sent_Time') or '').strip().startswith(today_str)
+                        and str(r.get('Referral_Source') or '').strip() == 'Sent Employee Connection'
+                    )
+                    total_sent_today = ref_sent_count + conn_sent_count
                     
-                    pending_referrals = [
-                        r for r in referrals
-                        if str(r.get('Referral_Status') or '').strip().lower() == 'pending'
-                    ]
-                    if not pending_referrals:
-                        self.log("All referral outreach contacts have been processed. Stopping the pipeline with success.")
+                    if total_sent_today >= max_connections:
+                        self.log(f"Target count of {max_connections} reached via referral outreach today ({total_sent_today} sent). Skipping connection requests pipeline.")
                         break
                 except Exception as e:
-                    self.log(f"Warning: error checking run target limits or pending referrals in runner: {e}")
+                    self.log(f"Warning: error checking run target limits in runner: {e}")
             elif script == "run_recruiter_outreach.py":
                 try:
+                    from config.user_profiles import get_selected_user_config
                     from core.storage.database import load_all_referrals
+                    user_conf = get_selected_user_config()
+                    recruiter_conf = user_conf.get("recruiter_outreach", {})
+                    target_count = int(recruiter_conf.get("target_count") or 2)
+                    
                     referrals = load_all_referrals()
-                    pending_recruiters = [
-                        r for r in referrals
-                        if str(r.get('Referral_Status') or '').strip().lower() == 'pending'
-                        and str(r.get('Referral_Source') or '').strip().startswith('Recruiter')
-                    ]
-                    if not pending_recruiters:
-                        self.log("All recruiter outreach contacts have been processed. Stopping the pipeline with success.")
+                    today_str = datetime.now().strftime("%Y-%m-%d")
+                    
+                    # Count recruiter connection requests and recruiter messages sent today
+                    rec_msg_sent = sum(
+                        1 for r in referrals
+                        if str(r.get('Referral_Status') or '').strip().lower() == 'sent'
+                        and str(r.get('Sent_Time') or '').strip().startswith(today_str)
+                        and str(r.get('Referral_Source') or '').strip() == 'Existing Recruiter'
+                    )
+                    rec_conn_sent = sum(
+                        1 for r in referrals
+                        if str(r.get('Referral_Status') or '').strip().lower() == 'sent'
+                        and str(r.get('Sent_Time') or '').strip().startswith(today_str)
+                        and str(r.get('Referral_Source') or '').strip() == 'Sent Recruiter Connection'
+                    )
+                    total_rec_sent_today = rec_msg_sent + rec_conn_sent
+                    
+                    if total_rec_sent_today >= target_count:
+                        self.log(f"Target count of {target_count} reached via recruiter outreach today ({total_rec_sent_today} sent). Skipping recruiter connection requests pipeline.")
                         break
                 except Exception as e:
-                    self.log(f"Warning: error checking pending recruiters in runner: {e}")
+                    self.log(f"Warning: error checking recruiter target limits in runner: {e}")
             script_path = os.path.join(os.getcwd(), script)
             cmd = [PYTHON_BIN, "-u", script_path] + args
             
@@ -179,6 +199,63 @@ class SubprocessRunner:
 
         if self.status != "killed":
             self.status = "success"
+            # Print execution summary & adjust status if no candidates were found/processed
+            try:
+                from core.storage.database import load_all_referrals
+                referrals = load_all_referrals()
+                today_str = datetime.now().strftime("%Y-%m-%d")
+                
+                # Count sent today
+                emp_messages_sent = sum(
+                    1 for r in referrals
+                    if str(r.get('Referral_Status') or '').strip().lower() == 'sent'
+                    and str(r.get('Sent_Time') or '').strip().startswith(today_str)
+                    and str(r.get('Referral_Source') or '').strip() == 'Existing Employee'
+                )
+                emp_connections_sent = sum(
+                    1 for r in referrals
+                    if str(r.get('Referral_Status') or '').strip().lower() == 'sent'
+                    and str(r.get('Sent_Time') or '').strip().startswith(today_str)
+                    and str(r.get('Referral_Source') or '').strip() == 'Sent Employee Connection'
+                )
+                rec_messages_sent = sum(
+                    1 for r in referrals
+                    if str(r.get('Referral_Status') or '').strip().lower() == 'sent'
+                    and str(r.get('Sent_Time') or '').strip().startswith(today_str)
+                    and str(r.get('Referral_Source') or '').strip() == 'Existing Recruiter'
+                )
+                rec_connections_sent = sum(
+                    1 for r in referrals
+                    if str(r.get('Referral_Status') or '').strip().lower() == 'sent'
+                    and str(r.get('Sent_Time') or '').strip().startswith(today_str)
+                    and str(r.get('Referral_Source') or '').strip() == 'Sent Recruiter Connection'
+                )
+                
+                total_sent = emp_messages_sent + emp_connections_sent + rec_messages_sent + rec_connections_sent
+                
+                self.log("=" * 60)
+                self.log("--- Pipeline Execution Summary ---")
+                self.log(f"Existing Employee Messages Sent   : {emp_messages_sent}")
+                self.log(f"Employee Connection Requests Sent : {emp_connections_sent}")
+                self.log(f"Existing Recruiter Messages Sent   : {rec_messages_sent}")
+                self.log(f"Recruiter Connection Requests Sent : {rec_connections_sent}")
+                self.log(f"Total Outreach Actions Sent Today : {total_sent}")
+                
+                # Load selected config targets
+                from config.user_profiles import get_selected_user_config
+                user_conf = get_selected_user_config()
+                connect_conf = user_conf.get("linkedin_connect", {})
+                max_connections = int(connect_conf.get("max_connections_per_run") or 5)
+                
+                if total_sent >= max_connections:
+                    self.log("Status: Completed Successfully – Target Met")
+                elif total_sent > 0:
+                    self.log("Status: Completed – Target Not Met (Candidate Pool Exhausted)")
+                else:
+                    self.log("Status: Completed – No Candidates Available")
+                self.log("=" * 60)
+            except Exception as e:
+                self.log(f"Warning: error compiling execution summary: {e}")
 
     def send_input(self, text):
         if self.process and self.process.stdin:
@@ -239,7 +316,7 @@ def get_stats():
     
     total_leads = len(job_leads)
     
-    referral_requests_sent = sum(1 for r in job_leads if str(r.get('Status')).strip().lower() in ('ask for referral', 'done'))
+    referral_requests_sent = sum(1 for r in job_leads if str(r.get('Status')).strip().lower() in ('ask for referral', 'asked for referral', 'done'))
     done_referrals = sum(1 for r in job_leads if str(r.get('Status')).strip().lower() == 'done')
 
     return jsonify({

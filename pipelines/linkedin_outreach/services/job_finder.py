@@ -82,6 +82,30 @@ def get_left_pane_container(driver):
             pass
     return None
 
+def scroll_element_into_view_in_left_pane(driver, element):
+    """Scroll the left list pane container to center the element without scrolling the main window."""
+    try:
+        left_pane = get_left_pane_container(driver)
+        if left_pane:
+            driver.execute_script("""
+                const pane = arguments[0];
+                const el = arguments[1];
+                const paneRect = pane.getBoundingClientRect();
+                const elRect = el.getBoundingClientRect();
+                pane.scrollTop += (elRect.top - paneRect.top) - (paneRect.height / 2) + (elRect.height / 2);
+            """, left_pane, element)
+            return True
+    except Exception as e:
+        logger.warning(f"Error scrolling element in left pane container: {e}")
+    
+    # Fallback if container scrolling failed or container not found
+    try:
+        driver.execute_script("arguments[0].scrollIntoView({block: 'nearest'});", element)
+        return True
+    except Exception as e:
+        logger.warning(f"Fallback scrollIntoView failed: {e}")
+    return False
+
 def get_job_cards(driver):
     """Scroll the left list pane and return all found job cards."""
     logger.info("Loading job cards...")
@@ -93,22 +117,31 @@ def get_job_cards(driver):
             if left_pane:
                 driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight", left_pane)
             else:
-                driver.execute_script("window.scrollBy(0, 1200);")
+                driver.execute_script("""
+                    const panel = document.querySelector('.jobs-search-results-list') || 
+                                  document.querySelector('.scaffold-layout__list') ||
+                                  document.querySelector('div[class*="jobs-search-results-list"]');
+                    if (panel) {
+                        panel.scrollTop = panel.scrollHeight;
+                    }
+                """)
         except Exception:
             pass
         time.sleep(2)
 
         left_pane = get_left_pane_container(driver)
+        card_selectors = (
+            'li.jobs-search-results__list-item, '
+            '.job-card-container, '
+            'div.job-card-list__item, '
+            'div[role="button"][componentkey*="job-card-component-ref"], '
+            'div.jobs-search-results__list-item, '
+            '.base-card'
+        )
         if left_pane:
-            cards = left_pane.find_elements(
-                By.CSS_SELECTOR,
-                'div[role="button"][componentkey*="job-card-component-ref"], div.job-card-container, li.jobs-search-results__list-item, div.job-card-list__item, div.jobs-search-results__list-item, .base-card'
-            )
+            cards = left_pane.find_elements(By.CSS_SELECTOR, card_selectors)
         else:
-            cards = driver.find_elements(
-                By.CSS_SELECTOR,
-                'div[role="button"][componentkey*="job-card-component-ref"], div.job-card-container, li.jobs-search-results__list-item, div.job-card-list__item, div.jobs-search-results__list-item, .base-card'
-            )
+            cards = driver.find_elements(By.CSS_SELECTOR, card_selectors)
             
         valid_cards = []
         for c in cards:
@@ -124,16 +157,18 @@ def get_job_cards(driver):
         previous_count = len(valid_cards)
 
     left_pane = get_left_pane_container(driver)
+    card_selectors = (
+        'li.jobs-search-results__list-item, '
+        '.job-card-container, '
+        'div.job-card-list__item, '
+        'div[role="button"][componentkey*="job-card-component-ref"], '
+        'div.jobs-search-results__list-item, '
+        '.base-card'
+    )
     if left_pane:
-        cards = left_pane.find_elements(
-            By.CSS_SELECTOR,
-            'div[role="button"][componentkey*="job-card-component-ref"], div.job-card-container, li.jobs-search-results__list-item, div.job-card-list__item, div.jobs-search-results__list-item, .base-card'
-        )
+        cards = left_pane.find_elements(By.CSS_SELECTOR, card_selectors)
     else:
-        cards = driver.find_elements(
-            By.CSS_SELECTOR,
-            'div[role="button"][componentkey*="job-card-component-ref"], div.job-card-container, li.jobs-search-results__list-item, div.job-card-list__item, div.jobs-search-results__list-item, .base-card'
-        )
+        cards = driver.find_elements(By.CSS_SELECTOR, card_selectors)
         
     valid_cards = []
     for c in cards:
@@ -157,7 +192,14 @@ def go_to_next_jobs_page(driver):
             if left_pane:
                 driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight", left_pane)
             else:
-                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                driver.execute_script("""
+                    const panel = document.querySelector('.jobs-search-results-list') || 
+                                  document.querySelector('.scaffold-layout__list') ||
+                                  document.querySelector('div[class*="jobs-search-results-list"]');
+                    if (panel) {
+                        panel.scrollTop = panel.scrollHeight;
+                    }
+                """)
         except Exception:
             pass
         time.sleep(1)
@@ -213,6 +255,9 @@ def go_to_next_jobs_page(driver):
             
             # Find Next Page button using multiple potential selectors
             next_button_selectors = [
+                "button[aria-label='View next page']",
+                "button.jobs-search-pagination__button--next",
+                "button[aria-label='Next page']",
                 'button.artdeco-pagination__button--next',
                 'button[aria-label="Next"]',
                 'button[data-testid="pagination-controls-next-button-visible"]',
@@ -253,8 +298,8 @@ def go_to_next_jobs_page(driver):
                 logger.info("Next page button exists but is disabled. End of results reached.")
                 return False
 
-            # Scroll button into center
-            driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", next_button)
+            # Scroll button into center without scrolling window/details panel
+            scroll_element_into_view_in_left_pane(driver, next_button)
             time.sleep(1)
 
             # Click
@@ -464,16 +509,18 @@ def run_job_finder(target_url=None):
                         try:
                             # Refresh elements to avoid StaleElementReferenceException
                             left_pane = get_left_pane_container(driver)
+                            card_selectors = (
+                                'li.jobs-search-results__list-item, '
+                                '.job-card-container, '
+                                'div.job-card-list__item, '
+                                'div[role="button"][componentkey*="job-card-component-ref"], '
+                                'div.jobs-search-results__list-item, '
+                                '.base-card'
+                            )
                             if left_pane:
-                                job_cards = left_pane.find_elements(
-                                    By.CSS_SELECTOR,
-                                    'div[role="button"][componentkey*="job-card-component-ref"], div.job-card-container, li.jobs-search-results__list-item, div.job-card-list__item, div.jobs-search-results__list-item, .base-card'
-                                )
+                                job_cards = left_pane.find_elements(By.CSS_SELECTOR, card_selectors)
                             else:
-                                job_cards = driver.find_elements(
-                                    By.CSS_SELECTOR,
-                                    'div[role="button"][componentkey*="job-card-component-ref"], div.job-card-container, li.jobs-search-results__list-item, div.job-card-list__item, div.jobs-search-results__list-item, .base-card'
-                                )
+                                job_cards = driver.find_elements(By.CSS_SELECTOR, card_selectors)
                             valid_cards = []
                             for c in job_cards:
                                 try:
@@ -486,7 +533,8 @@ def run_job_finder(target_url=None):
                                 break
 
                             card = valid_cards[index]
-                            driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", card)
+                            # Scroll using left pane scoped helper
+                            scroll_element_into_view_in_left_pane(driver, card)
                             time.sleep(2)
 
                             # Extract position/job title
@@ -572,13 +620,50 @@ def run_job_finder(target_url=None):
                                     processed_job_ids.add(job_id)
                                 continue
 
-                            # Click job card to load right details pane
-                            driver.execute_script("arguments[0].click();", card)
-                            time.sleep(3)
+                            # Find the inner title link to click
+                            job_link = None
+                            for selector in ["a.job-card-list__title", "a.job-card-container__link", "a[href*='/jobs/view/']"]:
+                                try:
+                                    el = card.find_element(By.CSS_SELECTOR, selector)
+                                    if el.is_displayed():
+                                        job_link = el
+                                        break
+                                except Exception:
+                                    continue
+                            if not job_link:
+                                job_link = card
+
+                            logger.info("  Clicking the job title link to load details pane...")
+                            driver.execute_script("arguments[0].click();", job_link)
+                            
+                            # Wait until right details panel loads
+                            try:
+                                WebDriverWait(driver, 15).until(
+                                    EC.presence_of_element_located((
+                                        By.CSS_SELECTOR,
+                                        """
+                                        .jobs-search__job-details--wrapper,
+                                        .jobs-search__job-details,
+                                        .jobs-details,
+                                        #job-details,
+                                        .scaffold-layout__detail
+                                        """
+                                    ))
+                                )
+                            except Exception:
+                                logger.info("  Timed out waiting for right-side job details panel to load.")
+
+                            time.sleep(1)
 
                             # Find right details pane
                             right_pane = None
-                            for css in ['.jobs-search__job-details', '.jobs-details', '#job-details', '.scaffold-layout__detail']:
+                            for css in [
+                                '.jobs-search__job-details--wrapper',
+                                '.jobs-search__job-details',
+                                '.jobs-details',
+                                '#job-details',
+                                '.scaffold-layout__detail'
+                            ]:
                                 try:
                                     el = driver.find_element(By.CSS_SELECTOR, css)
                                     if el.is_displayed():

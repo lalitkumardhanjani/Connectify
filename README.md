@@ -345,6 +345,66 @@ The Recruiter Outreach system finds recruiters at target companies and messages 
 
 ---
 
+## 📊 Spreadsheet Databases & Status Workflow
+
+Connectify records and manages its automation state across three user-specific Excel spreadsheets located in `users/<username>/data/`.
+
+### 1. Email Scraper Tracker (`job_tracker.xlsx`)
+Tracks contact email leads scraped from LinkedIn posts and the status of cold email outreach campaigns.
+* **Columns**: `ID`, `Email`, `Status`, `Timestamp`, `Keyword`
+* **Workflow & Pipeline Transitions**:
+  * **Email Scraper** (`run_email_scraper.py`): Appends scraped emails with status **`New`**.
+  * **Email Sender** (`run_email_sender.py` / `run_email_outreach.py`): Reads emails with status `New`. If the email is successfully sent, updates to **`sent`**. If skipped by the user or pre-checks, updates to **`skipped`**.
+* **Status Definitions**:
+  * **`New`**: Newly scraped contact email address, queued for email sending.
+  * **`sent`**: Cold email outreach was successfully sent to this address.
+  * **`skipped`**: Cold email outreach was manually skipped by user choice or skipped during validation.
+
+---
+
+### 2. Job Search Leads Tracker (`LinkedIn_Job_Tracker.xlsx`)
+Tracks job postings discovered during searches and their progression through the referral and recruiter outreach pipeline.
+* **Columns**: `JobID`, `JobTitle`, `CompanyName`, `CompanyURL`, `ShortenURL`, `SearchKeyword`, `Status`, `ShortUrlCreated`, `CreatedDateTime`
+* **Workflow & Pipeline Transitions**:
+  * **Find Relevant Jobs** (`run_job_search.py`): Automatically appends newly scraped job postings with status **`NEW`**.
+  * **Review Job Applications** (`run_referral_review.py`): Evaluates jobs with status **`NEW`**. The user selects either **`Interested`** or **`Not Interested`**.
+  * **Discover Connected Employees** (`run_referral_outreach_discover.py`): Processes jobs with status **`Interested`**. Sets job status to **`In Progress`** during execution. If company target outreach capacity is already met, sets status directly to **`Asked for Referral`**.
+  * **LinkedIn Connect & Referral** (`run_linkedin_connect.py`): Processes jobs with status **`Interested`**. If target connections are achieved, sets job status to **`Asked for Referral`**. If connection limit is reached but company capacity is not met, sets status to **`Completed – Target Not Met`**. If pipeline is stopped mid-way, sets status to **`Cancelled`**.
+  * **Discover Recruiters** (`run_recruiter_outreach_discover.py`): Processes jobs with status **`Asked for Referral`**. Sets job status to **`In Progress`** during discovery. If company recruiter capacity is already met, sets status directly to **`Done`**.
+  * **Recruiter Connector/Messaging** (`run_recruiter_outreach.py` / `run_recruiter_outreach_send.py`): Processes jobs with status **`Asked for Referral`**. If recruiter outreach target is successfully achieved, sets job status to **`Done`**. If recruiter limit is reached but target not met, sets status to **`Completed – Target Not Met`**. If stopped mid-way, sets status to **`Cancelled`**.
+* **Status Definitions**:
+  * **`NEW`**: Scraped job posting waiting for review.
+  * **`Interested`**: Approved by user, ready for employee discovery and referral outreach.
+  * **`Not Interested`**: Disapproved by user, excluded from further automation steps.
+  * **`In Progress`**: Discovery phase (employee or recruiter search) is actively running for the target company.
+  * **`Asked for Referral`**: Connection request notes or referral messages have been initiated towards target company employees, or target capacity is met.
+  * **`Cancelled`**: Runner pipeline was interrupted or stopped by the user.
+  * **`Completed – Target Not Met`**: Pipeline completed its search and outreach runs but could not meet the target capacity due to candidate/recruiter pool exhaustion.
+  * **`Done`**: Recruiter outreach is completed successfully for the target company.
+
+---
+
+### 3. Referral Outreach Contacts (`referrals.xlsx`)
+Logs individual employee and recruiter contacts discovered at target companies, their source type, and outreach outcomes.
+* **Columns**: `ReferralID`, `JobID`, `CompanyName`, `Referral_Person_Name`, `Referral_Person_Email`, `Referral_Person_Profile_URL`, `Referral_Person_Designation`, `Referral_Source`, `Referral_Status`, `Employment_Verification_Status`, `Sent_Time`, `Error_Reason`
+* **Workflow & Pipeline Transitions**:
+  * **Discover Connected Employees** (`run_referral_outreach_discover.py`): Discovers and verifies 1st/2nd degree connections working at target companies. Saves profile with `Referral_Source='Existing Employee'`, `Employment_Verification_Status='Verified'`, and status **`Pending`**.
+  * **Send Referral Messages** (`run_referral_outreach_send.py`): Processes contacts with status **`Pending`** and source `Existing Employee`. If the template message is successfully sent and verified in chat history, updates to **`Sent`**. If skipped by user or pre-checks, updates to **`Skipped`**. If delivery verification fails, updates to **`Failed`**.
+  * **LinkedIn Connect & Referral** (`run_linkedin_connect.py`): Connects with 2nd/3rd degree connections, sending invitation notes. Appends contact details with `Referral_Source='Sent Employee Connection'` and status **`Sent`**, **`Skipped`**, or **`Failed`** depending on the connection prompt outcome.
+  * **Discover Recruiters** (`run_recruiter_outreach_discover.py`): Discovers recruiters. Saves profile with `Referral_Source='Existing Recruiter'` and status **`Pending`**.
+  * **Message Recruiters** (`run_recruiter_outreach_send.py`): Processes recruiter contacts with status **`Pending`**. If direct message is sent and verified, updates to **`Sent`**, otherwise **`Failed`** or **`Skipped`**.
+  * **Recruiter Connector** (`run_recruiter_outreach.py`): Connects with recruiters, sending invitation notes. Appends contact details with `Referral_Source='Sent Recruiter Connection'` and status **`Sent`**, **`Skipped`**, or **`Failed`**.
+  * **Manual Dashboard Updates**: Users can manually modify any contact row status to **`Replied`** or **`Referral Received`** inside the dashboard.
+* **Status Definitions**:
+  * **`Pending`**: Discovered and verified contact, queued for outreach message.
+  * **`Sent`**: Connection invitation note or direct message has been successfully sent.
+  * **`Skipped`**: Contact skipped manually by user, or because the profile was already messaged.
+  * **`Failed`**: Direct message input failed or delivery verification check failed.
+  * **`Replied`**: (Manual update) Contact has replied to our connection or message.
+  * **`Referral Received`**: (Manual update) Contact has successfully referred the applicant.
+
+---
+
 ## ⚠️ Troubleshooting & Browser Tips
 
 - **Windows Chrome & Chromedriver**: On Windows, the system automatically detects the OS, bypasses the Mac local binary check, and relies on `webdriver_manager` to download the matching Windows `chromedriver.exe` binary. No manual setup is needed.
