@@ -286,9 +286,10 @@ def run_job_finder(target_url=None):
                 url = build_search_url(kw, loc, search_time_range)
                 search_combinations.append((kw, loc, url))
         
+        connect_conf = user_conf.get("linkedin_connect", {})
         try:
-            max_duration = int(global_conf.get("max_run_duration_seconds", 120))
-        except ValueError:
+            max_duration = int(connect_conf.get("interval") or 120)
+        except (ValueError, TypeError):
             max_duration = 120
 
         logger.info(f"Time limit per combination: {max_duration} seconds")
