@@ -2,18 +2,18 @@
   "users": {
     "ExampleUser": {
       "profile": {
-        "first_name": "Firstname",
-        "last_name": "Lastname",
-        "email": "example@email.com",
-        "phone": "+91 9999999999",
-        "experience": "5+ years",
-        "current_location": "Bangalore, India",
-        "preferred_locations": "Bangalore, India",
-        "linkedin_url": "https://www.linkedin.com/in/username",
-        "resume_url": "https://example.com/resume.pdf",
-        "resume_name": "Resume.pdf",
-        "current_ctc": "15 LPA",
-        "expected_ctc": "25 LPA"
+        "first_name": "",
+        "last_name": "",
+        "email": "",
+        "phone": "",
+        "experience": "",
+        "current_location": "",
+        "preferred_locations": "",
+        "linkedin_url": "",
+        "resume_url": "",
+        "resume_name": "",
+        "current_ctc": "",
+        "expected_ctc": ""
       },
       "email_scraper": {
         "sender_email": "example@email.com",
