@@ -139,35 +139,153 @@ def get_job_cards(driver):
     return valid_cards
 
 def go_to_next_jobs_page(driver):
-    """Click the pagination next page control button."""
-    try:
-        logger.info("Trying to move to next jobs page...")
-        next_button = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((
-                By.CSS_SELECTOR,
-                'button.artdeco-pagination__button--next, button[aria-label="Next"], button[data-testid="pagination-controls-next-button-visible"], button[data-testid="pagination-controls-next-button"]'
-            ))
-        )
-        disabled = driver.execute_script("""
-            return arguments[0].disabled ||
-                   arguments[0].getAttribute('disabled') !== null ||
-                   arguments[0].getAttribute('aria-disabled') === 'true';
-        """, next_button)
-
-        if disabled:
-            logger.info("Next page button disabled")
-            return False
-
-        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", next_button)
+    """Click the pagination next page control button and validate success."""
+    import urllib.parse
+    
+    # 1. Scroll the left list pane to the bottom multiple times to force pagination controls to render
+    logger.info("Scrolling left list pane to load pagination...")
+    for _ in range(3):
+        left_pane = get_left_pane_container(driver)
+        try:
+            if left_pane:
+                driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight", left_pane)
+            else:
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        except Exception:
+            pass
         time.sleep(1)
 
-        driver.execute_script("arguments[0].click();", next_button)
-        logger.info("Moved to next jobs page")
-        time.sleep(6)
-        return True
-    except Exception as e:
-        logger.warning(f"Could not move to next page: {str(e)}")
-        return False
+    # Helper to get active page number
+    def get_page_num():
+        try:
+            val = driver.execute_script("""
+                const activeBtn = document.querySelector('li.artdeco-pagination__indicator.selected button, li.artdeco-pagination__indicator--selected button, button[aria-current="true"], .artdeco-pagination__button--selected');
+                return activeBtn ? activeBtn.innerText.trim() : null;
+            """)
+            if val and val.isdigit():
+                return int(val)
+        except Exception:
+            pass
+        try:
+            current_url = driver.current_url
+            if 'start=' in current_url:
+                parsed = urllib.parse.urlparse(current_url)
+                params = urllib.parse.parse_qs(parsed.query)
+                start_val = params.get('start', ['0'])[0]
+                return int(start_val) // 25 + 1
+        except Exception:
+            pass
+        return None
+
+    # Helper to get top job IDs to check if list content updated
+    def get_job_sigs():
+        try:
+            cards = driver.find_elements(By.CSS_SELECTOR, "a[href*='/jobs/view/']")
+            signatures = []
+            for c in cards[:5]:
+                try:
+                    href = c.get_attribute("href")
+                    job_id = extract_job_id(href)
+                    if job_id:
+                        signatures.append(job_id)
+                except Exception:
+                    pass
+            return signatures
+        except Exception:
+            return []
+
+    # Get state before navigation
+    initial_page = get_page_num()
+    initial_sigs = get_job_sigs()
+    logger.info(f"Current page number detected before pagination click: {initial_page}")
+
+    max_retries = 3
+    for attempt in range(1, max_retries + 1):
+        try:
+            logger.info(f"Trying to find Next Page button (Attempt {attempt}/{max_retries})...")
+            
+            # Find Next Page button using multiple potential selectors
+            next_button_selectors = [
+                'button.artdeco-pagination__button--next',
+                'button[aria-label="Next"]',
+                'button[data-testid="pagination-controls-next-button-visible"]',
+                'button[data-testid="pagination-controls-next-button"]',
+                'li.artdeco-pagination__indicator--next button'
+            ]
+            
+            next_button = None
+            for selector in next_button_selectors:
+                try:
+                    btn = driver.find_element(By.CSS_SELECTOR, selector)
+                    if btn.is_displayed():
+                        next_button = btn
+                        break
+                except Exception:
+                    continue
+
+            if not next_button:
+                # Try finding by XPATH text
+                try:
+                    next_button = driver.find_element(By.XPATH, "//button[contains(span/text(), 'Next') or contains(text(), 'Next')]")
+                except Exception:
+                    pass
+
+            if not next_button:
+                logger.info("Next page button does not exist in DOM. Assuming end of results.")
+                return False
+
+            # Check if disabled
+            disabled = driver.execute_script("""
+                return arguments[0].disabled ||
+                       arguments[0].getAttribute('disabled') !== null ||
+                       arguments[0].getAttribute('aria-disabled') === 'true' ||
+                       arguments[0].classList.contains('artdeco-button--disabled');
+            """, next_button)
+
+            if disabled:
+                logger.info("Next page button exists but is disabled. End of results reached.")
+                return False
+
+            # Scroll button into center
+            driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", next_button)
+            time.sleep(1)
+
+            # Click
+            logger.info("Clicking the Next Page button...")
+            try:
+                next_button.click()
+            except Exception:
+                driver.execute_script("arguments[0].click();", next_button)
+
+            # Wait for navigation to complete (verify page number changed or jobs changed)
+            success = False
+            for _ in range(16): # wait up to 8 seconds
+                time.sleep(0.5)
+                current_page = get_page_num()
+                current_sigs = get_job_sigs()
+                
+                page_changed = (current_page is not None and initial_page is not None and current_page != initial_page)
+                jobs_changed = (current_sigs and initial_sigs and current_sigs != initial_sigs)
+                
+                # If either indicator is met, navigation succeeded
+                if page_changed or jobs_changed:
+                    logger.info(f"Successfully navigated to next page. New Page: {current_page}")
+                    success = True
+                    break
+
+            if success:
+                # Wait for page content to settle
+                time.sleep(3)
+                return True
+            else:
+                logger.warning(f"Click action succeeded but page validation failed (page/jobs did not change). Retrying...")
+                
+        except Exception as e:
+            logger.warning(f"Error during pagination attempt {attempt}: {str(e)}")
+            time.sleep(2)
+
+    logger.error("Failed to navigate to next page after max retries. Stopping pagination.")
+    return False
 
 def wait_for_search_results(driver, timeout=30):
     try:
