@@ -253,16 +253,8 @@ def go_to_next_jobs_page(driver):
                 logger.info("Next page button exists but is disabled. End of results reached.")
                 return False
 
-            # Scroll button into center using direct left pane scroll
-            left_pane = get_left_pane_container(driver)
-            if left_pane:
-                driver.execute_script("""
-                    const pane = arguments[0];
-                    const btn = arguments[1];
-                    pane.scrollTop = btn.offsetTop - (pane.clientHeight / 2) + (btn.clientHeight / 2);
-                """, left_pane, next_button)
-            else:
-                driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", next_button)
+            # Scroll button into center
+            driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", next_button)
             time.sleep(1)
 
             # Click
@@ -494,15 +486,7 @@ def run_job_finder(target_url=None):
                                 break
 
                             card = valid_cards[index]
-                            left_pane = get_left_pane_container(driver)
-                            if left_pane:
-                                driver.execute_script("""
-                                    const pane = arguments[0];
-                                    const card = arguments[1];
-                                    pane.scrollTop = card.offsetTop - (pane.clientHeight / 2) + (card.clientHeight / 2);
-                                """, left_pane, card)
-                            else:
-                                driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", card)
+                            driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", card)
                             time.sleep(2)
 
                             # Extract position/job title
