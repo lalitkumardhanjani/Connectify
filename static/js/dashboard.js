@@ -41,6 +41,11 @@ let emailDailyChartInst    = null;
 let coStatusChartInst      = null;
 let coKeywordChartInst     = null;
 
+// Pending Queue Pagination State
+let pendingCurrentPage = 1;
+const pendingRecordsPerPage = 10;
+let pendingQueueData = [];
+
 // ─────────────────────────────────────────────────────────
 //  Helpers
 // ─────────────────────────────────────────────────────────
@@ -294,19 +299,9 @@ async function loadEmailDashboard() {
     }
 
     // Pending Queue Table
-    const pqTbody = document.querySelector('#email-pending-table tbody');
-    const queue = d.pending_queue || [];
-    if (queue.length === 0) {
-        pqTbody.innerHTML = emptyRow(3, 'No pending emails 🎉');
-    } else {
-        pqTbody.innerHTML = '';
-        queue.forEach(row => {
-            const email   = row.Email   || row.email   || '—';
-            const keyword = row.Keyword || row.keyword || '—';
-            const ts      = row.Timestamp || row.timestamp || '—';
-            pqTbody.appendChild(mkRow(email, keyword, ts));
-        });
-    }
+    pendingQueueData = d.pending_queue || [];
+    pendingCurrentPage = 1; // Reset to page 1 on refresh
+    renderPendingQueuePage();
 }
 
 // ─────────────────────────────────────────────────────────
@@ -395,6 +390,87 @@ async function loadCompanyDashboard() {
         });
     }
 }
+
+function renderPendingQueuePage() {
+    const pqTbody = document.querySelector('#email-pending-table tbody');
+    if (!pqTbody) return;
+    
+    if (pendingQueueData.length === 0) {
+        pqTbody.innerHTML = emptyRow(3, 'No pending emails 🎉');
+        renderPendingPaginationControls(0);
+        return;
+    }
+    
+    const totalPages = Math.ceil(pendingQueueData.length / pendingRecordsPerPage) || 1;
+    if (pendingCurrentPage > totalPages) {
+        pendingCurrentPage = totalPages;
+    }
+    if (pendingCurrentPage < 1) {
+        pendingCurrentPage = 1;
+    }
+    
+    const startIndex = (pendingCurrentPage - 1) * pendingRecordsPerPage;
+    const pageData = pendingQueueData.slice(startIndex, startIndex + pendingRecordsPerPage);
+    
+    pqTbody.innerHTML = '';
+    pageData.forEach(row => {
+        const email   = row.Email   || row.email   || '—';
+        const keyword = row.Keyword || row.keyword || '—';
+        const ts      = row.Timestamp || row.timestamp || '—';
+        pqTbody.appendChild(mkRow(email, keyword, ts));
+    });
+    
+    renderPendingPaginationControls(pendingQueueData.length);
+}
+
+function renderPendingPaginationControls(totalRecords) {
+    const container = document.getElementById('email-pending-pagination');
+    if (!container) return;
+    
+    if (totalRecords <= pendingRecordsPerPage) {
+        container.innerHTML = '';
+        return;
+    }
+    
+    const totalPages = Math.ceil(totalRecords / pendingRecordsPerPage) || 1;
+    const startRecord = (pendingCurrentPage - 1) * pendingRecordsPerPage + 1;
+    const endRecord = Math.min(pendingCurrentPage * pendingRecordsPerPage, totalRecords);
+    
+    let infoHtml = `<div class="pagination-info">Showing <strong>${startRecord}</strong> to <strong>${endRecord}</strong> of <strong>${totalRecords}</strong> records</div>`;
+    
+    let controlsHtml = `<div class="pagination-controls">`;
+    const prevDisabled = pendingCurrentPage === 1 ? 'disabled' : '';
+    controlsHtml += `
+        <button class="pagination-btn" type="button" onclick="changePendingPage(${pendingCurrentPage - 1})" ${prevDisabled}>
+            <i class="fa-solid fa-chevron-left"></i> Prev
+        </button>
+    `;
+    
+    controlsHtml += `<div class="pagination-pages">`;
+    for (let i = 1; i <= totalPages; i++) {
+        const activeClass = i === pendingCurrentPage ? 'active' : '';
+        controlsHtml += `<button class="pagination-page-btn ${activeClass}" type="button" onclick="changePendingPage(${i})">${i}</button>`;
+    }
+    controlsHtml += `</div>`;
+    
+    const nextDisabled = pendingCurrentPage === totalPages ? 'disabled' : '';
+    controlsHtml += `
+        <button class="pagination-btn" type="button" onclick="changePendingPage(${pendingCurrentPage + 1})" ${nextDisabled}>
+            Next <i class="fa-solid fa-chevron-right"></i>
+        </button>
+    `;
+    controlsHtml += `</div>`;
+    
+    container.innerHTML = infoHtml + controlsHtml;
+}
+
+function changePendingPage(page) {
+    pendingCurrentPage = page;
+    renderPendingQueuePage();
+}
+
+// Expose changePendingPage globally
+window.changePendingPage = changePendingPage;
 
 // ─────────────────────────────────────────────────────────
 //  Bootstrap — run when dashboard tab is active

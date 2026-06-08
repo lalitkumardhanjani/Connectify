@@ -8,12 +8,12 @@ LINKEDIN_CONNECT_KEYWORDS_DEFAULT = []
 SCRAPER_HEADERS = ['ID', 'Email', 'Status', 'Timestamp', 'Keyword']
 
 JOB_LEADS_HEADERS = [
-    'JobID', 'JobTitle', 'CompanyName', 'CompanyURL', 'ShortenURL', 'SearchKeyword', 'Status', 
+    'JobID', 'JobTitle', 'CompanyName', 'LinkedIn_Company_URL', 'CompanyURL', 'ShortenURL', 'SearchKeyword', 'Status', 
     'ShortUrlCreated', 'CreatedDateTime'
 ]
 
 REFERRAL_HEADERS = [
-    'ReferralID', 'JobID', 'CompanyName', 'Referral_Person_Name', 'Referral_Person_Email',
-    'Referral_Person_Profile_URL', 'Referral_Person_Designation', 'Referral_Source',
+    'ReferralID', 'JobID', 'CompanyName', 'Company_URL', 'Referral_Person_Name', 'Referral_Person_Email',
+    'Referral_Person_Profile_URL', 'Referral_Source',
     'Referral_Status', 'Employment_Verification_Status', 'Sent_Time', 'Error_Reason'
 ]

@@ -20,7 +20,8 @@ from core.storage.database import (
     load_all_referrals,
     get_company_sent_count,
     update_status_by_id,
-    get_employee_outreach_progress
+    get_employee_outreach_progress,
+    clean_company_url
 )
 from core.logging.config import setup_logger
 
@@ -46,24 +47,26 @@ def get_referral_message(company=None, target_role=None, person_name=None, emplo
     if not template:
         template = connect_conf.get("message_template")
     if not template:
-        template = "Hi {PERSON_NAME}, I noticed we are connected and saw you work as {employee_designation} at {company}. I'm interested in the {target_role} role there. I'd love to get your guidance or a referral if possible! My resume: {resume}"
+        template = "Hi {RECEIVER_NAME},\n\nI hope you're doing well. My sister, {FIRST_NAME}, is interested in a DBA position at {COMPANY}. She has {EXPERIENCE} years of experience.\n\nWould you be willing to refer her?\n\nJob: {JOB_URL}\nResume: {RESUME}\n\nThank you!"
 
     resume_link = profile.get("resume_url", "")
-    candidate_name = f"{profile.get('first_name', '')} {profile.get('last_name', '')}".strip() or "Candidate"
     
     resolved_person_name = "there"
     if person_name:
         resolved_person_name = person_name.split()[0] if person_name.strip() else "there"
 
     extra_vars = {
+        # uppercase canonical tokens
+        "{RECEIVER_NAME}": resolved_person_name,
+        "{COMPANY}": company or "the company",
+        "{JOB_URL}": job_url or "",
+        "{RESUME}": resume_link or "",
+        # legacy lowercase aliases for backward compat with existing saved templates
         "{company}": company or "the company",
+        "{job_url}": job_url or "",
         "{resume}": resume_link or "",
         "{first_name}": resolved_person_name,
         "{PERSON_NAME}": resolved_person_name,
-        "{target_role}": target_role or "relevant role",
-        "{employee_designation}": employee_designation or "employee",
-        "{candidate_name}": candidate_name,
-        "{job_url}": job_url or ""
     }
     
     msg = substitute_template_variables(template, profile, extra_vars)
@@ -97,7 +100,7 @@ def find_company_employees_search_url(driver, company_name):
             time.sleep(4)
         except Exception as e:
             logger.error(f"Failed to find company page: {e}")
-            return None
+            return None, clean_company_url(driver.current_url)
 
     # Step 1: Extract company ID using robust JS
     try:
@@ -155,7 +158,7 @@ def find_company_employees_search_url(driver, company_name):
         if company_id:
             constructed_url = f"https://www.linkedin.com/search/results/people/?currentCompany=%5B%22{company_id}%22%5D&network=%5B%22F%22%5D"
             logger.info(f"Successfully resolved company ID {company_id} and constructed search URL: {constructed_url}")
-            return constructed_url
+            return constructed_url, clean_company_url(driver.current_url)
     except Exception as e:
         logger.warning(f"Error resolving company ID via JS: {e}")
 
@@ -185,7 +188,7 @@ def find_company_employees_search_url(driver, company_name):
                 search_url += "&network=%5B%22F%22%5D"
             else:
                 search_url += "?network=%5B%22F%22%5D"
-        return search_url
+        return search_url, clean_company_url(driver.current_url)
 
     # Step 3: Second fallback: navigate to people tab directly
     people_url = driver.current_url.rstrip("/") + "/people/"
@@ -212,12 +215,14 @@ def find_company_employees_search_url(driver, company_name):
     except Exception:
         pass
 
+    company_url = clean_company_url(driver.current_url)
+
     if search_url:
         if "network" not in search_url.lower() and "facetnetwork" not in search_url.lower():
             search_url += "&network=%5B%22F%22%5D"
-        return search_url
+        return search_url, company_url
 
-    return None
+    return None, company_url
 
 
 def scrape_connections_from_search(driver, max_people=5):
@@ -825,10 +830,19 @@ def wait_for_message_dialog(driver, timeout=15):
 
 
 def verify_editor_has_text(driver, expected_text, timeout=8):
-    """Verifies that the active message editor contains the beginning of
+    """Verifies that the active message editor contains meaningful text from
     expected_text. Guards against the 'pasted into wrong window' bug.
     Returns True if the text is present, False otherwise."""
-    snippet = expected_text[:40].strip()
+    # Normalize whitespace in the expected snippet so newline differences
+    # between the Python string and the LinkedIn DOM's innerText don't cause false failures.
+    import re
+    words = re.findall(r'\w+', expected_text)
+    # Use first 3 significant words (skip very short words like "Hi") as the check snippet
+    sig_words = [w for w in words if len(w) > 2][:3]
+    if not sig_words:
+        sig_words = words[:5]
+    snippet = ' '.join(sig_words).lower()
+    
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
@@ -841,14 +855,19 @@ def verify_editor_has_text(driver, expected_text, timeout=8):
                 const ed = document.querySelector('.msg-form__contenteditable');
                 return ed ? (ed.innerText || ed.textContent || '') : '';
             """)
-            if editor_text and snippet.lower() in editor_text.lower():
-                logger.info("Editor content verified — message is in the correct chat window.")
-                return True
+            if editor_text:
+                # Normalize whitespace in what the DOM gives us too
+                normalized_editor = ' '.join(editor_text.lower().split())
+                # Check each significant word is present
+                if all(w.lower() in normalized_editor for w in sig_words):
+                    logger.info("Editor content verified — message is in the correct chat window.")
+                    return True
         except Exception:
             pass
         time.sleep(0.5)
-    logger.warning(f"Editor does not contain expected text after {timeout}s. Expected snippet: '{snippet}'")
+    logger.warning(f"Editor does not contain expected words after {timeout}s. Checked words: {sig_words}")
     return False
+
 
 
 def wait_for_chat_closed(driver, timeout=6):
@@ -1215,21 +1234,54 @@ def run_phase_one_discovery():
                 logger.warning(f"Failed to update status to In Progress: {e}")
 
             # Check company target connections progress (active connection outreach/discovery count)
-            total_progress = get_employee_outreach_progress(company)
-            if total_progress >= max_referrals:
-                logger.info(f"Target connection count of {max_referrals} already reached/discovered for {company} (progress: {total_progress}). Skipping discovery.")
+            from core.storage.database import get_completed_referral_count, load_all_referrals, clean_company_url
+            
+            # Find any company url from referrals to match accurately
+            referrals = load_all_referrals()
+            company_url = ""
+            for r_item in referrals:
+                if str(r_item.get("CompanyName") or "").strip().lower() == company.strip().lower() and r_item.get("Company_URL"):
+                    company_url = r_item.get("Company_URL")
+                    break
+            if not company_url:
+                slug = company.lower().replace(" ", "-").replace(".", "").replace(",", "")
+                company_url = f"https://www.linkedin.com/company/{slug}/"
+                
+            completed_progress = get_completed_referral_count(company, company_url, job_id=job_id)
+            
+            # Count existing pending employee connections in database
+            pending_count = sum(
+                1 for r_item in referrals
+                if str(r_item.get("CompanyName") or "").strip().lower() == company.strip().lower()
+                and str(r_item.get("JobID") or "").strip() == str(job_id).strip()
+                and str(r_item.get("Referral_Source") or "").strip().lower() in ("existing employee", "sent employee connection")
+                and str(r_item.get("Referral_Status") or "").strip().lower() == "pending"
+            )
+            
+            total_exist = completed_progress + pending_count
+            
+            if completed_progress >= max_referrals:
+                logger.info(f"Target connection count of {max_referrals} already reached/completed for {company} (completed progress: {completed_progress}). Skipping discovery.")
                 try:
-                    update_status_by_id(job_id, 'Asked for Referral')
+                    update_status_by_id(job_id, 'Referral Outreach Completed')
                 except Exception as e:
-                    logger.warning(f"Failed to update status to Asked for Referral: {e}")
+                    logger.warning(f"Failed to update status to Referral Outreach Completed: {e}")
                 continue
                 
-            remaining_cap = max_referrals - total_progress
-            logger.info(f"\nProcessing company: {company} (JobID {job_id}). Remaining target capacity: {remaining_cap}")
-            search_url = find_company_employees_search_url(driver, company)
+            if total_exist >= max_referrals:
+                logger.info(f"Total existing (completed: {completed_progress} + pending: {pending_count}) already meets target limit of {max_referrals} for {company}. Skipping discovery.")
+                continue
+                
+            remaining_cap = max_referrals - total_exist
+            logger.info(f"\nProcessing company: {company} (JobID {job_id}). Remaining discovery capacity: {remaining_cap}")
+            
+            search_url, actual_company_url = find_company_employees_search_url(driver, company)
             if not search_url:
                 logger.warning(f"Could not find employees search link for: {company}")
                 continue
+                
+            if actual_company_url:
+                company_url = actual_company_url
                 
             driver.get(search_url)
             time.sleep(4)
@@ -1324,17 +1376,17 @@ def run_phase_one_discovery():
                 referral_data = {
                     'JobID': job_id,
                     'CompanyName': conn['actual_company'], # actual verified company name
+                    'Company_URL': company_url,
                     'Referral_Person_Name': conn['name'],
                     'Referral_Person_Email': '',
                     'Referral_Person_Profile_URL': conn['profile_url'],
-                    'Referral_Person_Designation': conn['designation'],
                     'Referral_Source': 'Existing Employee',
                     'Referral_Status': 'Pending',
                     'Employment_Verification_Status': 'Verified'
                 }
                 add_or_update_referral(referral_data)
                 discovered_count += 1
-                logger.info(f"Discovered and Saved: {conn['name']} ({conn['designation']}) - Pending outreach")
+                logger.info(f"Discovered and Saved: {conn['name']} - Pending outreach")
                 
             logger.info(f"Found and stored {discovered_count} verified 1st-degree connection contacts for {company}.")
             time.sleep(2)
@@ -1351,19 +1403,22 @@ def prompt_referral_action(recipient_name, review_mode=True):
     if not review_mode:
         return "send"
 
-    print("\n" + "="*50)
-    print("INVITE QUALITY GATE - REFERRAL MESSAGE REVIEW")
-    print("="*50)
-    print(f"Recipient: {recipient_name}")
-    print("-" * 50)
-    print("Please review the message draft in the LinkedIn chat window.")
-    print("="*50)
-    print("Send [S] / Skip [K] / Quit [Q]")
+    sys.stdout.write("\n" + "="*50 + "\n")
+    sys.stdout.write("INVITE QUALITY GATE - REFERRAL MESSAGE REVIEW\n")
+    sys.stdout.write("="*50 + "\n")
+    sys.stdout.write(f"Recipient: {recipient_name}\n")
+    sys.stdout.write("-" * 50 + "\n")
+    sys.stdout.write("Please review the message draft in the LinkedIn chat window.\n")
+    sys.stdout.write("="*50 + "\n")
+    # This exact string is detected by SubprocessRunner to show the UI quality gate overlay
+    sys.stdout.write("Send [S] / Skip [K] / Quit [Q]\n")
+    sys.stdout.flush()  # CRITICAL: flush before blocking on input()
     
-    choice = input().strip().lower()
+    choice = sys.stdin.readline().strip().lower()
     while choice not in ('s', 'k', 'q'):
-        print("Invalid option. Please enter Send [S], Skip [K], or Quit [Q]:")
-        choice = input().strip().lower()
+        sys.stdout.write("Invalid option. Please enter Send [S], Skip [K], or Quit [Q]:\n")
+        sys.stdout.flush()
+        choice = sys.stdin.readline().strip().lower()
         
     if choice == 'k':
         return "skip"
@@ -1388,13 +1443,20 @@ def run_phase_two_messaging():
     user_conf = get_selected_user_config()
     profile = user_conf.get("profile", {})
     global_conf = get_global_settings()
+    referral_conf = user_conf.get("referral_outreach", {})
     connect_conf = user_conf.get("linkedin_connect", {})
-    review_mode = connect_conf.get("review_mode", True)
-    interval = int(connect_conf.get("interval") or 5)
+    # Quality Gate: prefer referral_outreach.review_mode, fall back to linkedin_connect.review_mode
+    review_mode = referral_conf.get("review_mode")
+    if review_mode is None:
+        review_mode = connect_conf.get("review_mode", True)
+    review_mode = bool(review_mode)
+    interval = int(referral_conf.get("interval") or connect_conf.get("interval") or 5)
     max_referrals = int(connect_conf.get("max_connections_per_run") or 5)
     
     email = global_conf.get("linkedin_email")
     password = global_conf.get("linkedin_password")
+    
+    logger.info(f"REVIEW_MODE (Quality Gate) : {review_mode}")
     
     all_referrals = load_all_referrals()
     pending = [
@@ -1429,8 +1491,9 @@ def run_phase_two_messaging():
         wait_for_chat_closed(driver, timeout=4)
         time.sleep(1)
 
-        # Load job metadata to resolve job titles and URLs
-        job_data = load_jobs_for_referral(status_filter='Interested')
+        # Load ALL job metadata (no status filter) so we resolve job URLs regardless
+        # of what status the job was transitioned to during the discovery phase
+        job_data = load_jobs_for_referral(status_filter=None)
         job_titles = {str(j.get('JobID')): (j.get('JobTitle') or j.get('SearchKeyword')) for j in job_data}
         job_urls = {str(j.get('JobID')): (j.get('ShortenURL') or j.get('CompanyURL') or '') for j in job_data}
 
@@ -1443,17 +1506,21 @@ def run_phase_two_messaging():
             job_id = str(ref.get('JobID'))
             company = ref.get('CompanyName')
             
-            # Check company target connections progress
-            total_progress = get_employee_outreach_progress(company)
-            if total_progress >= max_referrals:
-                logger.info(f"Target connection count of {max_referrals} already reached for "
-                            f"{company} (progress: {total_progress}). "
+            from core.storage.database import get_completed_referral_count
+            company_url = ref.get("Company_URL") or ""
+            completed_progress = get_completed_referral_count(company, company_url, job_id=job_id)
+            if completed_progress >= max_referrals:
+                logger.info(f"Target connection count of {max_referrals} already reached/completed for "
+                            f"{company} (completed progress: {completed_progress}). "
                             f"Skipping message to {ref.get('Referral_Person_Name')}.")
+                try:
+                    update_status_by_id(job_id, 'Referral Outreach Completed')
+                except Exception as e:
+                    logger.warning(f"Failed to update status: {e}")
                 continue
                 
             name = ref.get('Referral_Person_Name')
             profile_url = ref.get('Referral_Person_Profile_URL')
-            designation = ref.get('Referral_Person_Designation')
             target_role = job_titles.get(job_id) or "DBA"
             job_url = job_urls.get(job_id) or ""
             
@@ -1516,12 +1583,11 @@ def run_phase_two_messaging():
                 company=company,
                 target_role=target_role,
                 person_name=name,
-                employee_designation=designation,
                 job_url=job_url
             )
-            if len(message_text) > 500:
-                logger.warning("Message exceeds 500 characters. Truncating.")
-                message_text = message_text[:497] + "..."
+            if len(message_text) > 2000:
+                logger.warning("Message exceeds 2000 characters. Truncating.")
+                message_text = message_text[:1997] + "..."
                 
             inserted = insert_message_draft(driver, message_text)
             if not inserted:
@@ -1533,17 +1599,15 @@ def run_phase_two_messaging():
                 wait_for_chat_closed(driver, timeout=4)
                 continue
 
-            # ── Step 6: Verify text is in the CORRECT chat window ────────────
+            # ── Step 6: Verify text is in the CORRECT chat window (non-blocking) ──
             logger.info("[Step 6] Verifying message content in correct chat window...")
             if not verify_editor_has_text(driver, message_text, timeout=8):
-                logger.warning(f"[Step 6] Editor text verification failed for {name}. "
-                               "Message may have been pasted into wrong window. Aborting.")
-                ref['Referral_Status'] = 'Failed'
-                ref['Error_Reason'] = 'Editor content verification failed (wrong chat context)'
-                add_or_update_referral(ref)
-                close_chat_window(driver)
-                wait_for_chat_closed(driver, timeout=4)
-                continue
+                logger.warning(
+                    f"[Step 6] Editor text verification could not confirm content for {name}. "
+                    "Proceeding to quality gate so you can verify manually."
+                )
+                # NOTE: non-blocking — we proceed to the quality gate rather than aborting,
+                # so the user can visually confirm and choose Send/Skip/Quit.
 
             # ── Step 7: Upload resume attachment (optional) ──────────────────
             logger.info("[Step 7] Attempting resume attachment upload...")

@@ -573,6 +573,9 @@ def save_job(data, path=None):
                 row_data.append(job_title)
             elif header == 'CompanyName':
                 row_data.append(company)
+            elif header == 'LinkedIn_Company_URL':
+                slug = company.lower().replace(" ", "-").replace(".", "").replace(",", "")
+                row_data.append(f"https://www.linkedin.com/company/{slug}/")
             elif header == 'CompanyURL':
                 row_data.append(url)
             elif header == 'ShortenURL':
@@ -616,7 +619,10 @@ def save_job(data, path=None):
         return False
 
 def load_jobs_for_referral(path=None, status_filter='Asked for Referral'):
-    """Loads all lead row dictionaries filtered by status."""
+    """Loads all lead row dictionaries filtered by status.
+    
+    If status_filter is None, returns ALL rows regardless of status.
+    """
     if path is None:
         path = get_job_leads_file()
     if not os.path.exists(path):
@@ -628,11 +634,18 @@ def load_jobs_for_referral(path=None, status_filter='Asked for Referral'):
     
     for row in range(2, ws.max_row + 1):
         raw_status = ws.cell(row=row, column=col_indices.get('Status')).value
-        status = str(raw_status).strip().lower() if raw_status is not None else ''
-        if status == status_filter.strip().lower():
+        if status_filter is None:
+            # Return all rows
             row_dict = {header: ws.cell(row=row, column=col_idx).value for header, col_idx in col_indices.items()}
-            rows.append(row_dict)
+            if any(val is not None for val in row_dict.values()):
+                rows.append(row_dict)
+        else:
+            status = str(raw_status).strip().lower() if raw_status is not None else ''
+            if status == status_filter.strip().lower():
+                row_dict = {header: ws.cell(row=row, column=col_idx).value for header, col_idx in col_indices.items()}
+                rows.append(row_dict)
     return rows
+
 
 
 
@@ -887,6 +900,10 @@ def add_or_update_referral(referral_data, path=None):
     ws.add_table(tab)
     wb.save(path)
     _trigger_mac_excel_reload(path)
+    try:
+        sync_job_lead_referral_statuses()
+    except Exception as e:
+        logger.error(f"Error calling sync_job_lead_referral_statuses: {e}")
     return True
 
 def is_profile_already_contacted(profile_url, path=None):
@@ -1068,4 +1085,353 @@ def get_recruiter_outreach_progress(company_name, path=None):
 
 
 
+def clean_company_url(url):
+    """Normalizes any LinkedIn company URL to standard format."""
+    if not url:
+        return ""
+    url = str(url).strip()
+    if "/company/" in url:
+        parts = url.split("/company/")
+        slug = parts[1].split("/")[0].split("?")[0].rstrip("/")
+        return f"https://www.linkedin.com/company/{slug}/"
+    return url
 
+
+def get_completed_referral_count(company_name, company_url=None, job_id=None, path=None):
+    """Counts completed referral outreach actions (sent, replied, referral received) for a company and optional JobID."""
+    if path is None:
+        path = get_referrals_file()
+    if not os.path.exists(path):
+        return 0
+    init_referrals_store(path)
+    wb = openpyxl.load_workbook(path)
+    if "Referrals" not in wb.sheetnames:
+        return 0
+    ws = wb["Referrals"]
+    col_indices = {cell.value: idx for idx, cell in enumerate(ws[1], start=1)}
+    company_col = col_indices.get('CompanyName')
+    company_url_col = col_indices.get('Company_URL')
+    status_col = col_indices.get('Referral_Status')
+    source_col = col_indices.get('Referral_Source')
+    job_id_col = col_indices.get('JobID')
+    if not company_col or not status_col or not source_col:
+        return 0
+        
+    count = 0
+    normalized_company = str(company_name or '').strip().lower()
+    normalized_url = clean_company_url(company_url) if company_url else ""
+    
+    for row in range(2, ws.max_row + 1):
+        row_company = str(ws.cell(row=row, column=company_col).value or '').strip().lower()
+        if row_company == normalized_company:
+            if normalized_url and company_url_col:
+                row_url = clean_company_url(ws.cell(row=row, column=company_url_col).value or "")
+                if row_url and row_url != normalized_url:
+                    continue
+            if job_id is not None and job_id_col:
+                row_job_id = ws.cell(row=row, column=job_id_col).value
+                if row_job_id is not None and str(row_job_id).strip() != str(job_id).strip():
+                    continue
+            row_source = str(ws.cell(row=row, column=source_col).value or '').strip().lower()
+            if row_source in ('existing employee', 'sent employee connection'):
+                row_status = str(ws.cell(row=row, column=status_col).value or '').strip().lower()
+                if row_status in ('sent', 'replied', 'referral received'):
+                    count += 1
+    return count
+
+
+def sync_job_lead_referral_statuses(path=None):
+    """Automatically updates job tracker status to 'Referral Outreach Completed' if targets are met."""
+    if path is None:
+        path = get_job_leads_file()
+    if not os.path.exists(path):
+        return
+        
+    try:
+        wb = openpyxl.load_workbook(path)
+        ws = wb.active
+        col_indices = {cell.value: idx for idx, cell in enumerate(ws[1], start=1)}
+        
+        id_col = col_indices.get('JobID')
+        company_col = col_indices.get('CompanyName')
+        status_col = col_indices.get('Status')
+        linkedin_url_col = col_indices.get('LinkedIn_Company_URL')
+        
+        if not id_col or not company_col or not status_col:
+            return
+            
+        from config.user_profiles import get_selected_user_config
+        user_conf = get_selected_user_config()
+        connect_conf = user_conf.get("linkedin_connect", {})
+        target = int(connect_conf.get("max_connections_per_run") or 5)
+        
+        referrals = load_all_referrals()
+        company_data = {}
+        for ref in referrals:
+            c_name = str(ref.get("CompanyName") or "").strip().lower()
+            c_url = clean_company_url(ref.get("Company_URL") or "")
+            job_id_val = str(ref.get("JobID") or "").strip()
+            ref_source = str(ref.get("Referral_Source") or "").strip().lower()
+            ref_status = str(ref.get("Referral_Status") or "").strip().lower()
+            is_employee = ref_source in ("existing employee", "sent employee connection")
+            is_valid_status = ref_status in ("sent", "replied", "referral received")
+            
+            key = (c_name, c_url, job_id_val)
+            if key not in company_data:
+                company_data[key] = 0
+            if is_employee and is_valid_status:
+                company_data[key] += 1
+                
+        updated = False
+        for row in range(2, ws.max_row + 1):
+            company_name = str(ws.cell(row=row, column=company_col).value or "").strip()
+            c_name_lower = company_name.lower()
+            row_job_id = str(ws.cell(row=row, column=id_col).value or "").strip()
+            
+            company_url = ""
+            if linkedin_url_col:
+                company_url = clean_company_url(ws.cell(row=row, column=linkedin_url_col).value or "")
+                
+            if not company_url:
+                for (cn, cu, jid) in company_data.keys():
+                    if cn == c_name_lower and cu:
+                        company_url = cu
+                        break
+            if not company_url:
+                slug = company_name.lower().replace(" ", "-").replace(".", "").replace(",", "")
+                company_url = f"https://www.linkedin.com/company/{slug}/"
+                
+            completed_count = 0
+            for (cn, cu, jid), count in company_data.items():
+                if cn == c_name_lower and jid == row_job_id:
+                    if not company_url or not cu or company_url == cu:
+                        completed_count += count
+                        
+            if completed_count >= target:
+                current_status = str(ws.cell(row=row, column=status_col).value or "").strip()
+                if current_status != 'Referral Outreach Completed' and current_status.lower() != 'done':
+                    ws.cell(row=row, column=status_col, value='Referral Outreach Completed')
+                    updated = True
+                    
+            if linkedin_url_col:
+                current_linkedin_url = ws.cell(row=row, column=linkedin_url_col).value
+                if not current_linkedin_url:
+                    ws.cell(row=row, column=linkedin_url_col, value=company_url)
+                    updated = True
+                    
+        if updated:
+            wb.save(path)
+            _trigger_mac_excel_reload(path)
+    except Exception as e:
+        logger.error(f"Error syncing job tracker referral statuses: {e}")
+
+
+def load_job_leads_with_referral_counts():
+    """Loads all job leads enriched with dynamic referral progress metrics."""
+    from config.user_profiles import get_selected_user_config
+    try:
+        user_conf = get_selected_user_config()
+    except Exception:
+        user_conf = {}
+    connect_conf = user_conf.get("linkedin_connect", {})
+    target = int(connect_conf.get("max_connections_per_run") or 5)
+
+    leads_file = get_job_leads_file()
+    init_job_leads_store(leads_file)
+    
+    # Run sync to ensure latest states are written back
+    sync_job_lead_referral_statuses()
+    
+    wb = openpyxl.load_workbook(leads_file)
+    ws = wb.active
+    col_indices = {cell.value: idx for idx, cell in enumerate(ws[1], start=1)}
+    
+    leads = []
+    for row in range(2, ws.max_row + 1):
+        row_dict = {}
+        for h, idx in col_indices.items():
+            if h:
+                row_dict[h] = ws.cell(row=row, column=idx).value
+        if any(val is not None for val in row_dict.values()):
+            leads.append(row_dict)
+            
+    referrals = load_all_referrals()
+    company_data = {}
+    for ref in referrals:
+        c_name = str(ref.get("CompanyName") or "").strip().lower()
+        c_url = clean_company_url(ref.get("Company_URL") or "")
+        job_id_val = str(ref.get("JobID") or "").strip()
+        ref_source = str(ref.get("Referral_Source") or "").strip().lower()
+        ref_status = str(ref.get("Referral_Status") or "").strip().lower()
+
+        is_employee = ref_source in ("existing employee", "sent employee connection")
+        is_valid_status = ref_status in ("sent", "replied", "referral received")
+
+        key = (c_name, c_url, job_id_val)
+        if key not in company_data:
+            company_data[key] = {
+                "completed": 0,
+                "urls": set()
+            }
+        
+        if c_url:
+            company_data[key]["urls"].add(c_url)
+        if is_employee and is_valid_status:
+            company_data[key]["completed"] += 1
+
+    for lead in leads:
+        company_name = str(lead.get("CompanyName") or "").strip()
+        c_name_lower = company_name.lower()
+        lead_job_id = str(lead.get("JobID") or "").strip()
+        lead_status = str(lead.get("Status") or "").strip().lower()
+        
+        # If the job is marked as Not Interested, show zero for all referral metrics
+        if lead_status == "not interested":
+            lead["LinkedIn_Company_URL"] = clean_company_url(lead.get("LinkedIn_Company_URL") or "")
+            lead["Referral_Target"] = 0
+            lead["Referral_Completed"] = 0
+            lead["Referral_Remaining"] = 0
+            lead["Referral_Target_Achieved"] = "N/A"
+            continue
+        
+        company_url = clean_company_url(lead.get("LinkedIn_Company_URL") or "")
+        if not company_url:
+            for (cn, cu, jid) in company_data.keys():
+                if cn == c_name_lower and cu:
+                    company_url = cu
+                    break
+        if not company_url:
+            slug = company_name.lower().replace(" ", "-").replace(".", "").replace(",", "")
+            company_url = f"https://www.linkedin.com/company/{slug}/"
+
+        completed_count = 0
+        for (cn, cu, jid), data in company_data.items():
+            if cn == c_name_lower and jid == lead_job_id:
+                if not company_url or not cu or company_url == cu:
+                    completed_count += data["completed"]
+
+        remaining = max(0, target - completed_count)
+        achieved = "Yes" if remaining == 0 else "No"
+        
+        lead["LinkedIn_Company_URL"] = company_url
+        lead["Referral_Target"] = target
+        lead["Referral_Completed"] = completed_count
+        lead["Referral_Remaining"] = remaining
+        lead["Referral_Target_Achieved"] = achieved
+
+    return leads
+
+
+
+def migrate_company_url_and_tracking_fields():
+    """Migrates existing data files to add Company_URL / LinkedIn_Company_URL columns if missing, and backfills values."""
+    users_dir = os.path.join(BASE_DIR, "users")
+    if not os.path.exists(users_dir):
+        return
+        
+    for user_name in os.listdir(users_dir):
+        user_path = os.path.join(users_dir, user_name)
+        if not os.path.isdir(user_path) or user_name == "default":
+            continue
+            
+        data_dir = os.path.join(user_path, "data")
+        referrals_path = os.path.join(data_dir, "referrals.xlsx")
+        tracker_path = os.path.join(data_dir, "LinkedIn_Job_Tracker.xlsx")
+        
+        if os.path.exists(referrals_path):
+            try:
+                wb = openpyxl.load_workbook(referrals_path)
+                if "Referrals" in wb.sheetnames:
+                    ws = wb["Referrals"]
+                    headers = [cell.value for cell in ws[1]]
+                    
+                    changed = False
+                    if "Company_URL" not in headers:
+                        logger.info(f"Adding Company_URL column to referrals.xlsx for user {user_name}")
+                        ws.insert_cols(4)
+                        ws.cell(row=1, column=4, value="Company_URL")
+                        headers = [cell.value for cell in ws[1]]
+                        changed = True
+
+                    col_indices = {h: idx for idx, h in enumerate(headers, start=1)}
+                    company_col = col_indices.get("CompanyName")
+                    url_col = col_indices.get("Company_URL")
+                    
+                    if company_col and url_col:
+                        for r in range(2, ws.max_row + 1):
+                            current_val = ws.cell(row=r, column=url_col).value
+                            if not current_val or str(current_val).strip() == "":
+                                comp_name = str(ws.cell(row=r, column=company_col).value or "").strip()
+                                if comp_name:
+                                    slug = comp_name.lower().replace(" ", "-").replace(".", "").replace(",", "")
+                                    default_url = f"https://www.linkedin.com/company/{slug}/"
+                                    ws.cell(row=r, column=url_col, value=default_url)
+                                    changed = True
+                                    
+                    if changed:
+                        ws._tables.clear()
+                        ref_range = f"A1:{chr(64 + len(REFERRAL_HEADERS))}{ws.max_row}"
+                        tab = Table(displayName="ReferralsTable", ref=ref_range)
+                        style = TableStyleInfo(
+                            name="TableStyleLight9",
+                            showFirstColumn=False,
+                            showLastColumn=False,
+                            showRowStripes=True,
+                            showColumnStripes=False,
+                        )
+                        tab.tableStyleInfo = style
+                        ws.add_table(tab)
+                        wb.save(referrals_path)
+                        logger.info(f"Successfully migrated referrals schema for user {user_name}")
+            except Exception as e:
+                logger.error(f"Failed to migrate referrals.xlsx schema for user {user_name}: {e}")
+                
+        if os.path.exists(tracker_path):
+            try:
+                wb = openpyxl.load_workbook(tracker_path)
+                ws = wb.active
+                headers = [cell.value for cell in ws[1]]
+                
+                changed = False
+                if "LinkedIn_Company_URL" not in headers:
+                    logger.info(f"Adding LinkedIn_Company_URL column to LinkedIn_Job_Tracker.xlsx for user {user_name}")
+                    ws.insert_cols(4)
+                    ws.cell(row=1, column=4, value="LinkedIn_Company_URL")
+                    headers = [cell.value for cell in ws[1]]
+                    changed = True
+
+                col_indices = {h: idx for idx, h in enumerate(headers, start=1)}
+                company_col = col_indices.get("CompanyName")
+                linkedin_url_col = col_indices.get("LinkedIn_Company_URL")
+                
+                if company_col and linkedin_url_col:
+                    for r in range(2, ws.max_row + 1):
+                        current_val = ws.cell(row=r, column=linkedin_url_col).value
+                        if not current_val or str(current_val).strip() == "":
+                            comp_name = str(ws.cell(row=r, column=company_col).value or "").strip()
+                            if comp_name:
+                                slug = comp_name.lower().replace(" ", "-").replace(".", "").replace(",", "")
+                                default_url = f"https://www.linkedin.com/company/{slug}/"
+                                ws.cell(row=r, column=linkedin_url_col, value=default_url)
+                                changed = True
+                                
+                if changed:
+                    ws._tables.clear()
+                    ref_range = f"A1:{chr(64 + len(JOB_LEADS_HEADERS))}{ws.max_row}"
+                    tab = Table(displayName="JobTrackerTable", ref=ref_range)
+                    style = TableStyleInfo(
+                        name="TableStyleLight9",
+                        showFirstColumn=False,
+                        showLastColumn=False,
+                        showRowStripes=True,
+                        showColumnStripes=False,
+                    )
+                    tab.tableStyleInfo = style
+                    ws.add_table(tab)
+                    wb.save(tracker_path)
+                    logger.info(f"Successfully migrated job tracker schema for user {user_name}")
+            except Exception as e:
+                logger.error(f"Failed to migrate LinkedIn_Job_Tracker.xlsx schema for user {user_name}: {e}")
+
+# Run schema migrations for company URLs and tracking fields
+migrate_company_url_and_tracking_fields()

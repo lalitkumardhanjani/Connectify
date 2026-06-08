@@ -669,7 +669,6 @@ function applyReferralsFiltersAndRender() {
         if (searchVal) {
             textMatch = (row.Referral_Person_Name && row.Referral_Person_Name.toLowerCase().includes(searchVal)) ||
                         (row.CompanyName && row.CompanyName.toLowerCase().includes(searchVal)) ||
-                        (row.Referral_Person_Designation && row.Referral_Person_Designation.toLowerCase().includes(searchVal)) ||
                         (row.Referral_Status && row.Referral_Status.toLowerCase().includes(searchVal));
         }
         
@@ -718,7 +717,7 @@ function renderReferralsTable(data) {
     tbody.innerHTML = '';
     
     if (data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="table-empty">No matching referral contacts found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" class="table-empty">No matching referral contacts found.</td></tr>`;
         return;
     }
     
@@ -736,26 +735,33 @@ function renderReferralsTable(data) {
         const encName = encodeURIComponent(row.Referral_Person_Name || "");
         const encEmail = encodeURIComponent(row.Referral_Person_Email || "");
         const encUrl = encodeURIComponent(row.Referral_Person_Profile_URL || "");
-        const encDesignation = encodeURIComponent(row.Referral_Person_Designation || "");
         const normalizedSource = normalizeReferralSource(row.Referral_Source);
         const encSource = encodeURIComponent(normalizedSource);
         const encStatus = encodeURIComponent(row.Referral_Status || "");
         const encCompany = encodeURIComponent(row.CompanyName || "");
         const encNotes = encodeURIComponent(row.Error_Reason || "");
         const encVerification = encodeURIComponent(row.Employment_Verification_Status || "Verified");
+        const encCompanyUrl = encodeURIComponent(row.Company_URL || "");
         
+        const cUrl = row.Company_URL || "";
+        const cUrlHtml = cUrl.startsWith("http") ? `<a href="${cUrl}" target="_blank" class="table-link" title="${cUrl}"><i class="fa-solid fa-up-right-from-square" style="font-size:0.75rem;"></i> Page</a>` : cUrl;
+        
+        const pUrl = row.Referral_Person_Profile_URL || "";
+        const pUrlHtml = pUrl.startsWith("http") ? `<a href="${pUrl}" target="_blank" class="table-link" title="${pUrl}"><strong>${row.Referral_Person_Name || ""}</strong></a>` : (row.Referral_Person_Name || "");
+
         tr.innerHTML = `
             <td>${row.ReferralID || ""}</td>
             <td><strong>${row.CompanyName || ""}</strong></td>
-            <td>${row.Referral_Person_Name || ""}</td>
-            <td><span style="font-size: 0.8rem; color: var(--text-secondary);">${row.Referral_Person_Designation || ""}</span></td>
+            <td>${cUrlHtml}</td>
+            <td>${pUrlHtml}</td>
+            <td><a href="${pUrl}" target="_blank" class="table-link" title="${pUrl}"><i class="fa-brands fa-linkedin" style="color:#0a66c2; font-size:1.1rem;"></i></a></td>
             <td><span style="font-size: 0.8rem;">${normalizedSource}</span></td>
             <td>${verificationHtml}</td>
             <td>${statusHtml}</td>
             <td>${row.Sent_Time ? formatDisplayDate(row.Sent_Time) : ""}</td>
             <td style="text-align: center;">
                 <div style="display: flex; gap: 8px; justify-content: center;">
-                    <button class="table-action-btn btn-edit" onclick="showEditReferralContactModal(${row.ReferralID}, '${encName}', '${encEmail}', '${encUrl}', '${encDesignation}', '${encSource}', '${encStatus}', '${encCompany}', '${encNotes}', '${encVerification}')" title="Edit contact">
+                    <button class="table-action-btn btn-edit" onclick="showEditReferralContactModal(${row.ReferralID}, '${encName}', '${encEmail}', '${encUrl}', '${encSource}', '${encStatus}', '${encCompany}', '${encNotes}', '${encVerification}', '${encCompanyUrl}')" title="Edit contact">
                         <i class="fa-solid fa-pen-to-square"></i>
                     </button>
                     <button class="table-action-btn btn-delete" onclick="deleteRow('referrals', ${row.ReferralID})" title="Delete contact">
@@ -786,18 +792,21 @@ function renderTable(type, data) {
 
     data.forEach(row => {
         const tr = document.createElement('tr');
+        const lUrl = row.LinkedIn_Company_URL || "";
+        const lUrlHtml = lUrl.startsWith("http") ? `<a href="${lUrl}" target="_blank" class="table-link" title="${lUrl}"><i class="fa-solid fa-up-right-from-square" style="font-size:0.75rem;"></i> Company</a>` : lUrl;
+
         const companyUrl = row.CompanyURL || "";
-        const companyLinkHtml = companyUrl.startsWith("http") ? `<a href="${companyUrl}" target="_blank" title="${companyUrl}">Open Link</a>` : companyUrl;
+        const companyLinkHtml = companyUrl.startsWith("http") ? `<a href="${companyUrl}" target="_blank" title="${companyUrl}">Open Job</a>` : companyUrl;
         
         const shortenUrl = row.ShortenURL || "";
         const shortenLinkHtml = shortenUrl.startsWith("http") ? `<a href="${shortenUrl}" target="_blank">${shortenUrl}</a>` : shortenUrl;
         
-        const statusOptions = [
+        const targetOptions = [
             'new', 'interested', 'not interested', 'asked for referral', 'done', 
-            'in progress', 'completed – target not met', 'cancelled', 'failed'
+            'in progress', 'completed – target not met', 'cancelled', 'failed', 'referral outreach completed'
         ];
         let statusOptionsHtml = '';
-        statusOptions.forEach(opt => {
+        targetOptions.forEach(opt => {
             const selected = (row.Status || 'new').toLowerCase().trim() === opt ? 'selected' : '';
             statusOptionsHtml += `<option value="${opt}" ${selected}>${opt.toUpperCase()}</option>`;
         });
@@ -813,9 +822,13 @@ function renderTable(type, data) {
         tr.innerHTML = `
             <td>${row.JobID || ""}</td>
             <td><strong>${row.CompanyName || ""}</strong></td>
+            <td>${lUrlHtml}</td>
             <td>${companyLinkHtml}</td>
             <td>${shortenLinkHtml}</td>
             <td>${row.SearchKeyword || ""}</td>
+            <td><strong>${row.Referral_Target || 5}</strong></td>
+            <td><span style="color:var(--accent-green); font-weight:bold;">${row.Referral_Completed || 0}</span></td>
+            <td><span style="color:${row.Referral_Remaining > 0 ? 'var(--accent-yellow)' : 'var(--text-secondary)'};">${row.Referral_Remaining ?? 5}</span></td>
             <td>
                 <div class="status-select-wrapper ${cleanStatus}">
                     <select class="status-inline-select" onchange="updateStatus('referral', ${row.JobID}, this.value)">
@@ -1487,14 +1500,17 @@ function switchTemplateMode(type, mode) {
             .replace(/{PREFERRED_LOCATIONS}/g, preferredLocations)
             .replace(/{CURRENT_CTC}/g, currentCtc)
             .replace(/{EXPECTED_CTC}/g, expectedCtc)
+            // uppercase canonical tokens
+            .replace(/{RECEIVER_NAME}/g, "John")
+            .replace(/{COMPANY}/g, "Sample Company")
+            .replace(/{JOB_URL}/g, "https://linkedin.com/jobs/view/12345")
+            .replace(/{RESUME}/g, resumeUrl)
+            // legacy lowercase aliases (for templates saved before renaming)
             .replace(/{resume}/g, resumeUrl)
             .replace(/{company}/g, "Sample Company")
             .replace(/{job_url}/g, "https://linkedin.com/jobs/view/12345")
-            .replace(/{first_name}/g, "Recruiter")
-            .replace(/{PERSON_NAME}/g, "John")
-            .replace(/{employee_designation}/g, "Software Engineer")
-            .replace(/{target_role}/g, "Senior Software Engineer")
-            .replace(/{candidate_name}/g, `${firstName} ${lastName}`);
+            .replace(/{first_name}/g, "John")
+            .replace(/{PERSON_NAME}/g, "John");
             
         if (type === 'scraper') {
             const rawSubject = document.getElementById('scraper-email-subject') ? document.getElementById('scraper-email-subject').value : '';
@@ -2087,19 +2103,20 @@ function updateTabUnsavedState(module, hasUnsaved) {
 function normalizeReferralSource(source) {
     if (!source) return "Existing Employee";
     const src = source.toLowerCase().trim();
-    if (src.includes('existing') || src.includes('connection')) {
-        if (src.includes('recruiter')) {
-            return "Existing Recruiter";
-        }
-        return "Existing Employee";
-    }
-    if (src.includes('sent') || src.includes('connector')) {
-        if (src.includes('recruiter')) {
+    
+    // Check recruiter first
+    if (src.includes('recruiter')) {
+        if (src.includes('sent')) {
             return "Sent Recruiter Connection";
         }
+        return "Existing Recruiter";
+    }
+    
+    // Then check employee
+    if (src.includes('sent')) {
         return "Sent Employee Connection";
     }
-    return "Existing Employee"; // default fallback
+    return "Existing Employee"; // fallback for existing employee
 }
 
 async function saveConfiguration(module) {
@@ -2319,8 +2336,8 @@ function updateReferralCharCount() {
     const ctr = document.getElementById('referral-char-count');
     if (!ta || !ctr) return;
     const len = ta.value.length;
-    ctr.textContent = `${len} / 1000`;
-    ctr.style.color = len > 950 ? 'var(--accent-red)' : len > 850 ? 'var(--accent-yellow)' : 'var(--text-secondary)';
+    ctr.textContent = `${len} / 2000`;
+    ctr.style.color = len > 1900 ? 'var(--accent-red)' : len > 1750 ? 'var(--accent-yellow)' : 'var(--text-secondary)';
 }
 
 
@@ -2555,15 +2572,33 @@ async function saveReferralEditForm(event) {
 }
 
 // ── Referral Contact Modal Triggers ──────────────────────────────────
-function showEditReferralContactModal(id, name, email, profileUrl, designation, source, status, company, notes, verification) {
+function updateStatusSelectColor(selectEl) {
+    if (!selectEl) return;
+    selectEl.classList.remove(
+        'status-select-pending', 'status-select-sent', 
+        'status-select-failed', 'status-select-skipped', 'status-select-replied'
+    );
+    const val = selectEl.value.toLowerCase();
+    if (val === 'pending') selectEl.classList.add('status-select-pending');
+    else if (val === 'sent') selectEl.classList.add('status-select-sent');
+    else if (val === 'failed') selectEl.classList.add('status-select-failed');
+    else if (val === 'skipped') selectEl.classList.add('status-select-skipped');
+    else if (val === 'replied') selectEl.classList.add('status-select-replied');
+}
+
+function showEditReferralContactModal(id, name, email, profileUrl, source, status, company, notes, verification, companyUrl) {
     document.getElementById('edit-referral-contact-id').value = id;
     document.getElementById('edit-referral-contact-name').value = decodeURIComponent(name);
     document.getElementById('edit-referral-contact-email').value = decodeURIComponent(email === 'None' || email === 'null' || !email ? '' : email);
     document.getElementById('edit-referral-contact-url').value = decodeURIComponent(profileUrl);
-    document.getElementById('edit-referral-contact-designation').value = decodeURIComponent(designation === 'None' || designation === 'null' || !designation ? '' : designation);
     document.getElementById('edit-referral-contact-source').value = normalizeReferralSource(decodeURIComponent(source));
-    document.getElementById('edit-referral-contact-status').value = decodeURIComponent(status || 'Pending');
+    
+    const statusEl = document.getElementById('edit-referral-contact-status');
+    statusEl.value = decodeURIComponent(status || 'Pending');
+    updateStatusSelectColor(statusEl);
+    
     document.getElementById('edit-referral-contact-company').value = decodeURIComponent(company === 'None' || company === 'null' || !company ? '' : company);
+    document.getElementById('edit-referral-contact-company-url').value = decodeURIComponent(companyUrl === 'None' || companyUrl === 'null' || !companyUrl ? '' : companyUrl);
     document.getElementById('edit-referral-contact-notes').value = decodeURIComponent(notes === 'None' || notes === 'null' || !notes ? '' : notes);
     
     const verificationVal = decodeURIComponent(verification || 'Verified');
@@ -2588,10 +2623,10 @@ async function saveReferralContactEditForm(event) {
     const name = document.getElementById('edit-referral-contact-name').value;
     const email = document.getElementById('edit-referral-contact-email').value;
     const profile_url = document.getElementById('edit-referral-contact-url').value;
-    const designation = document.getElementById('edit-referral-contact-designation').value;
     const source = document.getElementById('edit-referral-contact-source').value;
     const status = document.getElementById('edit-referral-contact-status').value;
     const company = document.getElementById('edit-referral-contact-company').value;
+    const company_url = document.getElementById('edit-referral-contact-company-url').value;
     const notes = document.getElementById('edit-referral-contact-notes').value;
     
     const verificationEl = document.getElementById('edit-referral-contact-verification');
@@ -2606,10 +2641,10 @@ async function saveReferralContactEditForm(event) {
                 name: name,
                 email: email,
                 profile_url: profile_url,
-                designation: designation,
                 source: source,
                 status: status,
                 company: company,
+                company_url: company_url,
                 notes: notes,
                 employment_verification_status: verification
             })

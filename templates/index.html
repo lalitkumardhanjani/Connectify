@@ -202,6 +202,7 @@
                                 <tbody><tr><td colspan="3" class="table-empty">Loading...</td></tr></tbody>
                             </table>
                         </div>
+                        <div class="pagination-container" id="email-pending-pagination" style="margin-top: 12px;"></div>
                     </div>
                 </div>
 
@@ -836,17 +837,21 @@
                                 <tr>
                                     <th>ID</th>
                                     <th>Company Name</th>
-                                    <th>Company URL</th>
+                                    <th>LinkedIn Company URL</th>
+                                    <th>Job URL</th>
                                     <th>Shorten URL</th>
                                     <th>Search Keyword</th>
-                                    <th>Status</th>
+                                    <th>Referral Target</th>
+                                    <th>Referral Completed</th>
+                                    <th>Referral Remaining</th>
+                                    <th>Referral Status</th>
                                     <th>Created Date</th>
                                     <th style="width: 100px; text-align: center;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td colspan="8" class="table-empty">Loading database records...</td>
+                                    <td colspan="12" class="table-empty">Loading database records...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -893,9 +898,10 @@
                             <thead>
                                 <tr>
                                     <th>ID</th>
-                                    <th>Company</th>
-                                    <th>Contact Name</th>
-                                    <th>Designation</th>
+                                    <th>Company Name</th>
+                                    <th>Company URL</th>
+                                    <th>Employee Name</th>
+                                    <th>LinkedIn URL</th>
                                     <th>Source</th>
                                     <th>Verification Status</th>
                                     <th>Status</th>
@@ -905,7 +911,7 @@
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td colspan="9" class="table-empty">Loading referral contacts...</td>
+                                    <td colspan="11" class="table-empty">Loading referral contacts...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -1208,27 +1214,24 @@
                                         <span class="tvar-badge" onclick="insertToken('referral', '{PREFERRED_LOCATIONS}')" title="Your preferred locations">{PREFERRED_LOCATIONS}</span>
                                         <span class="tvar-badge" onclick="insertToken('referral', '{CURRENT_CTC}')" title="Your current CTC">{CURRENT_CTC}</span>
                                         <span class="tvar-badge" onclick="insertToken('referral', '{EXPECTED_CTC}')" title="Your expected CTC">{EXPECTED_CTC}</span>
-                                        <span class="tvar-badge" onclick="insertToken('referral', '{company}')" title="Target company name">{company}</span>
-                                        <span class="tvar-badge" onclick="insertToken('referral', '{job_url}')" title="Target job apply URL">{job_url}</span>
-                                        <span class="tvar-badge" onclick="insertToken('referral', '{resume}')" title="Your resume link">{resume}</span>
-                                        <span class="tvar-badge" onclick="insertToken('referral', '{PERSON_NAME}')" title="Recipient's name">{PERSON_NAME}</span>
-                                        <span class="tvar-badge" onclick="insertToken('referral', '{employee_designation}')" title="Recipient's title/designation">{employee_designation}</span>
-                                        <span class="tvar-badge" onclick="insertToken('referral', '{target_role}')" title="Target job title/role">{target_role}</span>
-                                        <span class="tvar-badge" onclick="insertToken('referral', '{candidate_name}')" title="Your full name">{candidate_name}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{COMPANY}')" title="Target company name">{COMPANY}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{JOB_URL}')" title="Target job apply URL">{JOB_URL}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{RESUME}')" title="Your resume link">{RESUME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{RECEIVER_NAME}')" title="Recipient's first name">{RECEIVER_NAME}</span>
                                     </div>
 
                                     <div class="template-editor-container">
                                         <div class="template-editor-header">
                                             <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;"><i class="fa-solid fa-comment-dots"></i> Referral Message Studio</span>
                                             <div style="display:flex;align-items:center;gap:12px;">
-                                                <span id="referral-char-count" class="char-count-pill">0 / 1000</span>
+                                                <span id="referral-char-count" class="char-count-pill">0 / 2000</span>
                                                 <div class="template-modes">
                                                     <button type="button" class="template-mode-btn active" id="btn-mode-edit-referral" onclick="switchTemplateMode('referral', 'edit')">Draft Editor</button>
                                                     <button type="button" class="template-mode-btn" id="btn-mode-preview-referral" onclick="switchTemplateMode('referral', 'preview')">Real-time Preview</button>
                                                 </div>
                                             </div>
                                         </div>
-                                        <textarea id="referral-message-template" class="template-textarea" placeholder="Referral request message..." maxlength="1000" oninput="updateReferralCharCount()"></textarea>
+                                        <textarea id="referral-message-template" class="template-textarea" placeholder="Referral request message..." maxlength="2000" oninput="updateReferralCharCount()"></textarea>
                                         
                                         <!-- Mock LinkedIn Messaging Window -->
                                         <div id="referral-template-preview" class="linkedin-mockup-window hidden">
@@ -1281,10 +1284,10 @@
                                         <span class="tvar-badge" onclick="insertToken('connect', '{PREFERRED_LOCATIONS}')" title="Your preferred locations">{PREFERRED_LOCATIONS}</span>
                                         <span class="tvar-badge" onclick="insertToken('connect', '{CURRENT_CTC}')" title="Your current CTC">{CURRENT_CTC}</span>
                                         <span class="tvar-badge" onclick="insertToken('connect', '{EXPECTED_CTC}')" title="Your expected CTC">{EXPECTED_CTC}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{company}')" title="Target company name">{company}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{job_url}')" title="Target job apply URL">{job_url}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{resume}')" title="Your resume link">{resume}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{PERSON_NAME}')" title="Recipient's name">{PERSON_NAME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{COMPANY}')" title="Target company name">{COMPANY}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{JOB_URL}')" title="Target job apply URL">{JOB_URL}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{RESUME}')" title="Your resume link">{RESUME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{RECEIVER_NAME}')" title="Recipient's first name">{RECEIVER_NAME}</span>
                                     </div>
 
                                     <div class="template-editor-container">
@@ -1377,10 +1380,9 @@
                                          <span class="tvar-badge" onclick="insertToken('recruiter', '{PREFERRED_LOCATIONS}')" title="Click to insert">{PREFERRED_LOCATIONS}</span>
                                          <span class="tvar-badge" onclick="insertToken('recruiter', '{CURRENT_CTC}')" title="Click to insert">{CURRENT_CTC}</span>
                                          <span class="tvar-badge" onclick="insertToken('recruiter', '{EXPECTED_CTC}')" title="Click to insert">{EXPECTED_CTC}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{company}')" title="Click to insert">{company}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{resume}')" title="Click to insert">{resume}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{first_name}')" title="Click to insert">{first_name}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{PERSON_NAME}')" title="Click to insert">{PERSON_NAME}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{COMPANY}')" title="Click to insert">{COMPANY}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{RESUME}')" title="Click to insert">{RESUME}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{RECEIVER_NAME}')" title="Click to insert">{RECEIVER_NAME}</span>
                                      </div>
                                  </div>
 
@@ -1446,10 +1448,9 @@
                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{PREFERRED_LOCATIONS}')" title="Click to insert">{PREFERRED_LOCATIONS}</span>
                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{CURRENT_CTC}')" title="Click to insert">{CURRENT_CTC}</span>
                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{EXPECTED_CTC}')" title="Click to insert">{EXPECTED_CTC}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{company}')" title="Click to insert">{company}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{resume}')" title="Click to insert">{resume}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{first_name}')" title="Click to insert">{first_name}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{PERSON_NAME}')" title="Click to insert">{PERSON_NAME}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{COMPANY}')" title="Click to insert">{COMPANY}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{RESUME}')" title="Click to insert">{RESUME}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{RECEIVER_NAME}')" title="Click to insert">{RECEIVER_NAME}</span>
                                      </div>
 
                                      <div class="template-editor-container">
@@ -1601,73 +1602,118 @@
         </div>
     </div>
 
-    <!-- Edit Referral Contact Modal -->
+    <!-- Edit Referral Contact Modal — Redesigned -->
     <div class="modal-overlay hidden" id="edit-referral-contact-modal">
-        <div class="modal-box" style="max-width: 500px;">
+        <div class="modal-box-lg">
+
+            <!-- Sticky Header -->
             <div class="modal-header">
-                <i class="fa-solid fa-user-pen"></i> Edit Referral Contact
+                <i class="fa-solid fa-user-pen"></i>
+                Edit Referral Contact
+                <span class="modal-header-badge" id="edit-contact-modal-badge">Outreach Record</span>
             </div>
-            <form id="edit-referral-contact-form" onsubmit="saveReferralContactEditForm(event)">
+
+            <form id="edit-referral-contact-form" onsubmit="saveReferralContactEditForm(event)" autocomplete="off">
                 <input type="hidden" id="edit-referral-contact-id">
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label for="edit-referral-contact-name">Contact Name</label>
-                    <input type="text" id="edit-referral-contact-name" required>
-                </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label for="edit-referral-contact-email">Email Address</label>
-                    <input type="email" id="edit-referral-contact-email">
-                </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label for="edit-referral-contact-url">Profile URL</label>
-                    <input type="text" id="edit-referral-contact-url" required>
-                </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label for="edit-referral-contact-company">Company Name</label>
-                    <input type="text" id="edit-referral-contact-company" required>
-                </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label for="edit-referral-contact-designation">Designation</label>
-                    <input type="text" id="edit-referral-contact-designation">
-                </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label for="edit-referral-contact-source">Source</label>
-                    <select id="edit-referral-contact-source" required>
-                        <option value="Existing Employee">Existing Employee</option>
-                        <option value="Existing Recruiter">Existing Recruiter</option>
-                        <option value="Sent Employee Connection">Sent Employee Connection</option>
-                        <option value="Sent Recruiter Connection">Sent Recruiter Connection</option>
-                    </select>
-                </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label for="edit-referral-contact-status">Status</label>
-                    <select id="edit-referral-contact-status" required>
-                        <option value="Pending">Pending</option>
-                        <option value="Sent">Sent</option>
-                        <option value="Replied">Replied</option>
-                        <option value="Referral Received">Referral Received</option>
-                        <option value="Failed">Failed</option>
-                        <option value="Skipped">Skipped</option>
-                    </select>
-                </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label for="edit-referral-contact-verification">Verification Status</label>
-                    <select id="edit-referral-contact-verification" required>
-                        <option value="Verified">Verified</option>
-                        <option value="Unverified">Unverified</option>
-                        <option value="Failed">Failed</option>
-                    </select>
-                </div>
-                <div class="form-group" style="margin-bottom: 16px;">
-                    <label for="edit-referral-contact-notes">Notes / Error Reason</label>
-                    <textarea id="edit-referral-contact-notes" rows="2" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--glass-border); background:rgba(0,0,0,0.4); color:var(--text-primary); font-size: 0.9rem; font-family: inherit;"></textarea>
-                </div>
+
+                <!-- Scrollable Body -->
+                <div class="modal-body">
+
+                    <!-- Section 1: Contact Information -->
+                    <div class="modal-section">
+                        <div class="modal-section-title">
+                            <i class="fa-solid fa-user"></i> Contact Information
+                        </div>
+                        <div class="modal-form-grid">
+                            <div class="modal-form-group">
+                                <label for="edit-referral-contact-name">Full Name</label>
+                                <input type="text" id="edit-referral-contact-name" placeholder="e.g. John Smith" required>
+                            </div>
+                            <div class="modal-form-group">
+                                <label for="edit-referral-contact-email">Email Address</label>
+                                <input type="email" id="edit-referral-contact-email" placeholder="john@company.com">
+                            </div>
+                            <div class="modal-form-group form-group-full">
+                                <label for="edit-referral-contact-url">LinkedIn Profile URL</label>
+                                <input type="text" id="edit-referral-contact-url" placeholder="https://linkedin.com/in/..." required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 2: Company Information -->
+                    <div class="modal-section">
+                        <div class="modal-section-title">
+                            <i class="fa-solid fa-building"></i> Company Information
+                        </div>
+                        <div class="modal-form-grid">
+                            <div class="modal-form-group">
+                                <label for="edit-referral-contact-company">Company Name</label>
+                                <input type="text" id="edit-referral-contact-company" placeholder="e.g. 66degrees" required>
+                            </div>
+                            <div class="modal-form-group">
+                                <label for="edit-referral-contact-company-url">Company LinkedIn URL</label>
+                                <input type="text" id="edit-referral-contact-company-url" placeholder="https://linkedin.com/company/...">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 3: Outreach Status -->
+                    <div class="modal-section">
+                        <div class="modal-section-title">
+                            <i class="fa-solid fa-paper-plane"></i> Outreach Status
+                        </div>
+                        <div class="modal-form-grid">
+                            <div class="modal-form-group">
+                                <label for="edit-referral-contact-source">Referral Source</label>
+                                <select id="edit-referral-contact-source" required>
+                                    <option value="Existing Employee">Existing Employee</option>
+                                    <option value="Existing Recruiter">Existing Recruiter</option>
+                                    <option value="Sent Employee Connection">Sent Employee Connection</option>
+                                    <option value="Sent Recruiter Connection">Sent Recruiter Connection</option>
+                                </select>
+                            </div>
+                            <div class="modal-form-group">
+                                <label for="edit-referral-contact-status">Referral Status</label>
+                                <select id="edit-referral-contact-status" required onchange="updateStatusSelectColor(this)">
+                                    <option value="Pending">Pending</option>
+                                    <option value="Sent">Sent</option>
+                                    <option value="Replied">Replied</option>
+                                    <option value="Referral Received">Referral Received</option>
+                                    <option value="Failed">Failed</option>
+                                    <option value="Skipped">Skipped</option>
+                                </select>
+                            </div>
+                            <div class="modal-form-group">
+                                <label for="edit-referral-contact-verification">Verification Status</label>
+                                <select id="edit-referral-contact-verification" required>
+                                    <option value="Verified">Verified</option>
+                                    <option value="Unverified">Unverified</option>
+                                    <option value="Failed">Failed</option>
+                                </select>
+                            </div>
+                            <div class="modal-form-group form-group-full">
+                                <label for="edit-referral-contact-notes">Notes / Error Reason</label>
+                                <textarea id="edit-referral-contact-notes" rows="3" placeholder="Any notes or error details..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                </div><!-- end modal-body -->
+
+                <!-- Sticky Footer -->
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="hideEditReferralContactModal()">Cancel</button>
-                    <button type="submit" class="btn btn-success">Save Changes</button>
+                    <button type="button" class="btn-cancel" onclick="hideEditReferralContactModal()">
+                        <i class="fa-solid fa-xmark"></i> Cancel
+                    </button>
+                    <button type="submit" class="btn-save">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Changes
+                    </button>
                 </div>
+
             </form>
         </div>
     </div>
+
 
 
     <!-- Script File -->

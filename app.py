@@ -344,9 +344,8 @@ def job_tracker_data():
 
 @app.route('/api/data/job_leads')
 def job_leads_data():
-    from core.storage.database import init_job_leads_store
-    init_job_leads_store()
-    return jsonify(get_excel_data(get_job_leads_file()))
+    from core.storage.database import load_job_leads_with_referral_counts
+    return jsonify(load_job_leads_with_referral_counts())
 
 
 @app.route('/api/run/scraper', methods=['POST'])
@@ -600,7 +599,7 @@ def create_user_profile():
             "review_mode": True
         },
         "referral_outreach": {
-            "message_template": "Hi {PERSON_NAME}, I noticed we are connected and saw you work as {employee_designation} at {company}. I'm interested in the {target_role} role there. I'd love to get your guidance or a referral if possible! My resume: {resume}",
+            "message_template": "Hi {RECEIVER_NAME},\n\nI hope you're doing well! I saw we're connected on LinkedIn and noticed you work at {COMPANY}.\n\nI'm interested in a role there and would love your guidance or a referral if possible.\n\nJob: {JOB_URL}\nResume: {RESUME}\n\nThank you!",
             "interval": "60",
             "max_referrals_per_run": "5",
             "review_mode": True
@@ -1025,9 +1024,10 @@ def update_referral_status():
     except ValueError:
         pass
         
-    from core.storage.database import edit_referral_contact_row
+    from core.storage.database import edit_referral_contact_row, sync_job_lead_referral_statuses
     success = edit_referral_contact_row(referral_id, {"Referral_Status": status}, get_referrals_file())
     if success:
+        sync_job_lead_referral_statuses()
         return jsonify({"status": "success"})
     return jsonify({"status": "error", "message": "ReferralID not found"}), 404
 
@@ -1047,10 +1047,10 @@ def edit_referral_row():
     name = body.get("name")
     email = body.get("email")
     profile_url = body.get("profile_url")
-    designation = body.get("designation")
     source = body.get("source")
     status = body.get("status")
     company = body.get("company")
+    company_url = body.get("company_url")
     notes = body.get("notes")
     verification = body.get("employment_verification_status") or "Verified"
     
@@ -1059,19 +1059,20 @@ def edit_referral_row():
         
     update_data = {
         "CompanyName": company,
+        "Company_URL": company_url or "",
         "Referral_Person_Name": name,
         "Referral_Person_Email": email or "",
         "Referral_Person_Profile_URL": profile_url,
-        "Referral_Person_Designation": designation or "",
         "Referral_Source": source or "Existing Connection",
         "Referral_Status": status,
         "Employment_Verification_Status": verification,
         "Error_Reason": notes or ""
     }
     
-    from core.storage.database import edit_referral_contact_row
+    from core.storage.database import edit_referral_contact_row, sync_job_lead_referral_statuses
     success = edit_referral_contact_row(referral_id, update_data, get_referrals_file())
     if success:
+        sync_job_lead_referral_statuses()
         return jsonify({"status": "success"})
     return jsonify({"status": "error", "message": "ReferralID not found"}), 404
 
@@ -1127,6 +1128,8 @@ def delete_referral_row():
             ws.add_table(tab)
             wb.save(path)
             _trigger_mac_excel_reload(path)
+            from core.storage.database import sync_job_lead_referral_statuses
+            sync_job_lead_referral_statuses()
             return jsonify({"status": "success"})
             
         return jsonify({"status": "error", "message": "ReferralID not found"}), 404

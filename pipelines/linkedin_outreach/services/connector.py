@@ -79,6 +79,12 @@ def get_message(position=None, company=None, first_name=None, job_url=None, resu
         resolved_person_name = first_name
 
     extra_vars = {
+        # uppercase canonical tokens
+        "{RECEIVER_NAME}": resolved_person_name,
+        "{COMPANY}": company or "the company",
+        "{JOB_URL}": job_url or "",
+        "{RESUME}": resume_link or "",
+        # legacy lowercase aliases for backward compat
         "{company}": company or "the company",
         "{job_url}": job_url or "",
         "{resume}": resume_link or "",
@@ -110,10 +116,17 @@ def get_message_connected(position=None, job_id=None, resume_link=None, person_n
         recip_first_name = person_name.split()[0]
         
     extra_vars = {
+        # uppercase canonical tokens
+        "{RECEIVER_NAME}": recip_first_name,
+        "{COMPANY}": company or "your company",
+        "{JOB_URL}": job_id or "",
+        "{RESUME}": resume_link or "",
+        # legacy aliases
         "{company}": company or "your company",
         "{job_url}": job_id or "",
         "{resume}": resume_link or "",
         "{first_name}": recip_first_name,
+        "{PERSON_NAME}": recip_first_name,
     }
     
     msg = substitute_template_variables(template, profile, extra_vars)
@@ -905,20 +918,25 @@ def run_connector():
                 break
 
             company = job.get('CompanyName') or ''
+            job_id = job.get('JobID') or ''
+            linkedin_company_url = job.get('LinkedIn_Company_URL') or ''
             
-            # Check company target connections progress
-            total_progress = get_employee_outreach_progress(company)
-            if total_progress >= max_connections:
-                logger.info(f"Company '{company}' has already reached its target connection count of {max_connections} (progress: {total_progress}). Skipping.")
+            from core.storage.database import get_completed_referral_count
+            completed_progress = get_completed_referral_count(company, linkedin_company_url, job_id=job_id)
+            if completed_progress >= max_connections:
+                logger.info(f"Company '{company}' has already reached/completed its target connection count of {max_connections} (progress: {completed_progress}). Skipping.")
+                try:
+                    update_status_by_id(job_id, 'Referral Outreach Completed')
+                except Exception as e:
+                    logger.warning(f"Failed to update Job status: {e}")
                 continue
                 
             position = job.get('SearchKeyword') or ''
-            job_id = job.get('JobID') or ''
             job_url = job.get('ShortenURL') or job.get('CompanyURL') or ''
             
             # Compute remaining target capacity for this company
-            max_apply = max_connections - total_progress
-            logger.info(f"Company '{company}' remaining target count is {max_apply} (progress: {total_progress}).")
+            max_apply = max_connections - completed_progress
+            logger.info(f"Company '{company}' remaining target count is {max_apply} (progress: {completed_progress}).")
             linkedin_id = job.get('linkedin_id', '')
 
             logger.info("\n" + "=" * 60)
@@ -1004,10 +1022,10 @@ def run_connector():
                                     referral_data = {
                                         'JobID': job_id,
                                         'CompanyName': company,
+                                        'Company_URL': linkedin_company_url,
                                         'Referral_Person_Name': person.get('name', 'unknown'),
                                         'Referral_Person_Email': '',
                                         'Referral_Person_Profile_URL': person.get('profile_url', ''),
-                                        'Referral_Person_Designation': person.get('role', ''),
                                         'Referral_Source': 'Sent Employee Connection',
                                         'Referral_Status': status_val,
                                         'Sent_Time': datetime.now().strftime("%Y-%m-%d %H:%M:%S") if status_val == 'Sent' else '',
@@ -1066,10 +1084,10 @@ def run_connector():
                             referral_data = {
                                 'JobID': job_id,
                                 'CompanyName': company,
+                                'Company_URL': linkedin_company_url,
                                 'Referral_Person_Name': person.get('name', 'unknown'),
                                 'Referral_Person_Email': '',
                                 'Referral_Person_Profile_URL': person.get('profile_url', ''),
-                                'Referral_Person_Designation': person.get('role', ''),
                                 'Referral_Source': 'Existing Employee',
                                 'Referral_Status': status_val,
                                 'Sent_Time': datetime.now().strftime("%Y-%m-%d %H:%M:%S") if status_val == 'Sent' else '',
@@ -1088,17 +1106,18 @@ def run_connector():
             logger.info(f"\n✓ Completed {company}: {success_count} connect requests, {msg_count} messages sent")
             
             # Calculate total progress for this company
-            total_progress = get_employee_outreach_progress(company)
-            if total_progress >= max_connections:
+            from core.storage.database import get_completed_referral_count
+            completed_progress = get_completed_referral_count(company, linkedin_company_url, job_id=job_id)
+            if completed_progress >= max_connections:
                 try:
-                    update_status_by_id(job_id, 'Asked for Referral')
-                    logger.info(f"Target of {max_connections} reached for {company}. Status updated to 'Asked for Referral'.")
+                    update_status_by_id(job_id, 'Referral Outreach Completed')
+                    logger.info(f"Target of {max_connections} reached for {company}. Status updated to 'Referral Outreach Completed'.")
                 except Exception as e:
                     logger.warning(f"Failed to update Job status: {e}")
             else:
                 try:
                     update_status_by_id(job_id, 'Completed – Target Not Met')
-                    logger.info(f"Finished processing {company} but target {max_connections} not reached (current progress: {total_progress}). Updated status to 'Completed – Target Not Met'.")
+                    logger.info(f"Finished processing {company} but target {max_connections} not reached (current progress: {completed_progress}). Updated status to 'Completed – Target Not Met'.")
                 except Exception as e:
                     logger.warning(f"Failed to update Job status: {e}")
             

@@ -55,6 +55,11 @@ def get_recruiter_message(company=None, first_name=None, resume_link=None, perso
         resolved_person_name = first_name
 
     extra_vars = {
+        # uppercase canonical tokens
+        "{RECEIVER_NAME}": resolved_person_name,
+        "{COMPANY}": company or "the company",
+        "{RESUME}": resume_link or "",
+        # legacy aliases
         "{company}": company or "the company",
         "{resume}": resume_link or "",
         "{first_name}": first_name or "there",
@@ -88,6 +93,11 @@ def get_recruiter_direct_message(company=None, first_name=None, resume_link=None
         resolved_person_name = first_name
 
     extra_vars = {
+        # uppercase canonical tokens
+        "{RECEIVER_NAME}": resolved_person_name,
+        "{COMPANY}": company or "the company",
+        "{RESUME}": resume_link or "",
+        # legacy aliases
         "{company}": company or "the company",
         "{resume}": resume_link or "",
         "{first_name}": first_name or "there",
@@ -181,14 +191,13 @@ def run_recruiter_discovery():
                     'Referral_Person_Name': conn['name'],
                     'Referral_Person_Email': '',
                     'Referral_Person_Profile_URL': profile_url,
-                    'Referral_Person_Designation': conn['designation'],
                     'Referral_Source': 'Existing Recruiter',
                     'Referral_Status': 'Pending'
                 }
                 
                 add_or_update_referral(referral_data)
                 discovered_count += 1
-                logger.info(f"Discovered Recruiter: {conn['name']} ({conn['designation']}) - Pending outreach")
+                logger.info(f"Discovered Recruiter: {conn['name']} - Pending outreach")
                 
             logger.info(f"Found and stored {discovered_count} new 1st-degree recruiter contacts for {company}.")
             time.sleep(2)
@@ -264,7 +273,6 @@ def run_recruiter_messaging():
             company = ref.get('CompanyName')
             name = ref.get('Referral_Person_Name')
             profile_url = ref.get('Referral_Person_Profile_URL')
-            designation = ref.get('Referral_Person_Designation')
             
             # Check company target recruiters progress
             total_progress = get_recruiter_outreach_progress(company)

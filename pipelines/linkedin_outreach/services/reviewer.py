@@ -52,7 +52,7 @@ def run_reviewer():
     
     for row in rows:
         status = row.get(status_col)
-        if status == "NEW":
+        if status and str(status).strip().upper() == "NEW":
             jobs_to_process.append(row)
         else:
             processed_rows.append(row)

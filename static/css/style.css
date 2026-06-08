@@ -1428,6 +1428,13 @@ body {
     color: var(--accent-red);
 }
 
+.status-select-wrapper.referral_outreach_completed .status-inline-select {
+    background: rgba(127, 90, 240, 0.22);
+    color: #c5a3ff;
+    border: 1px solid rgba(127, 90, 240, 0.4);
+    box-shadow: 0 0 12px rgba(127, 90, 240, 0.25);
+}
+
 
 /* Styles inside dropdown options */
 .status-inline-select option {
@@ -2026,42 +2033,256 @@ body {
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(10, 8, 19, 0.85);
-    backdrop-filter: blur(8px);
+    background: rgba(10, 8, 19, 0.88);
+    backdrop-filter: blur(10px);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1010;
-    animation: fadeIn 0.3s ease;
+    padding: 20px;
+    animation: fadeIn 0.25s ease;
 }
 
+/* Small modal (default) */
 .modal-box {
     background: var(--bg-secondary);
     border: 1px solid var(--accent-purple);
-    border-radius: 16px;
+    border-radius: 20px;
     padding: 30px;
     max-width: 450px;
     width: 95%;
-    box-shadow: 0 0 40px rgba(127, 90, 240, 0.25);
+    box-shadow: 0 0 60px rgba(127, 90, 240, 0.3), 0 24px 48px rgba(0,0,0,0.5);
     animation: slideUp 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-.modal-header {
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: var(--accent-purple);
-    margin-bottom: 20px;
+.modal-box-lg {
+    background: linear-gradient(160deg, rgba(22, 18, 42, 0.98), rgba(13, 11, 25, 0.98));
+    border: 1px solid rgba(127, 90, 240, 0.45);
+    border-radius: 20px;
+    max-width: 720px;
+    width: 96%;
+    max-height: 90vh;
     display: flex;
-    align-items: center;
-    gap: 10px;
+    flex-direction: column;
+    box-shadow: 0 0 80px rgba(127, 90, 240, 0.25), 0 30px 60px rgba(0,0,0,0.6);
+    animation: slideUp 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    overflow: hidden;
 }
 
+.modal-box-lg form {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+
+/* Modal header — sticky at top */
+.modal-header {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    padding: 22px 28px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    background: rgba(127, 90, 240, 0.08);
+}
+
+.modal-header i {
+    color: var(--accent-purple);
+    font-size: 1.1rem;
+}
+
+.modal-header-badge {
+    margin-left: auto;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--accent-cyan);
+    background: rgba(0, 176, 255, 0.1);
+    border: 1px solid rgba(0, 176, 255, 0.2);
+    padding: 4px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.3px;
+}
+
+/* Scrollable body */
+.modal-body {
+    overflow-y: auto;
+    padding: 24px 28px;
+    flex: 1;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(127, 90, 240, 0.3) transparent;
+}
+
+.modal-body::-webkit-scrollbar {
+    width: 5px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+    background: rgba(127, 90, 240, 0.3);
+    border-radius: 4px;
+}
+
+/* Section grouping inside modal */
+.modal-section {
+    margin-bottom: 22px;
+}
+
+.modal-section:last-child {
+    margin-bottom: 0;
+}
+
+.modal-section-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--accent-purple);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.modal-section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(127, 90, 240, 0.2);
+}
+
+/* 2-column grid for form fields */
+.modal-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+
+@media (max-width: 576px) {
+    .modal-form-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.modal-form-grid .form-group-full {
+    grid-column: 1 / -1;
+}
+
+/* Enhanced form-group inside modal */
+.modal-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.modal-form-group label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.modal-form-group input,
+.modal-form-group select,
+.modal-form-group textarea {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+    padding: 10px 14px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    outline: none;
+    width: 100%;
+}
+
+.modal-form-group input:focus,
+.modal-form-group select:focus,
+.modal-form-group textarea:focus {
+    border-color: rgba(127, 90, 240, 0.6);
+    box-shadow: 0 0 0 3px rgba(127, 90, 240, 0.12);
+    background: rgba(127, 90, 240, 0.05);
+}
+
+.modal-form-group select option {
+    background: #1a1530;
+    color: var(--text-primary);
+}
+
+.modal-form-group input::placeholder,
+.modal-form-group textarea::placeholder {
+    color: rgba(255, 255, 255, 0.2);
+}
+
+/* Modal footer — sticky at bottom */
 .modal-footer {
     display: flex;
     justify-content: flex-end;
+    align-items: center;
     gap: 12px;
-    margin-top: 24px;
+    padding: 18px 28px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    flex-shrink: 0;
+    background: rgba(0, 0, 0, 0.2);
 }
+
+.modal-footer .btn-cancel {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--text-secondary);
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.modal-footer .btn-cancel:hover {
+    border-color: rgba(255, 255, 255, 0.25);
+    color: var(--text-primary);
+}
+
+.modal-footer .btn-save {
+    background: linear-gradient(135deg, var(--accent-purple), #5a24d4);
+    border: none;
+    color: white;
+    border-radius: 10px;
+    padding: 10px 24px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 16px rgba(127, 90, 240, 0.35);
+}
+
+.modal-footer .btn-save:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(127, 90, 240, 0.5);
+}
+
+/* Status color-coded selects */
+.status-select-pending  { border-color: rgba(0, 176, 255, 0.3) !important; }
+.status-select-sent     { border-color: rgba(0, 230, 118, 0.3) !important; }
+.status-select-failed   { border-color: rgba(255, 61, 0, 0.3) !important; }
+.status-select-skipped  { border-color: rgba(255, 179, 0, 0.3) !important; }
+.status-select-replied  { border-color: rgba(44, 182, 125, 0.3) !important; }
+
 
 /* =========================================================
    CONNECTIFY DASHBOARD — Analytics UI Styles
