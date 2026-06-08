@@ -426,3 +426,4 @@ Logs individual employee and recruiter contacts discovered at target companies, 
 - **Technical Architecture**: See [`docs/architecture_docs.md`](docs/architecture_docs.md) for an in-depth breakdown of the system architecture, data flow diagrams, module responsibilities, and extension guidelines.
 - **Example Config**: See [`users_config.json.example`](users_config.json.example) for a reference user profile structure.
 - **Environment Variables**: See [`.env.example`](.env.example) for all supported environment variable overrides.
+

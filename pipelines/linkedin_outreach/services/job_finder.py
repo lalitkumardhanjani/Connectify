@@ -506,8 +506,11 @@ def run_job_finder(target_url=None):
 
                         sig = ""
                         job_id = ""
+                        position = ""
+                        company = ""
+                        card_url = ""
                         try:
-                            # Refresh elements to avoid StaleElementReferenceException
+                            # 1. Refresh elements to avoid StaleElementReferenceException
                             left_pane = get_left_pane_container(driver)
                             card_selectors = (
                                 'li.jobs-search-results__list-item, '
@@ -533,46 +536,11 @@ def run_job_finder(target_url=None):
                                 break
 
                             card = valid_cards[index]
-                            # Scroll using left pane scoped helper
+                            # Scroll using left pane scoped helper to bring card into view
                             scroll_element_into_view_in_left_pane(driver, card)
                             time.sleep(2)
 
-                            # Extract position/job title
-                            position = ""
-                            try:
-                                title_el = card.find_element(By.CSS_SELECTOR, 'p span[aria-hidden="true"]')
-                                position = title_el.text.strip()
-                            except Exception:
-                                try:
-                                    title_el = card.find_element(By.CSS_SELECTOR, 'a[href*="/jobs/view/"]')
-                                    position = title_el.text.strip()
-                                except Exception:
-                                    pass
-
-                            position = position.replace("(Verified job)", "").strip()
-
-                            # Extract Company Name
-                            company = ""
-                            try:
-                                company_el = card.find_element(By.XPATH, './/div[@data-display-contents="true"]/following-sibling::div[1]//p')
-                                company = company_el.text.strip()
-                            except Exception:
-                                try:
-                                    company_el = card.find_element(
-                                        By.CSS_SELECTOR,
-                                        'a[href*="/company/"], .job-card-container__company-name, .job-card-list__company-name, .base-search-card__subtitle, .artdeco-entity-lockup__subtitle'
-                                    )
-                                    company = company_el.text.strip()
-                                except Exception:
-                                    pass
-
-                            if company:
-                                company = company.split('\n')[0].strip()
-                            if not company:
-                                company = "Unknown Company"
-
-                            # Extract Job ID and Card URL
-                            card_url = ""
+                            # Extract Card URL and Job ID first (from card element)
                             try:
                                 card_a = card.find_element(By.CSS_SELECTOR, "a[href*='/jobs/view/']")
                                 card_url = card_a.get_attribute("href")
@@ -580,47 +548,7 @@ def run_job_finder(target_url=None):
                             except Exception:
                                 pass
 
-                            sig = f"{company.lower().strip()}|{position.lower().strip()}"
-
-                            logger.info(f"\n  --- Job {index + 1}/{len(valid_cards)} (Page {page_no}) ---")
-                            logger.info(f"  Title  : {position}")
-                            logger.info(f"  Company: {company}")
-                            if job_id:
-                                logger.info(f"  Job ID : {job_id}")
-
-                            if job_id and job_id in processed_job_ids:
-                                logger.info(f"  [SKIP] Job ID {job_id} already processed in this run.")
-                                continue
-                            if sig in processed_signatures:
-                                logger.info("  [SKIP] Job already processed (session signature check).")
-                                if job_id:
-                                    processed_job_ids.add(job_id)
-                                continue
-                            if is_job_already_processed_excel(company, position):
-                                logger.info("  [SKIP] Job already processed (Excel signature check).")
-                                processed_signatures.add(sig)
-                                if job_id:
-                                    processed_job_ids.add(job_id)
-                                continue
-
-                            # Check target keywords and exclusion keywords before clicking apply
-                            if not is_title_matching_keywords(position, keywords):
-                                logger.info(f"  [SKIP] Title '{position}' does not match configured keyword list.")
-                                processed_signatures.add(sig)
-                                if job_id:
-                                    processed_job_ids.add(job_id)
-                                continue
-
-                            excluded_kws = [kw.lower().strip() for kw in user_conf.get("linkedin_connect", {}).get("excluded_keywords", []) if kw.strip()]
-                            excluded_hit = next((kw for kw in excluded_kws if kw in position.lower()), None)
-                            if excluded_hit:
-                                logger.info(f"  [SKIP] Title '{position}' excluded by exclusion keyword '{excluded_hit}'.")
-                                processed_signatures.add(sig)
-                                if job_id:
-                                    processed_job_ids.add(job_id)
-                                continue
-
-                            # Find the inner title link to click
+                            # 2. Click the job title link to open the job details panel
                             job_link = None
                             for selector in ["a.job-card-list__title", "a.job-card-container__link", "a[href*='/jobs/view/']"]:
                                 try:
@@ -633,10 +561,10 @@ def run_job_finder(target_url=None):
                             if not job_link:
                                 job_link = card
 
-                            logger.info("  Clicking the job title link to load details pane...")
+                            logger.info(f"\n  --- Opening Job {index + 1}/{len(valid_cards)} (Page {page_no}) ---")
                             driver.execute_script("arguments[0].click();", job_link)
-                            
-                            # Wait until right details panel loads
+
+                            # 3. Wait until right details panel loads
                             try:
                                 WebDriverWait(driver, 15).until(
                                     EC.presence_of_element_located((
@@ -653,7 +581,7 @@ def run_job_finder(target_url=None):
                             except Exception:
                                 logger.info("  Timed out waiting for right-side job details panel to load.")
 
-                            time.sleep(1)
+                            time.sleep(2)
 
                             # Find right details pane
                             right_pane = None
@@ -672,9 +600,72 @@ def run_job_finder(target_url=None):
                                 except Exception:
                                     continue
 
-                            target_container = right_pane if right_pane else driver
+                            # Extract metadata (Title, Company Name) trying details pane first
+                            if right_pane:
+                                try:
+                                    title_el = right_pane.find_element(
+                                        By.CSS_SELECTOR, 
+                                        "h1, h2, .job-details-jobs-unified-top-card__job-title, .jobs-unified-top-card__job-title"
+                                    )
+                                    position = title_el.text.strip()
+                                except Exception:
+                                    pass
 
-                            # Wait for Apply buttons
+                                try:
+                                    company_el = right_pane.find_element(
+                                        By.CSS_SELECTOR, 
+                                        "a[href*='/company/'], .job-details-jobs-unified-top-card__company-name, .jobs-unified-top-card__company-name"
+                                    )
+                                    company = company_el.text.strip()
+                                except Exception:
+                                    pass
+
+                            # Fallback to card if details pane extraction was empty/failed
+                            if not position:
+                                try:
+                                    title_el = card.find_element(By.CSS_SELECTOR, 'p span[aria-hidden="true"]')
+                                    position = title_el.text.strip()
+                                except Exception:
+                                    try:
+                                        title_el = card.find_element(By.CSS_SELECTOR, 'a[href*="/jobs/view/"]')
+                                        position = title_el.text.strip()
+                                    except Exception:
+                                        pass
+                            position = position.replace("(Verified job)", "").strip()
+
+                            if not company:
+                                try:
+                                    company_el = card.find_element(By.XPATH, './/div[@data-display-contents="true"]/following-sibling::div[1]//p')
+                                    company = company_el.text.strip()
+                                except Exception:
+                                    try:
+                                        company_el = card.find_element(
+                                            By.CSS_SELECTOR,
+                                            'a[href*="/company/"], .job-card-container__company-name, .job-card-list__company-name, .base-search-card__subtitle, .artdeco-entity-lockup__subtitle'
+                                        )
+                                        company = company_el.text.strip()
+                                    except Exception:
+                                        pass
+                            if company:
+                                company = company.split('\n')[0].strip()
+                            if not company:
+                                company = "Unknown Company"
+
+                            if not job_id:
+                                try:
+                                    job_id = extract_job_id(driver.current_url)
+                                except Exception:
+                                    pass
+
+                            sig = f"{company.lower().strip()}|{position.lower().strip()}"
+
+                            logger.info(f"  Title  : {position}")
+                            logger.info(f"  Company: {company}")
+                            if job_id:
+                                logger.info(f"  Job ID : {job_id}")
+
+                            # 4. Check whether the job contains a valid Apply button
+                            target_container = right_pane if right_pane else driver
                             try:
                                 WebDriverWait(driver, 15).until(
                                     EC.presence_of_element_located((
@@ -728,28 +719,27 @@ def run_job_finder(target_url=None):
                                 except Exception:
                                     continue
 
+                            # Register processed identifiers
+                            processed_signatures.add(sig)
+                            if job_id:
+                                processed_job_ids.add(job_id)
+
                             if is_easy_apply:
                                 logger.info("  [SKIP] Easy Apply job. Skipping completely.")
-                                processed_signatures.add(sig)
-                                if job_id:
-                                    processed_job_ids.add(job_id)
                                 continue
 
                             if not external_apply_btn:
                                 logger.info("  [SKIP] No regular Apply button found.")
-                                processed_signatures.add(sig)
-                                if job_id:
-                                    processed_job_ids.add(job_id)
                                 continue
 
+                            # Click external Apply button first to get external URL and verify link works
                             original_tab = driver.current_window_handle
                             pre_click_handles = driver.window_handles
 
-                            # Click external Apply button
-                            logger.info("  Clicking the external Apply button...")
+                            logger.info("  Clicking the external Apply button for confirmation and URL retrieval...")
                             driver.execute_script("arguments[0].click();", external_apply_btn)
 
-                            # Wait for tab
+                            # Wait for new tab
                             new_handle = None
                             for _ in range(20):
                                 time.sleep(0.5)
@@ -763,9 +753,6 @@ def run_job_finder(target_url=None):
 
                             if not new_handle:
                                 logger.warning("  [WARNING] Clicked Apply but no new tab opened.")
-                                processed_signatures.add(sig)
-                                if job_id:
-                                    processed_job_ids.add(job_id)
                                 continue
 
                             driver.switch_to.window(new_handle)
@@ -774,36 +761,46 @@ def run_job_finder(target_url=None):
                             external_url = driver.current_url
                             logger.info(f"  Settled External URL: {external_url}")
 
-                            # Check duplicate in Excel
-                            if is_already_saved(external_url):
+                            # Perform filters and validations after clicking and confirming the Apply link
+                            is_valid = True
+
+                            if is_job_already_processed_excel(company, position):
+                                logger.info("  [SKIP] Job already processed (Excel signature check).")
+                                is_valid = False
+
+                            if is_valid and not is_title_matching_keywords(position, keywords):
+                                logger.info(f"  [SKIP] Title '{position}' does not match configured keyword list.")
+                                is_valid = False
+
+                            if is_valid:
+                                excluded_kws = [kw.lower().strip() for kw in user_conf.get("linkedin_connect", {}).get("excluded_keywords", []) if kw.strip()]
+                                excluded_hit = next((kw for kw in excluded_kws if kw in position.lower()), None)
+                                if excluded_hit:
+                                    logger.info(f"  [SKIP] Title '{position}' excluded by exclusion keyword '{excluded_hit}'.")
+                                    is_valid = False
+
+                            if is_valid and is_already_saved(external_url):
                                 logger.info("  [SKIP] Job already saved in Excel tracker.")
-                                driver.close()
-                                driver.switch_to.window(original_tab)
-                                time.sleep(2)
-                                processed_signatures.add(sig)
-                                if job_id:
-                                    processed_job_ids.add(job_id)
-                                continue
+                                is_valid = False
 
-                            try:
-                                if save_job({
-                                    "url": external_url,
-                                    "company": company,
-                                    "position": position,
-                                    "search_keyword": keyword
-                                }):
-                                    total_saved += 1
-                                    logger.info("  [SUCCESS] Job stored in Excel tracker.")
-                            except Exception as e:
-                                logger.error(f"  [ERROR] Excel save error: {e}")
+                            # Save to Excel if all validation checks pass
+                            if is_valid:
+                                try:
+                                    if save_job({
+                                        "url": external_url,
+                                        "company": company,
+                                        "position": position,
+                                        "search_keyword": keyword
+                                    }):
+                                        total_saved += 1
+                                        logger.info("  [SUCCESS] Job stored in Excel tracker.")
+                                except Exception as e:
+                                    logger.error(f"  [ERROR] Excel save error: {e}")
 
+                            # Close new tab and return to main LinkedIn search tab
                             driver.close()
                             driver.switch_to.window(original_tab)
                             time.sleep(2)
-
-                            processed_signatures.add(sig)
-                            if job_id:
-                                processed_job_ids.add(job_id)
 
                         except Exception as e:
                             logger.error(f"  Error processing job {index + 1}: {str(e)}")
