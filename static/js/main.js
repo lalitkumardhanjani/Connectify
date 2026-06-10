@@ -869,6 +869,9 @@ function applyScraperFiltersAndRender() {
     const statusFilter = document.getElementById('filter-col-status') ? document.getElementById('filter-col-status').value.toLowerCase().trim() : '';
     const keywordFilter = document.getElementById('filter-col-keyword') ? document.getElementById('filter-col-keyword').value.toLowerCase().trim() : '';
     const timestampFilter = document.getElementById('filter-col-timestamp') ? document.getElementById('filter-col-timestamp').value.toLowerCase().trim() : '';
+    const companyFilter = document.getElementById('filter-col-company') ? document.getElementById('filter-col-company').value.toLowerCase().trim() : '';
+    const experienceFilter = document.getElementById('filter-col-experience') ? document.getElementById('filter-col-experience').value.toLowerCase().trim() : '';
+    const locationFilter = document.getElementById('filter-col-location') ? document.getElementById('filter-col-location').value.toLowerCase().trim() : '';
     
     const allData = dbData['scraper'] || [];
     
@@ -878,13 +881,16 @@ function applyScraperFiltersAndRender() {
         const matchesEmail = !emailFilter || String(row.Email || '').toLowerCase().includes(emailFilter);
         const matchesStatus = !statusFilter || String(row.Status || '').toLowerCase().trim() === statusFilter;
         const matchesKeyword = !keywordFilter || String(row.Keyword || '').toLowerCase().trim() === keywordFilter;
+        const matchesCompany = !companyFilter || String(row.CompanyName || '').toLowerCase().includes(companyFilter);
+        const matchesExperience = !experienceFilter || String(row.Experience || '').toLowerCase().includes(experienceFilter);
+        const matchesLocation = !locationFilter || String(row.Location || '').toLowerCase().includes(locationFilter);
         
         let matchesTimestamp = true;
         if (timestampFilter) {
             matchesTimestamp = String(row.Timestamp || '').toLowerCase().includes(timestampFilter);
         }
         
-        return matchesId && matchesEmail && matchesStatus && matchesKeyword && matchesTimestamp;
+        return matchesId && matchesEmail && matchesStatus && matchesKeyword && matchesTimestamp && matchesCompany && matchesExperience && matchesLocation;
     });
     
     // 2. Sort by ID ascending (incremental by default)
@@ -911,7 +917,7 @@ function applyScraperFiltersAndRender() {
         tbody.innerHTML = '';
         
         if (pageData.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" class="table-empty">No matching records found.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="10" class="table-empty">No matching records found.</td></tr>`;
             renderScraperPaginationControls(filtered.length);
             return;
         }
@@ -926,6 +932,15 @@ function applyScraperFiltersAndRender() {
             const escapedEmail = String(row.Email || '').replace(/'/g, "\\'");
             const escapedStatus = String(row.Status || '').replace(/'/g, "\\'");
             const escapedKeyword = String(row.Keyword || '').replace(/'/g, "\\'");
+            const escapedPostUrl = String(row.PostURL || '').replace(/'/g, "\\'");
+            const escapedCompany = String(row.CompanyName || '').replace(/'/g, "\\'");
+            const escapedExperience = String(row.Experience || '').replace(/'/g, "\\'");
+            const escapedLocation = String(row.Location || '').replace(/'/g, "\\'");
+            
+            // Render Post URL as a clickable link if present
+            const postUrlHtml = row.PostURL
+                ? `<a href="${row.PostURL}" target="_blank" rel="noopener noreferrer" title="${row.PostURL}" style="color: var(--accent-primary); font-size: 12px;"><i class="fa-solid fa-arrow-up-right-from-square"></i> View Post</a>`
+                : `<span style="color: var(--text-muted); font-size: 12px;">—</span>`;
             
             tr.innerHTML = `
                 <td>${row.ID || ""}</td>
@@ -933,9 +948,13 @@ function applyScraperFiltersAndRender() {
                 <td>${statusHtml}</td>
                 <td>${row.Keyword || ""}</td>
                 <td>${row.Timestamp ? formatDisplayDate(row.Timestamp) : ""}</td>
+                <td>${postUrlHtml}</td>
+                <td>${row.CompanyName || "<span style='color:var(--text-muted)'>—</span>"}</td>
+                <td>${row.Experience || "<span style='color:var(--text-muted)'>—</span>"}</td>
+                <td>${row.Location || "<span style='color:var(--text-muted)'>—</span>"}</td>
                 <td style="text-align: center;">
                     <div style="display: flex; gap: 8px; justify-content: center;">
-                        <button class="table-action-btn btn-edit" onclick="showEditScraperModal(${row.ID}, '${escapedEmail}', '${escapedStatus}', '${escapedKeyword}')" title="Edit record">
+                        <button class="table-action-btn btn-edit" onclick="showEditScraperModal(${row.ID}, '${escapedEmail}', '${escapedStatus}', '${escapedKeyword}', '${escapedPostUrl}', '${escapedCompany}', '${escapedExperience}', '${escapedLocation}')" title="Edit record">
                             <i class="fa-solid fa-pen-to-square"></i>
                         </button>
                         <button class="table-action-btn btn-delete" onclick="deleteRow('scraper', ${row.ID})" title="Delete record">
@@ -2491,11 +2510,15 @@ function populateKeywordDropdown() {
     select.innerHTML = html;
 }
 
-function showEditScraperModal(id, email, status, keyword) {
+function showEditScraperModal(id, email, status, keyword, postUrl, companyName, experience, location) {
     const idField = document.getElementById('edit-scraper-id');
     const emailField = document.getElementById('edit-scraper-email');
     const statusField = document.getElementById('edit-scraper-status');
     const keywordField = document.getElementById('edit-scraper-keyword');
+    const postUrlField = document.getElementById('edit-scraper-post-url');
+    const companyField = document.getElementById('edit-scraper-company');
+    const experienceField = document.getElementById('edit-scraper-experience');
+    const locationField = document.getElementById('edit-scraper-location');
     
     if (idField) idField.value = id;
     if (emailField) emailField.value = email;
@@ -2510,6 +2533,10 @@ function showEditScraperModal(id, email, status, keyword) {
         statusField.value = formattedStatus;
     }
     if (keywordField) keywordField.value = keyword === 'None' || keyword === 'null' || !keyword ? '' : keyword;
+    if (postUrlField) postUrlField.value = postUrl && postUrl !== 'None' && postUrl !== 'null' ? postUrl : '';
+    if (companyField) companyField.value = companyName && companyName !== 'None' && companyName !== 'null' ? companyName : '';
+    if (experienceField) experienceField.value = experience && experience !== 'None' && experience !== 'null' ? experience : '';
+    if (locationField) locationField.value = location && location !== 'None' && location !== 'null' ? location : '';
     
     const modal = document.getElementById('edit-scraper-modal');
     if (modal) modal.classList.remove('hidden');
@@ -2527,6 +2554,10 @@ async function saveScraperEditForm(event) {
     const email = document.getElementById('edit-scraper-email').value;
     const status = document.getElementById('edit-scraper-status').value;
     const keyword = document.getElementById('edit-scraper-keyword').value;
+    const post_url = document.getElementById('edit-scraper-post-url')?.value || '';
+    const company_name = document.getElementById('edit-scraper-company')?.value || '';
+    const experience = document.getElementById('edit-scraper-experience')?.value || '';
+    const location = document.getElementById('edit-scraper-location')?.value || '';
     
     try {
         const response = await fetch('/api/data/edit_row', {
@@ -2537,7 +2568,11 @@ async function saveScraperEditForm(event) {
                 id: id,
                 email: email,
                 status: status,
-                keyword: keyword
+                keyword: keyword,
+                post_url: post_url,
+                company_name: company_name,
+                experience: experience,
+                location: location
             })
         });
         const data = await response.json();

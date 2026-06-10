@@ -775,6 +775,10 @@
                                     <th>Status</th>
                                     <th>Keyword</th>
                                     <th>Timestamp</th>
+                                    <th>Post URL</th>
+                                    <th>Company Name</th>
+                                    <th>Experience</th>
+                                    <th>Location</th>
                                     <th style="width: 120px; text-align: center;">Actions</th>
                                 </tr>
                                 <tr class="table-filter-row">
@@ -795,11 +799,15 @@
                                     </th>
                                     <th><input type="text" id="filter-col-timestamp" placeholder="Date..." class="col-filter-input"></th>
                                     <th></th>
+                                    <th><input type="text" id="filter-col-company" placeholder="Company..." class="col-filter-input"></th>
+                                    <th><input type="text" id="filter-col-experience" placeholder="Experience..." class="col-filter-input"></th>
+                                    <th><input type="text" id="filter-col-location" placeholder="Location..." class="col-filter-input"></th>
+                                    <th></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td colspan="6" class="table-empty">Loading database records...</td>
+                                    <td colspan="10" class="table-empty">Loading database records...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -1615,9 +1623,25 @@
                         <option value="Skipped">SKIPPED</option>
                     </select>
                 </div>
-                <div class="form-group" style="margin-bottom: 20px;">
+                <div class="form-group" style="margin-bottom: 16px;">
                     <label for="edit-scraper-keyword">Search Keyword</label>
                     <input type="text" id="edit-scraper-keyword" placeholder="e.g. SQL DBA">
+                </div>
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label for="edit-scraper-post-url">Post URL</label>
+                    <input type="url" id="edit-scraper-post-url" placeholder="https://www.linkedin.com/feed/update/...">
+                </div>
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label for="edit-scraper-company">Company Name</label>
+                    <input type="text" id="edit-scraper-company" placeholder="e.g. Acme Inc">
+                </div>
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label for="edit-scraper-experience">Experience</label>
+                    <input type="text" id="edit-scraper-experience" placeholder="e.g. 5+ years, Senior">
+                </div>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label for="edit-scraper-location">Location</label>
+                    <input type="text" id="edit-scraper-location" placeholder="e.g. Remote, New York, Bangalore">
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" id="btn-cancel-edit-scraper" onclick="hideEditScraperModal()">Cancel</button>

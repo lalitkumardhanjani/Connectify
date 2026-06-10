@@ -10,6 +10,7 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException,
 from config.user_profiles import get_selected_user_config, get_global_settings
 from config.constants import DBA_KEYWORDS_DEFAULT
 from core.utils.string_utils import extract_emails
+from core.utils.post_extractor import extract_all as extract_post_fields
 from core.storage.database import append_email, init_scraper_store
 from core.logging.config import logger
 
@@ -219,9 +220,36 @@ class LinkedInScraper:
         return True
 
     def extract_post_data(self, post_element):
-        """Extract raw text content from a post element."""
+        """Extract raw text content and post URL from a post element."""
         try:
             self._expand_post(post_element)
+            
+            # --- Extract the post URL from data-urn attribute or anchor tag ---
+            post_url = ""
+            try:
+                urn = post_element.get_attribute("data-urn") or ""
+                if urn:
+                    post_url = f"https://www.linkedin.com/feed/update/{urn}"
+                else:
+                    # Fallback: look for a link element inside the post pointing to /feed/update/
+                    link_selectors = [
+                        ".//a[contains(@href, '/feed/update/')]",
+                        ".//a[contains(@href, 'activity')]",
+                        ".//a[@data-tracking-control-name='public_post_feed-share-update']",
+                    ]
+                    for ls in link_selectors:
+                        try:
+                            link_el = post_element.find_element(By.XPATH, ls)
+                            href = link_el.get_attribute("href") or ""
+                            if href and "linkedin.com" in href:
+                                # Strip query params for a clean URL
+                                post_url = href.split("?")[0]
+                                break
+                        except (NoSuchElementException, StaleElementReferenceException):
+                            continue
+            except Exception as url_err:
+                logger.debug(f"Could not extract post URL: {url_err}")
+
             content_selectors = [
                 ".//*[contains(@class, 'feed-shared-text')]",
                 ".//*[contains(@class, 'update-components-text')]",
@@ -252,7 +280,7 @@ class LinkedInScraper:
                 except Exception:
                     continue
             post_content = re.sub(r"\s+", " ", post_content).replace("… more", "").strip()
-            return {"content": post_content}
+            return {"content": post_content, "post_url": post_url}
         except StaleElementReferenceException:
             logger.warning("Post element went stale while processing.")
             return None
@@ -333,16 +361,34 @@ class LinkedInScraper:
                     data = self.extract_post_data(post)
                     if data and data.get('content'):
                         content = data['content']
+                        post_url = data.get('post_url', '')
                         if any(kw.lower() in content.lower() for kw in title_keywords):
                             excluded_hit = next((kw for kw in excluded_keywords if kw in content.lower()), None)
                             if excluded_hit:
                                 logger.debug(f"Post excluded by exclusion keyword '{excluded_hit}' — skipped.")
                             else:
+                                # Extract structured fields from post text
+                                extracted = extract_post_fields(content)
+                                company_name = extracted.get('company_name', '')
+                                experience = extracted.get('experience', '')
+                                location = extracted.get('location', '')
+                                if company_name:
+                                    logger.debug(f"Extracted company: {company_name}")
+                                if experience:
+                                    logger.debug(f"Extracted experience: {experience}")
+                                if location:
+                                    logger.debug(f"Extracted location: {location}")
                                 emails = extract_emails(content)
                                 for email in emails:
-                                    appended = append_email(email, keyword)
+                                    appended = append_email(
+                                        email, keyword,
+                                        post_url=post_url,
+                                        company_name=company_name,
+                                        experience=experience,
+                                        location=location
+                                    )
                                     if appended:
-                                        logger.info(f"Collected new email: {email}")
+                                        logger.info(f"Collected new email: {email} | Company: {company_name} | Exp: {experience} | Loc: {location}")
                         else:
                             logger.debug("Post did not contain any target keyword — skipped.")
                     processed_ids.add(post_id)

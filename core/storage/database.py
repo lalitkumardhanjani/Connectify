@@ -251,7 +251,7 @@ def trim_scraper_excel_to_schema(path=None):
     wb.save(path)
     _trigger_mac_excel_reload(path)
 
-def append_email(email, keyword='', path=None):
+def append_email(email, keyword='', post_url='', company_name='', experience='', location='', path=None):
     """Appends extracted email to the job tracker if it's unique."""
     if path is None:
         path = get_job_tracker_file()
@@ -270,7 +270,8 @@ def append_email(email, keyword='', path=None):
     max_id = max([ws.cell(row=row, column=id_col).value or 0 for row in range(2, ws.max_row + 1)], default=0)
     new_id = int(max_id) + 1
     timestamp = datetime.utcnow().isoformat()
-    new_row = [new_id, email, 'New', timestamp, keyword]
+    # SCRAPER_HEADERS = ['ID', 'Email', 'Status', 'Timestamp', 'Keyword', 'PostURL', 'CompanyName', 'Experience', 'Location']
+    new_row = [new_id, email, 'New', timestamp, keyword, post_url or '', company_name or '', experience or '', location or '']
     ws.append(new_row)
     
     ws._tables.clear()
@@ -333,7 +334,7 @@ def count_unique_emails(path=None):
             unique_emails.add(str(val).strip().lower())
     return len(unique_emails)
 
-def edit_row(row_id, email, status, keyword, path=None):
+def edit_row(row_id, email, status, keyword, post_url=None, company_name=None, experience=None, location=None, path=None):
     """Modifies details of an existing scraper log by row ID."""
     if path is None:
         path = get_job_tracker_file()
@@ -345,6 +346,10 @@ def edit_row(row_id, email, status, keyword, path=None):
     email_col = col_indices.get('Email', 2)
     status_col = col_indices.get('Status', 3)
     keyword_col = col_indices.get('Keyword', 5)
+    post_url_col = col_indices.get('PostURL')
+    company_col = col_indices.get('CompanyName')
+    experience_col = col_indices.get('Experience')
+    location_col = col_indices.get('Location')
     
     updated = False
     for row in range(2, ws.max_row + 1):
@@ -355,6 +360,14 @@ def edit_row(row_id, email, status, keyword, path=None):
                 ws.cell(row=row, column=status_col, value=status)
             if keyword_col:
                 ws.cell(row=row, column=keyword_col, value=keyword)
+            if post_url_col and post_url is not None:
+                ws.cell(row=row, column=post_url_col, value=post_url)
+            if company_col and company_name is not None:
+                ws.cell(row=row, column=company_col, value=company_name)
+            if experience_col and experience is not None:
+                ws.cell(row=row, column=experience_col, value=experience)
+            if location_col and location is not None:
+                ws.cell(row=row, column=location_col, value=location)
             updated = True
             break
             

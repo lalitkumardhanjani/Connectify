@@ -991,9 +991,16 @@ def edit_table_row():
         email = body.get("email")
         status = body.get("status")
         keyword = body.get("keyword")
+        post_url = body.get("post_url")
+        company_name = body.get("company_name")
+        experience = body.get("experience")
+        location = body.get("location")
         if not email or not status:
             return jsonify({"status": "error", "message": "Missing required fields"}), 400
-        success = edit_row(row_id, email, status, keyword, get_job_tracker_file())
+        success = edit_row(row_id, email, status, keyword,
+                           post_url=post_url, company_name=company_name,
+                           experience=experience, location=location,
+                           path=get_job_tracker_file())
         if success:
             return jsonify({"status": "success"})
         return jsonify({"status": "error", "message": "ID not found"}), 404
