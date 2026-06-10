@@ -74,6 +74,7 @@ def get_driver():
 
     prefs = {
         "profile.default_content_setting_values.popups": 1,
+        "profile.default_content_setting_values.clipboard": 1,
     }
     options.add_experimental_option("prefs", prefs)
 

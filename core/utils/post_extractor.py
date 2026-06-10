@@ -142,6 +142,123 @@ def extract_company_name(text: str) -> str:
     return ""
 
 
+_TECH_BLACKLIST_WORDS = {
+    # Tech / Skills
+    "java", "python", "javascript", "typescript", "angular", "react", "vue", "node", "nodejs",
+    "springboot", "hibernate", "django", "flask", "express", "microservices", "microservice",
+    "graphql", "kubernetes", "docker", "devops", "cicd", "ci/cd", "synapse", "databricks", "snowflake",
+    "tableau", "powerbi", "dotnet", "golang", "rust", "rails", "flutter", "aws", "gcp", "azure",
+    # Generic tech descriptors
+    "platform", "platforms", "framework", "frameworks", "library", "libraries", "database", "databases",
+    # Locations
+    "bangalore", "bengaluru", "mumbai", "pune", "chennai", "hyderabad", "delhi", "noida", "gurgaon", "gurugram",
+    # Jargon
+    "hiring", "immediate", "joiner", "joiners", "experience", "years", "contract", "c2h", "w2", "corp",
+    # Additional tech/descriptor words that appeared as companies
+    "spring", "boot", "microservices", "cloud", "finops", "analytics", "sql"
+}
+
+
+def get_company_from_email_domain(email: str, text_extracted_company: str = "") -> str:
+    """
+    Refines or extracts company name using the domain prefix of a corporate email address.
+    """
+    if not email or "@" not in email:
+        # Strip blacklist words even if no email is present
+        if text_extracted_company:
+            words = [w.lower().strip(",.()&-") for w in text_extracted_company.split()]
+            if any(w in _TECH_BLACKLIST_WORDS for w in words if w):
+                return ""
+        return text_extracted_company or ""
+    
+    parts = email.split("@")
+    if len(parts) < 2:
+        if text_extracted_company:
+            words = [w.lower().strip(",.()&-") for w in text_extracted_company.split()]
+            if any(w in _TECH_BLACKLIST_WORDS for w in words if w):
+                return ""
+        return text_extracted_company or ""
+        
+    domain = parts[1].lower().strip()
+    
+    # Common public email providers to ignore
+    public_providers = {
+        "gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "live.com", 
+        "icloud.com", "mail.com", "protonmail.com", "proton.me", "zoho.com", 
+        "yandex.com", "aol.com", "gmx.com", "rediffmail.com", "fastmail.com",
+        "hushmail.com", "mailinator.com", "tempmail.com", "yahoo.co.in",
+        "gmail.co.in", "hotmail.co.in", "outlook.co.in", "zoho.in", "rediff.com"
+    }
+    
+    if domain in public_providers:
+        # For public emails, clean text_extracted_company from tech/jargon false positives
+        if text_extracted_company:
+            words = [w.lower().strip(",.()&-") for w in text_extracted_company.split()]
+            if any(w in _TECH_BLACKLIST_WORDS for w in words if w):
+                return ""
+        return text_extracted_company or ""
+    
+    # Get the main domain prefix (e.g. "nishtechnologies" from "nishtechnologies.com")
+    domain_prefix = domain.split(".")[0]
+    if not domain_prefix:
+        if text_extracted_company:
+            words = [w.lower().strip(",.()&-") for w in text_extracted_company.split()]
+            if any(w in _TECH_BLACKLIST_WORDS for w in words if w):
+                return ""
+        return text_extracted_company or ""
+        
+    # Suffixes to split and capitalize nicely (e.g. "nishtechnologies" -> "Nish Technologies")
+    common_suffixes = [
+        "technologies", "tech", "solutions", "systems", "consulting", "consultancy",
+        "global", "services", "labs", "software", "group", "digital", "analytics",
+        "partners", "capital", "media", "marketing", "staffing", "recruitment",
+        "outsourcing", "ventures", "holdings", "enterprises", "international", "agency", "hr"
+    ]
+    
+    formatted_name = ""
+    for suffix in common_suffixes:
+        if domain_prefix.endswith(suffix) and domain_prefix != suffix:
+            base = domain_prefix[:-len(suffix)]
+            if base:
+                suffix_formatted = "HR" if suffix == "hr" else suffix.capitalize()
+                formatted_name = f"{base.capitalize()} {suffix_formatted}"
+                break
+    
+    if not formatted_name:
+        formatted_name = domain_prefix.capitalize()
+        
+    # Clean and match text-extracted name
+    if text_extracted_company:
+        # Check if the extracted name contains tech/skill blacklist words
+        text_words = [w.lower().strip(",.()&-") for w in text_extracted_company.split()]
+        has_blacklist_word = any(w in _TECH_BLACKLIST_WORDS for w in text_words if w)
+        
+        if has_blacklist_word:
+            # Reject text-extracted company if it contains blacklist words, fallback to domain
+            return formatted_name
+            
+        # Check overlap
+        def clean_name(name):
+            return re.sub(r'[^a-z0-9]', '', name.lower())
+            
+        clean_text = clean_name(text_extracted_company)
+        clean_domain = clean_name(domain_prefix)
+        
+        if clean_text and clean_domain:
+            if clean_text in clean_domain or clean_domain in clean_text:
+                # Overlapping/related names, use the more descriptive formatted domain name if it is longer
+                if len(formatted_name) > len(text_extracted_company):
+                    return formatted_name
+                return text_extracted_company
+                
+            # If they don't overlap, but text-extracted name is valid/clean, return it (client company)
+            return text_extracted_company
+            
+    return formatted_name
+
+
+
+
 # ---------------------------------------------------------------------------
 # EXPERIENCE
 # ---------------------------------------------------------------------------

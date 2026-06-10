@@ -1741,9 +1741,9 @@ async function loadSettings() {
         setVal('scraper-email-template', scraper.email_template);
         setVal('scraper-email-subject', scraper.email_subject || '');
         
-        scraperSearchKeywords = scraper.search_keywords || scraper.keywords || [];
+        scraperSearchKeywords = (scraper.search_keywords && scraper.search_keywords.length > 0) ? scraper.search_keywords : (scraper.keywords || []);
         renderKeywords('scraper-search');
-        scraperTitleKeywords = scraper.title_keywords || scraper.keywords || [];
+        scraperTitleKeywords = (scraper.title_keywords && scraper.title_keywords.length > 0) ? scraper.title_keywords : (scraper.keywords || []);
         renderKeywords('scraper-title');
         scraperExcludedKeywords = scraper.excluded_keywords || [];
         renderKeywords('scraper-excluded');
@@ -1755,9 +1755,9 @@ async function loadSettings() {
         setVal('connect-message-template', connect.message_template);
         setVal('referral-message-template', referralOutreach.message_template || '');
         
-        connectSearchKeywords = connect.search_keywords || connect.keywords || [];
+        connectSearchKeywords = (connect.search_keywords && connect.search_keywords.length > 0) ? connect.search_keywords : (connect.keywords || []);
         renderKeywords('connect-search');
-        connectTitleKeywords = connect.title_keywords || connect.keywords || [];
+        connectTitleKeywords = (connect.title_keywords && connect.title_keywords.length > 0) ? connect.title_keywords : (connect.keywords || []);
         renderKeywords('connect-title');
         connectExcludedKeywords = connect.excluded_keywords || [];
         renderKeywords('connect-excluded');

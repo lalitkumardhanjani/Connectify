@@ -1032,7 +1032,7 @@ def referrals_data():
 def update_referral_status():
     body = request.get_json() or {}
     referral_id = body.get("id")
-    status = body.get("status")
+    status = body.get("status") 
     
     if referral_id is None or not status:
         return jsonify({"status": "error", "message": "Missing required fields"}), 400

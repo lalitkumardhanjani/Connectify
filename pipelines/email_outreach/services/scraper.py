@@ -10,9 +10,50 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException,
 from config.user_profiles import get_selected_user_config, get_global_settings
 from config.constants import DBA_KEYWORDS_DEFAULT
 from core.utils.string_utils import extract_emails
-from core.utils.post_extractor import extract_all as extract_post_fields
+from core.utils.post_extractor import extract_all as extract_post_fields, get_company_from_email_domain
 from core.storage.database import append_email, init_scraper_store
 from core.logging.config import logger
+
+def extract_canonical_linkedin_url(text: str) -> str:
+    """Extracts a valid LinkedIn post/feed update URL, preserving original formatting and URN types."""
+    if not text:
+        return ""
+    
+    text = text.strip()
+    
+    # 1. If it's already a full/relative URL containing /posts/ or /feed/update/
+    url_match = re.search(r'(https?://(?:www\.)?linkedin\.com)?(/posts/[^\s?#]+|/feed/update/[^\s?#]+)', text)
+    if url_match:
+        domain = url_match.group(1) or "https://www.linkedin.com"
+        if not domain.startswith("http"):
+            domain = "https://" + domain.lstrip("/")
+        path = url_match.group(2)
+        return f"{domain}{path}"
+        
+    # 2. Look for standard URN format in any text/HTML context: urn:li:<type>:<id>
+    urn_match = re.search(r'urn:li:(activity|share|ugcPost|update|fs_updateV2|fs_feedUpdate):(?:[^\d]*?)(\d{18,20})', text)
+    if urn_match:
+        urn_type = urn_match.group(1)
+        urn_id = urn_match.group(2)
+        if urn_type in ('activity', 'share', 'ugcPost'):
+            return f"https://www.linkedin.com/feed/update/urn:li:{urn_type}:{urn_id}"
+        else:
+            return f"https://www.linkedin.com/feed/update/urn:li:activity:{urn_id}"
+            
+    # 3. Look for activity ID or share ID prefix context in URLs (e.g. activity-7205477462137683968)
+    if "linkedin.com" in text or text.startswith("/"):
+        prefix_match = re.search(r'(activity|share|ugcPost)-(\d{18,20})', text)
+        if prefix_match:
+            urn_type = prefix_match.group(1)
+            urn_id = prefix_match.group(2)
+            return f"https://www.linkedin.com/feed/update/urn:li:{urn_type}:{urn_id}"
+            
+        # Fallback to looking for just any 18-20 digit ID
+        match_id = re.search(r'(\d{18,20})', text)
+        if match_id:
+            return f"https://www.linkedin.com/feed/update/urn:li:activity:{match_id.group(1)}"
+            
+    return ""
 
 class LinkedInScraper:
     def __init__(self, driver):
@@ -224,31 +265,143 @@ class LinkedInScraper:
         try:
             self._expand_post(post_element)
             
-            # --- Extract the post URL from data-urn attribute or anchor tag ---
+            # --- Extract the post URL ---
             post_url = ""
+            
+            # Method 1: Check timestamp / link anchor element (highly accurate and fast)
             try:
-                urn = post_element.get_attribute("data-urn") or ""
-                if urn:
-                    post_url = f"https://www.linkedin.com/feed/update/{urn}"
-                else:
-                    # Fallback: look for a link element inside the post pointing to /feed/update/
-                    link_selectors = [
-                        ".//a[contains(@href, '/feed/update/')]",
-                        ".//a[contains(@href, 'activity')]",
-                        ".//a[@data-tracking-control-name='public_post_feed-share-update']",
-                    ]
-                    for ls in link_selectors:
-                        try:
-                            link_el = post_element.find_element(By.XPATH, ls)
-                            href = link_el.get_attribute("href") or ""
-                            if href and "linkedin.com" in href:
-                                # Strip query params for a clean URL
-                                post_url = href.split("?")[0]
-                                break
-                        except (NoSuchElementException, StaleElementReferenceException):
+                anchors = post_element.find_elements(By.TAG_NAME, "a")
+                for a in anchors:
+                    try:
+                        href = a.get_attribute("href") or ""
+                        # Ignore company posts list URLs, they are not specific post links
+                        if "/company/" in href and href.endswith("/posts/"):
                             continue
-            except Exception as url_err:
-                logger.debug(f"Could not extract post URL: {url_err}")
+                        # Specifically target links that point to posts/updates
+                        if "/feed/update/" in href or "/posts/" in href:
+                            extracted = extract_canonical_linkedin_url(href)
+                            if extracted:
+                                post_url = extracted
+                                logger.info(f"Found post URL from anchor href: {post_url}")
+                                break
+                    except Exception:
+                        continue
+            except Exception as a_err:
+                logger.debug(f"Error checking anchor elements: {a_err}")
+
+            # Method 2: Three-dot menu + copy link fallback (interactive UI fallback)
+            if not post_url:
+                try:
+                    logger.info("Attempting to get post URL via three-dot menu...")
+                    three_dot_btn = None
+                    button_selectors = [
+                        ".//button[contains(@class, 'control-menu__trigger')]",
+                        ".//button[contains(@class, 'control-menu')]",
+                        ".//button[@aria-label='Open control menu']",
+                        ".//button[contains(@aria-label, 'control menu')]",
+                        ".//button[contains(@aria-label, 'More options')]",
+                        ".//button[contains(@class, 'three-dots')]",
+                        ".//button[contains(@class, 'option-trigger')]"
+                    ]
+                    for selector in button_selectors:
+                        try:
+                            btn = post_element.find_element(By.XPATH, selector)
+                            if btn.is_displayed():
+                                three_dot_btn = btn
+                                break
+                        except Exception:
+                            continue
+                    
+                    if three_dot_btn:
+                        self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", three_dot_btn)
+                        time.sleep(0.5)
+                        self.driver.execute_script("arguments[0].click();", three_dot_btn)
+                        time.sleep(1.5)
+                        
+                        copy_btn = None
+                        copy_selectors = [
+                            "//span[contains(text(), 'Copy link to post')]",
+                            "//button[contains(normalize-space(.), 'Copy link to post')]",
+                            "//div[contains(text(), 'Copy link to post')]",
+                            "//*[contains(text(), 'Copy link to post')]"
+                        ]
+                        for cs in copy_selectors:
+                            try:
+                                btn = self.driver.find_element(By.XPATH, cs)
+                                if btn.is_displayed():
+                                    copy_btn = btn
+                                    break
+                            except Exception:
+                                continue
+                        
+                        if copy_btn:
+                            self.driver.execute_script("arguments[0].click();", copy_btn)
+                            time.sleep(1.2)
+                            
+                            # Try to find the URL from the toast notification "View post" link
+                            try:
+                                toast_anchors = self.driver.find_elements(By.XPATH, "//a[contains(@href, '/feed/update/') or contains(@href, '/posts/')]")
+                                for ta in toast_anchors:
+                                    href = ta.get_attribute("href") or ""
+                                    extracted = extract_canonical_linkedin_url(href)
+                                    if extracted:
+                                        post_url = extracted
+                                        logger.info(f"Successfully retrieved post URL from toast link: {post_url}")
+                                        break
+                            except Exception as toast_err:
+                                logger.debug(f"Could not scan toast links: {toast_err}")
+                                
+                            # Fallback: Read from clipboard
+                            if not post_url:
+                                import subprocess
+                                try:
+                                    clipboard_val = subprocess.check_output('pbpaste', env={'LANG': 'en_US.UTF-8'}).decode('utf-8').strip()
+                                    extracted = extract_canonical_linkedin_url(clipboard_val)
+                                    if extracted:
+                                        post_url = extracted
+                                        logger.info(f"Successfully retrieved post URL from clipboard: {post_url}")
+                                    else:
+                                        logger.warning(f"Clipboard URL did not pass validation structure: {clipboard_val}")
+                                except Exception as clip_err:
+                                    logger.warning(f"Could not read from clipboard: {clip_err}")
+                        else:
+                            logger.warning("Could not find 'Copy link to post' option in the menu.")
+                            try:
+                                self.driver.execute_script("arguments[0].click();", three_dot_btn)
+                            except Exception:
+                                pass
+                    else:
+                        logger.warning("Could not find three-dot menu button.")
+                except Exception as menu_err:
+                    logger.warning(f"Error during three-dot menu copy: {menu_err}")
+
+            # Method 3: Scan outerHTML / data-urn (least reliable fallback, telemetry URNs can 404)
+            if not post_url:
+                try:
+                    html = post_element.get_attribute("outerHTML") or ""
+                    extracted = extract_canonical_linkedin_url(html)
+                    if extracted:
+                        post_url = extracted
+                        logger.info(f"Found post URL from outerHTML URN fallback: {post_url}")
+                except Exception as html_err:
+                    logger.debug(f"Could not scan outerHTML for URN: {html_err}")
+
+            if not post_url:
+                try:
+                    urn = post_element.get_attribute("data-urn")
+                    if not urn:
+                        try:
+                            child = post_element.find_element(By.XPATH, ".//*[@data-urn]")
+                            urn = child.get_attribute("data-urn")
+                        except Exception:
+                            pass
+                    if urn:
+                        extracted = extract_canonical_linkedin_url(urn)
+                        if extracted:
+                            post_url = extracted
+                            logger.info(f"Found post URL from data-urn fallback: {post_url}")
+                except Exception as urn_err:
+                    logger.debug(f"Could not read data-urn: {urn_err}")
 
             content_selectors = [
                 ".//*[contains(@class, 'feed-shared-text')]",
@@ -380,15 +533,16 @@ class LinkedInScraper:
                                     logger.debug(f"Extracted location: {location}")
                                 emails = extract_emails(content)
                                 for email in emails:
+                                    refined_company = get_company_from_email_domain(email, company_name)
                                     appended = append_email(
                                         email, keyword,
                                         post_url=post_url,
-                                        company_name=company_name,
+                                        company_name=refined_company,
                                         experience=experience,
                                         location=location
                                     )
                                     if appended:
-                                        logger.info(f"Collected new email: {email} | Company: {company_name} | Exp: {experience} | Loc: {location}")
+                                        logger.info(f"Collected new email: {email} | Company: {refined_company} | Exp: {experience} | Loc: {location}")
                         else:
                             logger.debug("Post did not contain any target keyword — skipped.")
                     processed_ids.add(post_id)
