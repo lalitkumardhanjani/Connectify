@@ -510,6 +510,7 @@ class LinkedInScraper:
                     post_id = post.get_attribute("data-urn") or str(hash(post.text[:100] if post.text else ""))
                     if post_id in processed_ids:
                         continue
+                    processed_ids.add(post_id)
                     new_posts_this_batch += 1
                     data = self.extract_post_data(post)
                     if data and data.get('content'):
@@ -525,6 +526,45 @@ class LinkedInScraper:
                                 company_name = extracted.get('company_name', '')
                                 experience = extracted.get('experience', '')
                                 location = extracted.get('location', '')
+
+                                # Validate location match against candidate's preferred locations
+                                profile = user_conf.get("profile", {})
+                                pref_location_str = profile.get("preferred_locations", "")
+                                preferred_locs = [loc.strip().lower() for loc in pref_location_str.split(",") if loc.strip()]
+
+                                # Expand common synonyms/variations
+                                synonyms = {
+                                    "bangalore": ["bangalore", "bengaluru", "blr"],
+                                    "bengaluru": ["bangalore", "bengaluru", "blr"],
+                                    "chennai": ["chennai", "madras"],
+                                    "mumbai": ["mumbai", "bombay"],
+                                    "pune": ["pune", "poona"],
+                                    "delhi": ["delhi", "ncr", "gurgaon", "noida", "ghaziabad", "gurugram"],
+                                    "noida": ["noida", "delhi", "ncr"],
+                                    "gurgaon": ["gurgaon", "gurugram", "delhi", "ncr"],
+                                    "gurugram": ["gurgaon", "gurugram", "delhi", "ncr"],
+                                    "hyderabad": ["hyderabad", "secunderabad"]
+                                }
+                                expanded_preferred = set(preferred_locs)
+                                for loc in preferred_locs:
+                                    if loc in synonyms:
+                                        expanded_preferred.update(synonyms[loc])
+
+                                location_matched = False
+                                if not expanded_preferred:
+                                    location_matched = True
+                                else:
+                                    content_lower = content.lower()
+                                    loc_lower = location.lower() if location else ""
+                                    for pref in expanded_preferred:
+                                        if pref in content_lower or (loc_lower and pref in loc_lower):
+                                            location_matched = True
+                                            break
+
+                                if not location_matched:
+                                    logger.info(f"Post location does not match preferred locations {preferred_locs}. Skipping post.")
+                                    continue
+
                                 if company_name:
                                     logger.debug(f"Extracted company: {company_name}")
                                 if experience:
@@ -545,7 +585,6 @@ class LinkedInScraper:
                                         logger.info(f"Collected new email: {email} | Company: {refined_company} | Exp: {experience} | Loc: {location}")
                         else:
                             logger.debug("Post did not contain any target keyword — skipped.")
-                    processed_ids.add(post_id)
 
             except Exception as e:
                 logger.error(f"Error during post processing: {e}")
