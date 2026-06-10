@@ -55,9 +55,14 @@ def extract_canonical_linkedin_url(text: str) -> str:
             
     return ""
 
+class ScraperTargetReached(Exception):
+    pass
+
 class LinkedInScraper:
     def __init__(self, driver):
         self.driver = driver
+        self.collected_count = 0
+
 
     def _find_post_containers(self):
         selectors = [
@@ -583,9 +588,14 @@ class LinkedInScraper:
                                     )
                                     if appended:
                                         logger.info(f"Collected new email: {email} | Company: {refined_company} | Exp: {experience} | Loc: {location}")
+                                        self.collected_count += 1
+                                        if self.collected_count >= 3:
+                                            raise ScraperTargetReached("Collected 3 new email records.")
                         else:
                             logger.debug("Post did not contain any target keyword — skipped.")
 
+            except ScraperTargetReached:
+                raise
             except Exception as e:
                 logger.error(f"Error during post processing: {e}")
 

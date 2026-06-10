@@ -8,7 +8,7 @@ from core.storage.database import init_scraper_store, update_status
 from core.logging.config import logger
 from core.utils.string_utils import parse_preferred_locations
 
-from pipelines.email_outreach.services.scraper import LinkedInScraper
+from pipelines.email_outreach.services.scraper import LinkedInScraper, ScraperTargetReached
 from pipelines.email_outreach.services.sender import send_email_via_gmail
 
 def run_phase_one(scraper):
@@ -120,6 +120,9 @@ def run_pipeline(phase="full", review_mode=None):
             logger.info("Executing Phase 2: Email sending...")
             run_phase_two(scraper, review_mode=review_mode)
             
+        return True
+    except ScraperTargetReached as e:
+        logger.info(f"Pipeline stopped: {e}")
         return True
     except Exception as e:
         logger.exception(f"Unhandled error during pipeline execution: {e}")
