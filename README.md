@@ -292,8 +292,10 @@ The Settings panel uses a **horizontal tab layout** and is split into two sub-se
 ### Preferred Location Support
 Each user profile supports a **Preferred Location** field in the User Profile section. When set:
 - The **Email Scraper** automatically appends each location to your search keywords (e.g. `"SQL DBA Bangalore"`), expanding reach across all configured locations.
+- Posts are then **strictly filtered** by location: if a location is successfully parsed from the post (e.g. `"Work From Office — Bangalore"`), it is matched only against that extracted field. Posts from non-matching cities are rejected even if the word "Bangalore" appears elsewhere in the post body.
 - The **LinkedIn Job Finder** filters job postings by each preferred location automatically.
 - **Multiple locations** (comma-separated) are fully supported — the pipeline repeats the search for each location independently.
+- **City synonyms** are automatically expanded: `Bangalore` also matches `Bengaluru` / `BLR`; `Delhi` also matches `NCR`, `Gurgaon`, `Noida`, `Gurugram`; `Mumbai` matches `Bombay`; `Hyderabad` matches `Secunderabad`.
 
 ### Database Tabs
 - **Outreach Leads**: Displays emails scraped from LinkedIn posts. Records are sorted by ID (ascending). Supports per-column filtering, status-based filtering, keyword dropdown, and paginated browsing (10 records per page).
@@ -351,10 +353,11 @@ Connectify records and manages its automation state across three user-specific E
 
 ### 1. Email Scraper Tracker (`job_tracker.xlsx`)
 Tracks contact email leads scraped from LinkedIn posts and the status of cold email outreach campaigns.
-* **Columns**: `ID`, `Email`, `Status`, `Timestamp`, `Keyword`
+* **Columns**: `ID`, `Email`, `Status`, `Timestamp`, `Keyword`, `PostURL`, `CompanyName`, `Experience`, `Location`
 * **Workflow & Pipeline Transitions**:
-  * **Email Scraper** (`run_email_scraper.py`): Appends scraped emails with status **`New`**.
+  * **Email Scraper** (`run_email_scraper.py`): Appends scraped emails with status **`New`**. Also stores the LinkedIn post URL (`PostURL`), parsed company name (`CompanyName`), years of experience (`Experience`), and job location (`Location`) extracted from each post.
   * **Email Sender** (`run_email_sender.py` / `run_email_outreach.py`): Reads emails with status `New`. If the email is successfully sent, updates to **`sent`**. If skipped by the user or pre-checks, updates to **`skipped`**.
+* **Location Filtering**: The scraper strictly filters posts based on the **Preferred Locations** field in the user profile (comma-separated). When a location is cleanly extracted from the post body (e.g. `"Work From Office — Bangalore"`), it is matched **only** against the extracted location field — not the full post text — to avoid false positives (e.g. a Chennai post that mentions "Bangalore" in passing). If no location can be extracted, the full post body is searched as a fallback.
 * **Status Definitions**:
   * **`New`**: Newly scraped contact email address, queued for email sending.
   * **`sent`**: Cold email outreach was successfully sent to this address.
