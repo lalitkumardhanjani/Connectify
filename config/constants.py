@@ -13,7 +13,7 @@ JOB_LEADS_HEADERS = [
 ]
 
 REFERRAL_HEADERS = [
-    'ReferralID', 'JobID', 'CompanyName', 'Company_URL', 'Referral_Person_Name', 'Referral_Person_Email',
+    'ReferralID', 'JobID', 'CompanyName', 'Job_URL', 'Referral_Person_Name', 'Referral_Person_Email',
     'Referral_Person_Profile_URL', 'Referral_Source',
     'Referral_Status', 'Employment_Verification_Status', 'Sent_Time', 'Error_Reason'
 ]

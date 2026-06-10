@@ -835,7 +835,7 @@ def load_all_referrals(path=None):
     return rows
 
 def add_or_update_referral(referral_data, path=None):
-    """Adds a new referral contact or updates status/fields of an existing one by profile URL."""
+    """Adds a new referral contact or updates status/fields of an existing one by profile URL and job URL combination."""
     if path is None:
         path = get_referrals_file()
     init_referrals_store(path)
@@ -843,17 +843,26 @@ def add_or_update_referral(referral_data, path=None):
     ws = wb["Referrals"]
     col_indices = {cell.value: idx for idx, cell in enumerate(ws[1], start=1)}
     
+    # Backwards compatibility / translation
+    if 'Job_URL' not in referral_data and 'Company_URL' in referral_data:
+        referral_data['Job_URL'] = referral_data['Company_URL']
+        
     profile_url = referral_data.get('Referral_Person_Profile_URL')
+    job_url = referral_data.get('Job_URL')
     if not profile_url:
         return False
         
     url_col = col_indices.get('Referral_Person_Profile_URL')
+    job_url_col = col_indices.get('Job_URL')
     
     existing_row = None
-    if url_col:
+    if url_col and job_url_col:
         for r in range(2, ws.max_row + 1):
             cell_val = ws.cell(row=r, column=url_col).value
-            if cell_val and str(cell_val).strip() == str(profile_url).strip():
+            cell_job = ws.cell(row=r, column=job_url_col).value
+            prof_match = cell_val and str(cell_val).strip() == str(profile_url).strip()
+            job_match = str(cell_job or '').strip() == str(job_url or '').strip()
+            if prof_match and job_match:
                 existing_row = r
                 break
                 
@@ -906,8 +915,8 @@ def add_or_update_referral(referral_data, path=None):
         logger.error(f"Error calling sync_job_lead_referral_statuses: {e}")
     return True
 
-def is_profile_already_contacted(profile_url, path=None):
-    """Checks if connection profile URL has been contacted or skipped before."""
+def is_profile_already_contacted(profile_url, job_url=None, path=None):
+    """Checks if connection profile URL has been contacted or skipped before (optionally scoped to a specific Job_URL)."""
     if path is None:
         path = get_referrals_file()
     init_referrals_store(path)
@@ -916,6 +925,7 @@ def is_profile_already_contacted(profile_url, path=None):
     col_indices = {cell.value: idx for idx, cell in enumerate(ws[1], start=1)}
     url_col = col_indices.get('Referral_Person_Profile_URL')
     status_col = col_indices.get('Referral_Status')
+    job_url_col = col_indices.get('Job_URL')
     
     if not url_col:
         return False
@@ -923,6 +933,10 @@ def is_profile_already_contacted(profile_url, path=None):
     for row in range(2, ws.max_row + 1):
         cell_url = ws.cell(row=row, column=url_col).value
         if cell_url and str(cell_url).strip().lower() == str(profile_url).strip().lower():
+            if job_url is not None and job_url_col:
+                cell_job = ws.cell(row=row, column=job_url_col).value
+                if str(cell_job or '').strip().lower() != str(job_url).strip().lower():
+                    continue
             if status_col:
                 status = str(ws.cell(row=row, column=status_col).value or "").strip().lower()
                 if status in ('sent', 'replied', 'referral received', 'skipped'):
@@ -1097,8 +1111,8 @@ def clean_company_url(url):
     return url
 
 
-def get_completed_referral_count(company_name, company_url=None, job_id=None, path=None):
-    """Counts completed referral outreach actions (sent, replied, referral received) for a company and optional JobID."""
+def get_completed_referral_count(company_name, job_url=None, job_id=None, path=None):
+    """Counts completed referral outreach actions (sent, replied, referral received) for a company and optional JobID/JobURL."""
     if path is None:
         path = get_referrals_file()
     if not os.path.exists(path):
@@ -1110,7 +1124,7 @@ def get_completed_referral_count(company_name, company_url=None, job_id=None, pa
     ws = wb["Referrals"]
     col_indices = {cell.value: idx for idx, cell in enumerate(ws[1], start=1)}
     company_col = col_indices.get('CompanyName')
-    company_url_col = col_indices.get('Company_URL')
+    job_url_col = col_indices.get('Job_URL')
     status_col = col_indices.get('Referral_Status')
     source_col = col_indices.get('Referral_Source')
     job_id_col = col_indices.get('JobID')
@@ -1119,13 +1133,13 @@ def get_completed_referral_count(company_name, company_url=None, job_id=None, pa
         
     count = 0
     normalized_company = str(company_name or '').strip().lower()
-    normalized_url = clean_company_url(company_url) if company_url else ""
+    normalized_url = str(job_url).strip().lower() if job_url else ""
     
     for row in range(2, ws.max_row + 1):
         row_company = str(ws.cell(row=row, column=company_col).value or '').strip().lower()
         if row_company == normalized_company:
-            if normalized_url and company_url_col:
-                row_url = clean_company_url(ws.cell(row=row, column=company_url_col).value or "")
+            if normalized_url and job_url_col:
+                row_url = str(ws.cell(row=row, column=job_url_col).value or "").strip().lower()
                 if row_url and row_url != normalized_url:
                     continue
             if job_id is not None and job_id_col:
@@ -1340,32 +1354,59 @@ def migrate_company_url_and_tracking_fields():
         
         if os.path.exists(referrals_path):
             try:
+                # 1. Load job leads url map for backfilling
+                job_leads_map = {}
+                if os.path.exists(tracker_path):
+                    try:
+                        tracker_wb = openpyxl.load_workbook(tracker_path)
+                        tracker_ws = tracker_wb.active
+                        tracker_cols = {cell.value: idx for idx, cell in enumerate(tracker_ws[1], start=1)}
+                        jid_idx = tracker_cols.get("JobID")
+                        surl_idx = tracker_cols.get("ShortenURL")
+                        curl_idx = tracker_cols.get("CompanyURL")
+                        if jid_idx:
+                            for r in range(2, tracker_ws.max_row + 1):
+                                jid = tracker_ws.cell(row=r, column=jid_idx).value
+                                if jid is not None:
+                                    val = ""
+                                    if surl_idx:
+                                        val = tracker_ws.cell(row=r, column=surl_idx).value or ""
+                                    if not val and curl_idx:
+                                        val = tracker_ws.cell(row=r, column=curl_idx).value or ""
+                                    job_leads_map[str(jid).strip()] = str(val).strip()
+                    except Exception as e:
+                        logger.warning(f"Could not load tracker for backfilling Job_URL: {e}")
+
                 wb = openpyxl.load_workbook(referrals_path)
                 if "Referrals" in wb.sheetnames:
                     ws = wb["Referrals"]
                     headers = [cell.value for cell in ws[1]]
                     
                     changed = False
-                    if "Company_URL" not in headers:
-                        logger.info(f"Adding Company_URL column to referrals.xlsx for user {user_name}")
+                    if "Company_URL" in headers and "Job_URL" not in headers:
+                        company_url_idx = headers.index("Company_URL") + 1
+                        ws.cell(row=1, column=company_url_idx, value="Job_URL")
+                        headers = [cell.value for cell in ws[1]]
+                        changed = True
+                    elif "Job_URL" not in headers:
+                        logger.info(f"Adding Job_URL column to referrals.xlsx for user {user_name}")
                         ws.insert_cols(4)
-                        ws.cell(row=1, column=4, value="Company_URL")
+                        ws.cell(row=1, column=4, value="Job_URL")
                         headers = [cell.value for cell in ws[1]]
                         changed = True
 
                     col_indices = {h: idx for idx, h in enumerate(headers, start=1)}
-                    company_col = col_indices.get("CompanyName")
-                    url_col = col_indices.get("Company_URL")
+                    job_id_col = col_indices.get("JobID")
+                    url_col = col_indices.get("Job_URL")
                     
-                    if company_col and url_col:
+                    if url_col:
                         for r in range(2, ws.max_row + 1):
                             current_val = ws.cell(row=r, column=url_col).value
-                            if not current_val or str(current_val).strip() == "":
-                                comp_name = str(ws.cell(row=r, column=company_col).value or "").strip()
-                                if comp_name:
-                                    slug = comp_name.lower().replace(" ", "-").replace(".", "").replace(",", "")
-                                    default_url = f"https://www.linkedin.com/company/{slug}/"
-                                    ws.cell(row=r, column=url_col, value=default_url)
+                            is_old_company_url = current_val and str(current_val).strip().startswith("https://www.linkedin.com/company/")
+                            if not current_val or str(current_val).strip() == "" or is_old_company_url:
+                                jid_val = str(ws.cell(row=r, column=job_id_col).value or "").strip() if job_id_col else ""
+                                if jid_val in job_leads_map:
+                                    ws.cell(row=r, column=url_col, value=job_leads_map[jid_val])
                                     changed = True
                                     
                     if changed:

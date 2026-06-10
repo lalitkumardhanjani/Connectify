@@ -427,6 +427,16 @@
                                             <input type="text" id="profile-expected-ctc" placeholder="e.g. 22 LPA">
                                         </div>
                                     </div>
+                                    <div class="form-row-grid-2" style="margin-top: 12px;">
+                                        <div class="form-group">
+                                            <label for="profile-notice-period">Notice Period</label>
+                                            <input type="text" id="profile-notice-period" placeholder="e.g. 30 Days, Immediate">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="profile-last-working-day">Last Working Day</label>
+                                            <input type="text" id="profile-last-working-day" placeholder="e.g. 23rd July">
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -818,6 +828,7 @@
                                     <option value="all">All Statuses</option>
                                     <option value="new">NEW</option>
                                     <option value="ask for referral">Ask for Referral</option>
+                                    <option value="referred">Referred</option>
                                     <option value="not interested">Not Interested</option>
                                     <option value="done">Done</option>
                                 </select>
@@ -899,7 +910,7 @@
                                 <tr>
                                     <th>ID</th>
                                     <th>Company Name</th>
-                                    <th>Company URL</th>
+                                    <th>Job URL</th>
                                     <th>Employee Name</th>
                                     <th>LinkedIn URL</th>
                                     <th>Source</th>
@@ -982,25 +993,50 @@
                                 </div>
 
                                 <div class="settings-card card-glass grid-span-2">
-                                    <h3><i class="fa-solid fa-magnifying-glass glow-icon-blue"></i> Target Post Keywords</h3>
-                                    <p class="card-subtitle">Manage terms matched in LinkedIn hiring feed posts</p>
+                                    <h3><i class="fa-solid fa-magnifying-glass glow-icon-blue"></i> LinkedIn Search Keywords</h3>
+                                    <p class="card-subtitle">Manage terms used to search for hiring posts on LinkedIn</p>
                                     <div class="form-group">
-                                        <div class="tags-input-container" id="scraper-keywords-container">
+                                        <div class="tags-input-container" id="scraper-search-keywords-container">
                                             <!-- Keywords tags rendered by JS -->
-                                            <input type="text" class="tag-input-field" id="scraper-tag-input" placeholder="Add keyword (press Enter)...">
+                                            <input type="text" class="tag-input-field" id="scraper-search-tag-input" placeholder="Add keyword (press Enter)...">
                                         </div>
                                         <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
-                                            <button type="button" class="btn-tag-action" onclick="toggleBulkPaste('scraper')">
+                                            <button type="button" class="btn-tag-action" onclick="toggleBulkPaste('scraper-search')">
                                                 <i class="fa-solid fa-paste"></i> Bulk Paste Keywords
                                             </button>
                                         </div>
                                         <!-- Inline Bulk Paste container -->
-                                        <div class="keyword-bulk-paste-container hidden" id="scraper-bulk-paste-box" style="margin-top: 10px;">
-                                            <label for="scraper-bulk-paste-text" style="font-size: 0.8rem; color: var(--text-secondary);">Bulk Paste Keywords (comma or newline separated):</label>
-                                            <textarea id="scraper-bulk-paste-text" placeholder="SQL DBA&#10;SQL Server DBA&#10;Azure DBA" style="width: 100%; min-height: 80px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: 6px; padding: 10px; color: var(--text-primary); font-family: var(--font-sans); margin-top: 5px; resize: vertical; outline: none;"></textarea>
+                                        <div class="keyword-bulk-paste-container hidden" id="scraper-search-bulk-paste-box" style="margin-top: 10px;">
+                                            <label for="scraper-search-bulk-paste-text" style="font-size: 0.8rem; color: var(--text-secondary);">Bulk Paste Keywords (comma or newline separated):</label>
+                                            <textarea id="scraper-search-bulk-paste-text" placeholder="SQL DBA&#10;SQL Server DBA&#10;Azure DBA" style="width: 100%; min-height: 80px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: 6px; padding: 10px; color: var(--text-primary); font-family: var(--font-sans); margin-top: 5px; resize: vertical; outline: none;"></textarea>
                                             <div style="display: flex; gap: 8px; margin-top: 8px;">
-                                                <button type="button" class="btn btn-primary" onclick="applyBulkKeywords('scraper')" style="padding: 6px 12px; font-size: 0.8rem;">Apply</button>
-                                                <button type="button" class="btn btn-secondary" onclick="toggleBulkPaste('scraper')" style="padding: 6px 12px; font-size: 0.8rem;">Cancel</button>
+                                                <button type="button" class="btn btn-primary" onclick="applyBulkKeywords('scraper-search')" style="padding: 6px 12px; font-size: 0.8rem;">Apply</button>
+                                                <button type="button" class="btn btn-secondary" onclick="toggleBulkPaste('scraper-search')" style="padding: 6px 12px; font-size: 0.8rem;">Cancel</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="settings-card card-glass grid-span-2">
+                                    <h3><i class="fa-solid fa-square-check glow-icon-blue"></i> Job Title Match Keywords</h3>
+                                    <p class="card-subtitle">Manage terms required to match in the hiring post content</p>
+                                    <div class="form-group">
+                                        <div class="tags-input-container" id="scraper-title-keywords-container">
+                                            <!-- Keywords tags rendered by JS -->
+                                            <input type="text" class="tag-input-field" id="scraper-title-tag-input" placeholder="Add keyword (press Enter)...">
+                                        </div>
+                                        <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                                            <button type="button" class="btn-tag-action" onclick="toggleBulkPaste('scraper-title')">
+                                                <i class="fa-solid fa-paste"></i> Bulk Paste Keywords
+                                            </button>
+                                        </div>
+                                        <!-- Inline Bulk Paste container -->
+                                        <div class="keyword-bulk-paste-container hidden" id="scraper-title-bulk-paste-box" style="margin-top: 10px;">
+                                            <label for="scraper-title-bulk-paste-text" style="font-size: 0.8rem; color: var(--text-secondary);">Bulk Paste Keywords (comma or newline separated):</label>
+                                            <textarea id="scraper-title-bulk-paste-text" placeholder="SQL DBA&#10;SQL Server DBA&#10;Azure DBA" style="width: 100%; min-height: 80px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: 6px; padding: 10px; color: var(--text-primary); font-family: var(--font-sans); margin-top: 5px; resize: vertical; outline: none;"></textarea>
+                                            <div style="display: flex; gap: 8px; margin-top: 8px;">
+                                                <button type="button" class="btn btn-primary" onclick="applyBulkKeywords('scraper-title')" style="padding: 6px 12px; font-size: 0.8rem;">Apply</button>
+                                                <button type="button" class="btn btn-secondary" onclick="toggleBulkPaste('scraper-title')" style="padding: 6px 12px; font-size: 0.8rem;">Cancel</button>
                                             </div>
                                         </div>
                                     </div>
@@ -1056,6 +1092,12 @@
                                         <span class="tvar-badge" onclick="insertToken('scraper', '{PREFERRED_LOCATIONS}')" title="Click to insert">{PREFERRED_LOCATIONS}</span>
                                         <span class="tvar-badge" onclick="insertToken('scraper', '{CURRENT_CTC}')" title="Click to insert">{CURRENT_CTC}</span>
                                         <span class="tvar-badge" onclick="insertToken('scraper', '{EXPECTED_CTC}')" title="Click to insert">{EXPECTED_CTC}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{COMPANY}')" title="Click to insert">{COMPANY}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{JOB_URL}')" title="Click to insert">{JOB_URL}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{RESUME}')" title="Click to insert">{RESUME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{RECEIVER_NAME}')" title="Click to insert">{RECEIVER_NAME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{NOTICE_PERIOD}')" title="Click to insert">{NOTICE_PERIOD}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{LAST_WORKING_DAY}')" title="Click to insert">{LAST_WORKING_DAY}</span>
                                     </div>
 
                                     <div class="template-editor-container">
@@ -1140,25 +1182,50 @@
                                     </div>
                                 </div>
                                 <div class="settings-card card-glass grid-span-2">
-                                    <h3><i class="fa-solid fa-address-book glow-icon-teal"></i> Target Network Keywords</h3>
-                                    <p class="card-subtitle">Manage terms searched during connection routines</p>
+                                    <h3><i class="fa-solid fa-address-book glow-icon-teal"></i> LinkedIn Search Keywords</h3>
+                                    <p class="card-subtitle">Manage terms used to search for jobs on LinkedIn</p>
                                     <div class="form-group">
-                                        <div class="tags-input-container" id="connect-keywords-container">
+                                        <div class="tags-input-container" id="connect-search-keywords-container">
                                             <!-- Keywords tags rendered by JS -->
-                                            <input type="text" class="tag-input-field" id="connect-tag-input" placeholder="Add keyword (press Enter)...">
+                                            <input type="text" class="tag-input-field" id="connect-search-tag-input" placeholder="Add keyword (press Enter)...">
                                         </div>
                                         <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
-                                            <button type="button" class="btn-tag-action" onclick="toggleBulkPaste('connect')">
+                                            <button type="button" class="btn-tag-action" onclick="toggleBulkPaste('connect-search')">
                                                 <i class="fa-solid fa-paste"></i> Bulk Paste Keywords
                                             </button>
                                         </div>
                                         <!-- Inline Bulk Paste container -->
-                                        <div class="keyword-bulk-paste-container hidden" id="connect-bulk-paste-box" style="margin-top: 10px;">
-                                            <label for="connect-bulk-paste-text" style="font-size: 0.8rem; color: var(--text-secondary);">Bulk Paste Keywords (comma or newline separated):</label>
-                                            <textarea id="connect-bulk-paste-text" placeholder="SQL DBA&#10;SQL Server DBA&#10;Azure DBA" style="width: 100%; min-height: 80px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: 6px; padding: 10px; color: var(--text-primary); font-family: var(--font-sans); margin-top: 5px; resize: vertical; outline: none;"></textarea>
+                                        <div class="keyword-bulk-paste-container hidden" id="connect-search-bulk-paste-box" style="margin-top: 10px;">
+                                            <label for="connect-search-bulk-paste-text" style="font-size: 0.8rem; color: var(--text-secondary);">Bulk Paste Keywords (comma or newline separated):</label>
+                                            <textarea id="connect-search-bulk-paste-text" placeholder="SQL DBA&#10;SQL Server DBA&#10;Azure DBA" style="width: 100%; min-height: 80px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: 6px; padding: 10px; color: var(--text-primary); font-family: var(--font-sans); margin-top: 5px; resize: vertical; outline: none;"></textarea>
                                             <div style="display: flex; gap: 8px; margin-top: 8px;">
-                                                <button type="button" class="btn btn-primary" onclick="applyBulkKeywords('connect')" style="padding: 6px 12px; font-size: 0.8rem;">Apply</button>
-                                                <button type="button" class="btn btn-secondary" onclick="toggleBulkPaste('connect')" style="padding: 6px 12px; font-size: 0.8rem;">Cancel</button>
+                                                <button type="button" class="btn btn-primary" onclick="applyBulkKeywords('connect-search')" style="padding: 6px 12px; font-size: 0.8rem;">Apply</button>
+                                                <button type="button" class="btn btn-secondary" onclick="toggleBulkPaste('connect-search')" style="padding: 6px 12px; font-size: 0.8rem;">Cancel</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="settings-card card-glass grid-span-2">
+                                    <h3><i class="fa-solid fa-square-check glow-icon-teal"></i> Job Title Match Keywords</h3>
+                                    <p class="card-subtitle">Manage terms matched against job titles to verify suitability</p>
+                                    <div class="form-group">
+                                        <div class="tags-input-container" id="connect-title-keywords-container">
+                                            <!-- Keywords tags rendered by JS -->
+                                            <input type="text" class="tag-input-field" id="connect-title-tag-input" placeholder="Add keyword (press Enter)...">
+                                        </div>
+                                        <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                                            <button type="button" class="btn-tag-action" onclick="toggleBulkPaste('connect-title')">
+                                                <i class="fa-solid fa-paste"></i> Bulk Paste Keywords
+                                            </button>
+                                        </div>
+                                        <!-- Inline Bulk Paste container -->
+                                        <div class="keyword-bulk-paste-container hidden" id="connect-title-bulk-paste-box" style="margin-top: 10px;">
+                                            <label for="connect-title-bulk-paste-text" style="font-size: 0.8rem; color: var(--text-secondary);">Bulk Paste Keywords (comma or newline separated):</label>
+                                            <textarea id="connect-title-bulk-paste-text" placeholder="SQL DBA&#10;SQL Server DBA&#10;Azure DBA" style="width: 100%; min-height: 80px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: 6px; padding: 10px; color: var(--text-primary); font-family: var(--font-sans); margin-top: 5px; resize: vertical; outline: none;"></textarea>
+                                            <div style="display: flex; gap: 8px; margin-top: 8px;">
+                                                <button type="button" class="btn btn-primary" onclick="applyBulkKeywords('connect-title')" style="padding: 6px 12px; font-size: 0.8rem;">Apply</button>
+                                                <button type="button" class="btn btn-secondary" onclick="toggleBulkPaste('connect-title')" style="padding: 6px 12px; font-size: 0.8rem;">Cancel</button>
                                             </div>
                                         </div>
                                     </div>
@@ -1218,6 +1285,8 @@
                                         <span class="tvar-badge" onclick="insertToken('referral', '{JOB_URL}')" title="Target job apply URL">{JOB_URL}</span>
                                         <span class="tvar-badge" onclick="insertToken('referral', '{RESUME}')" title="Your resume link">{RESUME}</span>
                                         <span class="tvar-badge" onclick="insertToken('referral', '{RECEIVER_NAME}')" title="Recipient's first name">{RECEIVER_NAME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{NOTICE_PERIOD}')" title="Your notice period">{NOTICE_PERIOD}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{LAST_WORKING_DAY}')" title="Your last working day">{LAST_WORKING_DAY}</span>
                                     </div>
 
                                     <div class="template-editor-container">
@@ -1288,6 +1357,8 @@
                                         <span class="tvar-badge" onclick="insertToken('connect', '{JOB_URL}')" title="Target job apply URL">{JOB_URL}</span>
                                         <span class="tvar-badge" onclick="insertToken('connect', '{RESUME}')" title="Your resume link">{RESUME}</span>
                                         <span class="tvar-badge" onclick="insertToken('connect', '{RECEIVER_NAME}')" title="Recipient's first name">{RECEIVER_NAME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{NOTICE_PERIOD}')" title="Your notice period">{NOTICE_PERIOD}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{LAST_WORKING_DAY}')" title="Your last working day">{LAST_WORKING_DAY}</span>
                                     </div>
 
                                     <div class="template-editor-container">
@@ -1339,36 +1410,100 @@
                         </div>
 
 
-                        <!-- SUB-TAB 4: RECRUITER OUTREACH -->
                         <div class="settings-tab-pane" id="subtab-recruiter-outreach">
                             <div class="settings-column">
                                 <!-- Row 1: Recruiter Automation Control Card -->
                                 <div class="settings-card card-glass">
-                                    <h3><i class="fa-solid fa-user-plus glow-icon-teal"></i> Recruiter Automation Control</h3>
-                                    <p class="card-subtitle">Configure connection intervals, limits, target recruiters, and pipeline gates</p>
-                                    
-
-                                    <div class="form-group" style="margin-bottom: 16px;">
-                                         <label for="recruiter-target-count">Target Recruiters per Company</label>
-                                         <input type="number" id="recruiter-target-count" min="1" max="100" value="2" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--glass-border); background:rgba(0,0,0,0.4); color:var(--text-primary);">
-                                     </div>
-                                     <div class="form-group toggle-group">
-                                         <span class="info-icon-wrapper">
-                                             <label for="recruiter-review-mode" style="margin-bottom: 0;">Invite Quality Gate</label>
-                                             <i class="fa-solid fa-circle-info info-tooltip-trigger" data-tooltip="Invite Quality Gate ON:&#10;You review recruiter outreach connection invites in the console overlay before they are sent.&#10;&#10;Invite Quality Gate OFF:&#10;Recruiter connection invites are delivered automatically."></i>
-                                         </span>
-                                         <label class="switch">
-                                             <input type="checkbox" id="recruiter-review-mode">
-                                             <span class="slider"></span>
-                                         </label>
-                                     </div>
+                                     <h3><i class="fa-solid fa-user-plus glow-icon-teal"></i> Recruiter Automation Control</h3>
+                                     <p class="card-subtitle">Configure connection intervals, limits, target recruiters, and pipeline gates</p>
+                                     
+                                     <div class="form-group" style="margin-bottom: 16px;">
+                                          <label for="recruiter-target-count">Target Recruiters per Company</label>
+                                          <input type="number" id="recruiter-target-count" min="1" max="100" value="2" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--glass-border); background:rgba(0,0,0,0.4); color:var(--text-primary);">
+                                      </div>
+                                      <div class="form-group toggle-group">
+                                          <span class="info-icon-wrapper">
+                                              <label for="recruiter-review-mode" style="margin-bottom: 0;">Invite Quality Gate</label>
+                                              <i class="fa-solid fa-circle-info info-tooltip-trigger" data-tooltip="Invite Quality Gate ON:&#10;You review recruiter outreach connection invites in the console overlay before they are sent.&#10;&#10;Invite Quality Gate OFF:&#10;Recruiter connection invites are delivered automatically."></i>
+                                          </span>
+                                          <label class="switch">
+                                              <input type="checkbox" id="recruiter-review-mode">
+                                              <span class="slider"></span>
+                                          </label>
+                                      </div>
                                  </div>
 
-                                 <!-- Row 2: Available Recruiter Tokens Card -->
+                                 <!-- Row 2: LinkedIn Recruiter Message Studio Card -->
                                  <div class="settings-card card-glass">
-                                     <h3><i class="fa-solid fa-brackets-curly glow-icon-purple"></i> Available Recruiter Note Tokens</h3>
-                                     <p class="card-subtitle">Click a token below to insert it at your cursor position inside the Recruiter Note/Message Studios:</p>
-                                     <div class="template-var-legend" style="flex-wrap: wrap; gap: 6px; margin-top: 10px;">
+                                      <h3><i class="fa-solid fa-comment-dots glow-icon-teal"></i> LinkedIn Recruiter Message Studio</h3>
+                                      <p class="card-subtitle">Recruiter messages are delivered to existing 1st-degree recruiter connections — you can write a longer, detailed request up to <strong style="color:var(--accent-yellow)">1000 characters</strong>.</p>
+                                      
+                                      <div class="template-var-legend" style="flex-wrap: wrap; gap: 6px; margin-top: 10px; margin-bottom: 15px;">
+                                          <span class="tvar-title"><i class="fa-solid fa-brackets-curly"></i> Click to Insert:</span>
+                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{FIRST_NAME}')" title="Click to insert">{FIRST_NAME}</span>
+                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{LAST_NAME}')" title="Click to insert">{LAST_NAME}</span>
+                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{EMAIL}')" title="Click to insert">{EMAIL}</span>
+                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{PHONE_NUMBER}')" title="Click to insert">{PHONE_NUMBER}</span>
+                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{EXPERIENCE}')" title="Click to insert">{EXPERIENCE}</span>
+                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{LINKEDIN_PROFILE_URL}')" title="Click to insert">{LINKEDIN_PROFILE_URL}</span>
+                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{CURRENT_LOCATION}')" title="Click to insert">{CURRENT_LOCATION}</span>
+                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{PREFERRED_LOCATIONS}')" title="Click to insert">{PREFERRED_LOCATIONS}</span>
+                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{CURRENT_CTC}')" title="Click to insert">{CURRENT_CTC}</span>
+                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{EXPECTED_CTC}')" title="Click to insert">{EXPECTED_CTC}</span>
+                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{COMPANY}')" title="Click to insert">{COMPANY}</span>
+                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{JOB_URL}')" title="Click to insert">{JOB_URL}</span>
+                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{RESUME}')" title="Click to insert">{RESUME}</span>
+                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{RECEIVER_NAME}')" title="Click to insert">{RECEIVER_NAME}</span>
+                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{NOTICE_PERIOD}')" title="Click to insert">{NOTICE_PERIOD}</span>
+                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{LAST_WORKING_DAY}')" title="Click to insert">{LAST_WORKING_DAY}</span>
+                                      </div>
+
+                                      <div class="template-editor-container">
+                                          <div class="template-editor-header">
+                                              <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;"><i class="fa-solid fa-comment-dots"></i> Recruiter Message Studio</span>
+                                              <div style="display:flex;align-items:center;gap:12px;">
+                                                  <span id="recruiter-direct-char-count" class="char-count-pill">0 / 1000</span>
+                                                  <div class="template-modes">
+                                                      <button type="button" class="template-mode-btn active" id="btn-mode-edit-recruiter-direct" onclick="switchTemplateMode('recruiter-direct', 'edit')">Draft Editor</button>
+                                                      <button type="button" class="template-mode-btn" id="btn-mode-preview-recruiter-direct" onclick="switchTemplateMode('recruiter-direct', 'preview')">Real-time Preview</button>
+                                                  </div>
+                                              </div>
+                                          </div>
+                                          <textarea id="recruiter-direct-message-template" class="template-textarea" placeholder="Recruiter direct message..." maxlength="1000" oninput="updateRecruiterDirectCharCount()"></textarea>
+                                          
+                                          <!-- Mock Recruiter Message Window -->
+                                          <div id="recruiter-direct-template-preview" class="linkedin-mockup-window hidden">
+                                              <div class="linkedin-mockup-header">
+                                                  <span>Message to Recruiter</span>
+                                                  <i class="fa-solid fa-xmark"></i>
+                                              </div>
+                                              <div class="linkedin-mockup-body">
+                                                  <div class="linkedin-manager-avatar" style="background: var(--accent-teal); color: white;">TA</div>
+                                                  <div class="linkedin-manager-info">
+                                                      <div class="name">Recruiter Contact</div>
+                                                      <div class="title">Talent Acquisition Partner</div>
+                                                  </div>
+                                                  <div class="linkedin-invite-card">
+                                                      <p class="invite-header-text">Recruiter Message:</p>
+                                                      <div class="linkedin-invite-bubble" id="recruiter-direct-preview-body-content">
+                                                          <!-- Preview content gets rendered dynamically -->
+                                                      </div>
+                                                  </div>
+                                              </div>
+                                              <div class="linkedin-mockup-footer">
+                                                  <button type="button" class="btn-mock-cancel">Close</button>
+                                                  <button type="button" class="btn-mock-send">Send Message</button>
+                                              </div>
+                                          </div>
+                                      </div>
+                                  </div>
+
+                                 <!-- Row 3: LinkedIn Recruiter Invite Note Studio Card -->
+                                 <div class="settings-card card-glass">
+                                     <h3><i class="fa-solid fa-comment-dots glow-icon-blue"></i> LinkedIn Recruiter Invite Note Studio</h3>
+                                     <p class="card-subtitle">LinkedIn restricts invitations notes to <strong style="color:var(--accent-yellow)">300 characters</strong>.</p>
+                                     
+                                     <div class="template-var-legend" style="flex-wrap: wrap; gap: 6px; margin-top: 10px; margin-bottom: 10px;">
                                          <span class="tvar-title"><i class="fa-solid fa-brackets-curly"></i> Click to Insert:</span>
                                          <span class="tvar-badge" onclick="insertToken('recruiter', '{FIRST_NAME}')" title="Click to insert">{FIRST_NAME}</span>
                                          <span class="tvar-badge" onclick="insertToken('recruiter', '{LAST_NAME}')" title="Click to insert">{LAST_NAME}</span>
@@ -1381,16 +1516,13 @@
                                          <span class="tvar-badge" onclick="insertToken('recruiter', '{CURRENT_CTC}')" title="Click to insert">{CURRENT_CTC}</span>
                                          <span class="tvar-badge" onclick="insertToken('recruiter', '{EXPECTED_CTC}')" title="Click to insert">{EXPECTED_CTC}</span>
                                          <span class="tvar-badge" onclick="insertToken('recruiter', '{COMPANY}')" title="Click to insert">{COMPANY}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{JOB_URL}')" title="Click to insert">{JOB_URL}</span>
                                          <span class="tvar-badge" onclick="insertToken('recruiter', '{RESUME}')" title="Click to insert">{RESUME}</span>
                                          <span class="tvar-badge" onclick="insertToken('recruiter', '{RECEIVER_NAME}')" title="Click to insert">{RECEIVER_NAME}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{NOTICE_PERIOD}')" title="Click to insert">{NOTICE_PERIOD}</span>
+                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{LAST_WORKING_DAY}')" title="Click to insert">{LAST_WORKING_DAY}</span>
                                      </div>
-                                 </div>
 
-                                 <!-- Row 3: LinkedIn Recruiter Invite Note Studio Card -->
-                                 <div class="settings-card card-glass">
-                                     <h3><i class="fa-solid fa-comment-dots glow-icon-blue"></i> LinkedIn Recruiter Invite Note Studio</h3>
-                                     <p class="card-subtitle">LinkedIn restricts invitations notes to <strong style="color:var(--accent-yellow)">300 characters</strong>.</p>
-                                     
                                      <div class="template-editor-container" style="margin-top: 10px;">
                                          <div class="template-editor-header">
                                              <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;"><i class="fa-solid fa-comment-dots"></i> Recruiter Note Studio</span>
@@ -1430,68 +1562,7 @@
                                          </div>
                                      </div>
                                  </div>
-
-                                 <!-- Row 4: LinkedIn Recruiter Message Studio Card -->
-                                 <div class="settings-card card-glass" style="margin-top: 20px;">
-                                     <h3><i class="fa-solid fa-comment-dots glow-icon-teal"></i> LinkedIn Recruiter Message Studio</h3>
-                                     <p class="card-subtitle">Recruiter messages are delivered to existing 1st-degree recruiter connections — you can write a longer, detailed request up to <strong style="color:var(--accent-yellow)">1000 characters</strong>.</p>
-                                     
-                                     <div class="template-var-legend" style="flex-wrap: wrap; gap: 6px; margin-top: 10px; margin-bottom: 15px;">
-                                         <span class="tvar-title"><i class="fa-solid fa-brackets-curly"></i> Click to Insert:</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{FIRST_NAME}')" title="Click to insert">{FIRST_NAME}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{LAST_NAME}')" title="Click to insert">{LAST_NAME}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{EMAIL}')" title="Click to insert">{EMAIL}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{PHONE_NUMBER}')" title="Click to insert">{PHONE_NUMBER}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{EXPERIENCE}')" title="Click to insert">{EXPERIENCE}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{LINKEDIN_PROFILE_URL}')" title="Click to insert">{LINKEDIN_PROFILE_URL}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{CURRENT_LOCATION}')" title="Click to insert">{CURRENT_LOCATION}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{PREFERRED_LOCATIONS}')" title="Click to insert">{PREFERRED_LOCATIONS}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{CURRENT_CTC}')" title="Click to insert">{CURRENT_CTC}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{EXPECTED_CTC}')" title="Click to insert">{EXPECTED_CTC}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{COMPANY}')" title="Click to insert">{COMPANY}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{RESUME}')" title="Click to insert">{RESUME}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{RECEIVER_NAME}')" title="Click to insert">{RECEIVER_NAME}</span>
-                                     </div>
-
-                                     <div class="template-editor-container">
-                                         <div class="template-editor-header">
-                                             <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;"><i class="fa-solid fa-comment-dots"></i> Recruiter Message Studio</span>
-                                             <div style="display:flex;align-items:center;gap:12px;">
-                                                 <span id="recruiter-direct-char-count" class="char-count-pill">0 / 1000</span>
-                                                 <div class="template-modes">
-                                                     <button type="button" class="template-mode-btn active" id="btn-mode-edit-recruiter-direct" onclick="switchTemplateMode('recruiter-direct', 'edit')">Draft Editor</button>
-                                                     <button type="button" class="template-mode-btn" id="btn-mode-preview-recruiter-direct" onclick="switchTemplateMode('recruiter-direct', 'preview')">Real-time Preview</button>
-                                                 </div>
-                                             </div>
-                                         </div>
-                                         <textarea id="recruiter-direct-message-template" class="template-textarea" placeholder="Recruiter direct message..." maxlength="1000" oninput="updateRecruiterDirectCharCount()"></textarea>
-                                         
-                                         <!-- Mock Recruiter Message Window -->
-                                         <div id="recruiter-direct-template-preview" class="linkedin-mockup-window hidden">
-                                             <div class="linkedin-mockup-header">
-                                                 <span>Message to Recruiter</span>
-                                                 <i class="fa-solid fa-xmark"></i>
-                                             </div>
-                                             <div class="linkedin-mockup-body">
-                                                 <div class="linkedin-manager-avatar" style="background: var(--accent-teal); color: white;">TA</div>
-                                                 <div class="linkedin-manager-info">
-                                                     <div class="name">Recruiter Contact</div>
-                                                     <div class="title">Talent Acquisition Partner</div>
-                                                 </div>
-                                                 <div class="linkedin-invite-card">
-                                                     <p class="invite-header-text">Recruiter Message:</p>
-                                                     <div class="linkedin-invite-bubble" id="recruiter-direct-preview-body-content">
-                                                         <!-- Preview content gets rendered dynamically -->
-                                                     </div>
-                                                 </div>
-                                             </div>
-                                             <div class="linkedin-mockup-footer">
-                                                 <button type="button" class="btn-mock-cancel">Close</button>
-                                                 <button type="button" class="btn-mock-send">Send Message</button>
-                                             </div>
-                                         </div>
-                                     </div>
-                                 </div>
+                             </div>
 
 
                             <div class="settings-actions" style="margin-top: 20px;">
@@ -1591,6 +1662,7 @@
                         <option value="interested">INTERESTED</option>
                         <option value="not interested">NOT INTERESTED</option>
                         <option value="asked for referral">ASKED FOR REFERRAL</option>
+                        <option value="referred">REFERRED</option>
                         <option value="done">DONE</option>
                     </select>
                 </div>
@@ -1651,8 +1723,8 @@
                                 <input type="text" id="edit-referral-contact-company" placeholder="e.g. 66degrees" required>
                             </div>
                             <div class="modal-form-group">
-                                <label for="edit-referral-contact-company-url">Company LinkedIn URL</label>
-                                <input type="text" id="edit-referral-contact-company-url" placeholder="https://linkedin.com/company/...">
+                                <label for="edit-referral-contact-job-url">Job URL</label>
+                                <input type="text" id="edit-referral-contact-job-url" placeholder="https://linkedin.com/jobs/view/... or short URL">
                             </div>
                         </div>
                     </div>

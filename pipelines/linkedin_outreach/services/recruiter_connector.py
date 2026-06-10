@@ -122,10 +122,14 @@ def run_recruiter_discovery():
     email = global_conf.get("linkedin_email")
     password = global_conf.get("linkedin_password")
     
-    job_data = load_jobs_for_referral(status_filter='Asked for Referral')
-    if not job_data:
-        logger.info("No jobs with status 'Asked for Referral' found. Nothing to discover.")
-        return
+    job_data = load_jobs_for_referral(status_filter='Referred')
+    if job_data:
+        logger.info(f"Found {len(job_data)} jobs with status 'Referred'. Running recruiter discovery ONLY for these jobs.")
+    else:
+        job_data = load_jobs_for_referral(status_filter='Asked for Referral')
+        if not job_data:
+            logger.info("No jobs with status 'Referred' or 'Asked for Referral' found. Nothing to discover.")
+            return
  
     try:
         driver = get_driver()
@@ -144,6 +148,7 @@ def run_recruiter_discovery():
         for job in job_data:
             company = job.get('CompanyName') or ''
             job_id = job.get('JobID') or ''
+            job_url = job.get('ShortenURL') or job.get('CompanyURL') or ''
             
             # Update current Job Lead status to In Progress
             try:
@@ -181,13 +186,14 @@ def run_recruiter_discovery():
                 profile_url = conn['profile_url']
                 
                 # Check eligibility
-                if is_profile_already_contacted(profile_url):
-                    logger.info(f"Recruiter connection {conn['name']} already contacted or skipped. Skipping.")
+                if is_profile_already_contacted(profile_url, job_url=job_url):
+                    logger.info(f"Recruiter connection {conn['name']} already contacted or skipped for job {job_url}. Skipping.")
                     continue
                     
                 referral_data = {
                     'JobID': job_id,
                     'CompanyName': company,
+                    'Job_URL': job_url,
                     'Referral_Person_Name': conn['name'],
                     'Referral_Person_Email': '',
                     'Referral_Person_Profile_URL': profile_url,
@@ -285,8 +291,9 @@ def run_recruiter_messaging():
             logger.info("=" * 60)
             
             # Final eligibility check
-            if is_profile_already_contacted(profile_url):
-                logger.info(f"Eligibility Check: profile {profile_url} already messaged. Skipping.")
+            job_url = ref.get('Job_URL') or ""
+            if is_profile_already_contacted(profile_url, job_url=job_url):
+                logger.info(f"Eligibility Check: profile {profile_url} already messaged for job {job_url}. Skipping.")
                 ref['Referral_Status'] = 'Skipped'
                 add_or_update_referral(ref)
                 continue
@@ -397,12 +404,15 @@ def run_recruiter_connector():
     logger.info(f"TARGET_COUNT : {target_count}")
     logger.info("=" * 60)
 
-    job_data = load_jobs_for_referral(status_filter='Asked for Referral')
-    if not job_data:
-        logger.error("No jobs with status 'Asked for Referral' found in database. Exiting...")
-        return
-
-    logger.info(f"Loaded {len(job_data)} jobs with status 'Asked for Referral'.")
+    job_data = load_jobs_for_referral(status_filter='Referred')
+    if job_data:
+        logger.info(f"Found {len(job_data)} jobs with status 'Referred'. Running recruiter outreach ONLY for these jobs.")
+    else:
+        job_data = load_jobs_for_referral(status_filter='Asked for Referral')
+        if not job_data:
+            logger.error("No jobs with status 'Referred' or 'Asked for Referral' found in database. Exiting...")
+            return
+        logger.info(f"Loaded {len(job_data)} jobs with status 'Asked for Referral'.")
 
     try:
         driver = get_driver()
@@ -421,6 +431,7 @@ def run_recruiter_connector():
         for job in job_data:
             company = job.get('CompanyName') or ''
             job_id = job.get('JobID') or ''
+            job_url = job.get('ShortenURL') or job.get('CompanyURL') or ''
 
             # Check company target recruiters progress
             total_progress = get_recruiter_outreach_progress(company)
@@ -507,6 +518,7 @@ def run_recruiter_connector():
                                 referral_data = {
                                     'JobID': job_id,
                                     'CompanyName': company,
+                                    'Job_URL': job_url,
                                     'Referral_Person_Name': person.get('name', 'unknown'),
                                     'Referral_Person_Email': '',
                                     'Referral_Person_Profile_URL': person.get('profile_url', ''),

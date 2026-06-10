@@ -16,7 +16,7 @@ def run_phase_one(scraper):
     init_scraper_store()
     user_conf = get_selected_user_config()
     email_scraper_conf = user_conf.get("email_scraper", {})
-    keywords = email_scraper_conf.get("keywords", DBA_KEYWORDS_DEFAULT)
+    keywords = email_scraper_conf.get("search_keywords") or email_scraper_conf.get("keywords") or DBA_KEYWORDS_DEFAULT
 
     # Read the user-configured per-keyword timeout (Search Execution Frequency setting).
     # Default to 60s if not set. This is the maximum time spent scrolling each keyword

@@ -1022,7 +1022,7 @@ def run_connector():
                                     referral_data = {
                                         'JobID': job_id,
                                         'CompanyName': company,
-                                        'Company_URL': linkedin_company_url,
+                                        'Job_URL': job_url,
                                         'Referral_Person_Name': person.get('name', 'unknown'),
                                         'Referral_Person_Email': '',
                                         'Referral_Person_Profile_URL': person.get('profile_url', ''),
@@ -1084,7 +1084,7 @@ def run_connector():
                             referral_data = {
                                 'JobID': job_id,
                                 'CompanyName': company,
-                                'Company_URL': linkedin_company_url,
+                                'Job_URL': job_url,
                                 'Referral_Person_Name': person.get('name', 'unknown'),
                                 'Referral_Person_Email': '',
                                 'Referral_Person_Profile_URL': person.get('profile_url', ''),

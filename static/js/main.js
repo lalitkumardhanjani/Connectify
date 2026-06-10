@@ -741,10 +741,10 @@ function renderReferralsTable(data) {
         const encCompany = encodeURIComponent(row.CompanyName || "");
         const encNotes = encodeURIComponent(row.Error_Reason || "");
         const encVerification = encodeURIComponent(row.Employment_Verification_Status || "Verified");
-        const encCompanyUrl = encodeURIComponent(row.Company_URL || "");
+        const encJobUrl = encodeURIComponent(row.Job_URL || "");
         
-        const cUrl = row.Company_URL || "";
-        const cUrlHtml = cUrl.startsWith("http") ? `<a href="${cUrl}" target="_blank" class="table-link" title="${cUrl}"><i class="fa-solid fa-up-right-from-square" style="font-size:0.75rem;"></i> Page</a>` : cUrl;
+        const jUrl = row.Job_URL || "";
+        const jUrlHtml = jUrl.startsWith("http") ? `<a href="${jUrl}" target="_blank" class="table-link" title="${jUrl}"><i class="fa-solid fa-up-right-from-square" style="font-size:0.75rem;"></i> Open Job</a>` : jUrl;
         
         const pUrl = row.Referral_Person_Profile_URL || "";
         const pUrlHtml = pUrl.startsWith("http") ? `<a href="${pUrl}" target="_blank" class="table-link" title="${pUrl}"><strong>${row.Referral_Person_Name || ""}</strong></a>` : (row.Referral_Person_Name || "");
@@ -752,7 +752,7 @@ function renderReferralsTable(data) {
         tr.innerHTML = `
             <td>${row.ReferralID || ""}</td>
             <td><strong>${row.CompanyName || ""}</strong></td>
-            <td>${cUrlHtml}</td>
+            <td>${jUrlHtml}</td>
             <td>${pUrlHtml}</td>
             <td><a href="${pUrl}" target="_blank" class="table-link" title="${pUrl}"><i class="fa-brands fa-linkedin" style="color:#0a66c2; font-size:1.1rem;"></i></a></td>
             <td><span style="font-size: 0.8rem;">${normalizedSource}</span></td>
@@ -761,7 +761,7 @@ function renderReferralsTable(data) {
             <td>${row.Sent_Time ? formatDisplayDate(row.Sent_Time) : ""}</td>
             <td style="text-align: center;">
                 <div style="display: flex; gap: 8px; justify-content: center;">
-                    <button class="table-action-btn btn-edit" onclick="showEditReferralContactModal(${row.ReferralID}, '${encName}', '${encEmail}', '${encUrl}', '${encSource}', '${encStatus}', '${encCompany}', '${encNotes}', '${encVerification}', '${encCompanyUrl}')" title="Edit contact">
+                    <button class="table-action-btn btn-edit" onclick="showEditReferralContactModal(${row.ReferralID}, '${encName}', '${encEmail}', '${encUrl}', '${encSource}', '${encStatus}', '${encCompany}', '${encNotes}', '${encVerification}', '${encJobUrl}')" title="Edit contact">
                         <i class="fa-solid fa-pen-to-square"></i>
                     </button>
                     <button class="table-action-btn btn-delete" onclick="deleteRow('referrals', ${row.ReferralID})" title="Delete contact">
@@ -802,7 +802,7 @@ function renderTable(type, data) {
         const shortenLinkHtml = shortenUrl.startsWith("http") ? `<a href="${shortenUrl}" target="_blank">${shortenUrl}</a>` : shortenUrl;
         
         const targetOptions = [
-            'new', 'interested', 'not interested', 'asked for referral', 'done', 
+            'new', 'interested', 'not interested', 'asked for referral', 'referred', 'done', 
             'in progress', 'completed – target not met', 'cancelled', 'failed', 'referral outreach completed'
         ];
         let statusOptionsHtml = '';
@@ -1101,8 +1101,10 @@ async function deleteRow(type, id) {
 let activeUser = "";
 let allUsers = [];
 let userDetails = {};
-let scraperKeywords = [];
-let connectKeywords = [];
+let scraperSearchKeywords = [];
+let scraperTitleKeywords = [];
+let connectSearchKeywords = [];
+let connectTitleKeywords = [];
 let scraperExcludedKeywords = [];
 let connectExcludedKeywords = [];
 let cachedConfig = {};
@@ -1322,8 +1324,10 @@ function renderKeywords(type) {
     if (!container || !inputField) return;
 
     let keywordsList;
-    if (type === 'scraper') keywordsList = scraperKeywords;
-    else if (type === 'connect') keywordsList = connectKeywords;
+    if (type === 'scraper-search') keywordsList = scraperSearchKeywords;
+    else if (type === 'scraper-title') keywordsList = scraperTitleKeywords;
+    else if (type === 'connect-search') keywordsList = connectSearchKeywords;
+    else if (type === 'connect-title') keywordsList = connectTitleKeywords;
     else if (type === 'scraper-excluded') keywordsList = scraperExcludedKeywords;
     else if (type === 'connect-excluded') keywordsList = connectExcludedKeywords;
     else return;
@@ -1347,9 +1351,9 @@ function renderKeywords(type) {
 
 // Immediately save keywords to backend JSON files - NOW DISABLED, updates unsaved state in UI instead
 function saveKeywordsToBackend(type) {
-    if (type === 'scraper' || type === 'scraper-excluded') {
+    if (type.startsWith('scraper')) {
         updateTabUnsavedState('scraper', true);
-    } else if (type === 'connect' || type === 'connect-excluded') {
+    } else if (type.startsWith('connect')) {
         updateTabUnsavedState('connect', true);
     }
 }
@@ -1361,8 +1365,10 @@ function addKeyword(type) {
     if (!value) return;
     
     let keywordsList;
-    if (type === 'scraper') keywordsList = scraperKeywords;
-    else if (type === 'connect') keywordsList = connectKeywords;
+    if (type === 'scraper-search') keywordsList = scraperSearchKeywords;
+    else if (type === 'scraper-title') keywordsList = scraperTitleKeywords;
+    else if (type === 'connect-search') keywordsList = connectSearchKeywords;
+    else if (type === 'connect-title') keywordsList = connectTitleKeywords;
     else if (type === 'scraper-excluded') keywordsList = scraperExcludedKeywords;
     else if (type === 'connect-excluded') keywordsList = connectExcludedKeywords;
     else return;
@@ -1377,8 +1383,10 @@ function addKeyword(type) {
 
 function removeKeyword(type, index) {
     let keywordsList;
-    if (type === 'scraper') keywordsList = scraperKeywords;
-    else if (type === 'connect') keywordsList = connectKeywords;
+    if (type === 'scraper-search') keywordsList = scraperSearchKeywords;
+    else if (type === 'scraper-title') keywordsList = scraperTitleKeywords;
+    else if (type === 'connect-search') keywordsList = connectSearchKeywords;
+    else if (type === 'connect-title') keywordsList = connectTitleKeywords;
     else if (type === 'scraper-excluded') keywordsList = scraperExcludedKeywords;
     else if (type === 'connect-excluded') keywordsList = connectExcludedKeywords;
     else return;
@@ -1394,7 +1402,13 @@ function toggleBulkPaste(type) {
     if (!box) return;
     box.classList.toggle('hidden');
     if (!box.classList.contains('hidden')) {
-        const keywordsList = type === 'scraper' ? scraperKeywords : connectKeywords;
+        let keywordsList;
+        if (type === 'scraper-search') keywordsList = scraperSearchKeywords;
+        else if (type === 'scraper-title') keywordsList = scraperTitleKeywords;
+        else if (type === 'connect-search') keywordsList = connectSearchKeywords;
+        else if (type === 'connect-title') keywordsList = connectTitleKeywords;
+        else return;
+
         const textarea = document.getElementById(`${type}-bulk-paste-text`);
         if (textarea) {
             textarea.value = keywordsList.join(', ');
@@ -1409,10 +1423,16 @@ function applyBulkKeywords(type) {
     const text = textarea.value;
     const splitKws = text.split(/,|\n/).map(k => k.trim()).filter(k => k.length > 0);
     
-    if (type === 'scraper') {
-        scraperKeywords = splitKws;
+    if (type === 'scraper-search') {
+        scraperSearchKeywords = splitKws;
+    } else if (type === 'scraper-title') {
+        scraperTitleKeywords = splitKws;
+    } else if (type === 'connect-search') {
+        connectSearchKeywords = splitKws;
+    } else if (type === 'connect-title') {
+        connectTitleKeywords = splitKws;
     } else {
-        connectKeywords = splitKws;
+        return;
     }
     renderKeywords(type);
     toggleBulkPaste(type);
@@ -1488,6 +1508,8 @@ function switchTemplateMode(type, mode) {
         const currentCtc = document.getElementById('profile-current-ctc').value || '15 LPA';
         const expectedCtc = document.getElementById('profile-expected-ctc').value || '22 LPA';
         const resumeUrl = document.getElementById('profile-resume-url').value || 'https://resume-link.com';
+        const noticePeriod = document.getElementById('profile-notice-period').value || 'Immediate';
+        const lastWorkingDay = document.getElementById('profile-last-working-day').value || 'None';
         
         let previewHtml = rawTemplate
             .replace(/{FIRST_NAME}/g, firstName)
@@ -1500,6 +1522,8 @@ function switchTemplateMode(type, mode) {
             .replace(/{PREFERRED_LOCATIONS}/g, preferredLocations)
             .replace(/{CURRENT_CTC}/g, currentCtc)
             .replace(/{EXPECTED_CTC}/g, expectedCtc)
+            .replace(/{NOTICE_PERIOD}/g, noticePeriod)
+            .replace(/{LAST_WORKING_DAY}/g, lastWorkingDay)
             // uppercase canonical tokens
             .replace(/{RECEIVER_NAME}/g, "John")
             .replace(/{COMPANY}/g, "Sample Company")
@@ -1524,7 +1548,9 @@ function switchTemplateMode(type, mode) {
                 .replace(/{CURRENT_LOCATION}/g, currentLocation)
                 .replace(/{PREFERRED_LOCATIONS}/g, preferredLocations)
                 .replace(/{CURRENT_CTC}/g, currentCtc)
-                .replace(/{EXPECTED_CTC}/g, expectedCtc);
+                .replace(/{EXPECTED_CTC}/g, expectedCtc)
+                .replace(/{NOTICE_PERIOD}/g, noticePeriod)
+                .replace(/{LAST_WORKING_DAY}/g, lastWorkingDay);
             
             const subjectPreviewElement = document.getElementById('scraper-preview-subject-content');
             if (subjectPreviewElement) {
@@ -1650,6 +1676,8 @@ async function loadSettings() {
         setVal('profile-resume-url', profile.resume_url);
         setVal('profile-current-ctc', profile.current_ctc);
         setVal('profile-expected-ctc', profile.expected_ctc);
+        setVal('profile-notice-period', profile.notice_period);
+        setVal('profile-last-working-day', profile.last_working_day);
         
         // Update visual profile display card
         updateProfileDisplayCard(profile, username);
@@ -1694,8 +1722,10 @@ async function loadSettings() {
         setVal('scraper-email-template', scraper.email_template);
         setVal('scraper-email-subject', scraper.email_subject || '');
         
-        scraperKeywords = scraper.keywords || [];
-        renderKeywords('scraper');
+        scraperSearchKeywords = scraper.search_keywords || scraper.keywords || [];
+        renderKeywords('scraper-search');
+        scraperTitleKeywords = scraper.title_keywords || scraper.keywords || [];
+        renderKeywords('scraper-title');
         scraperExcludedKeywords = scraper.excluded_keywords || [];
         renderKeywords('scraper-excluded');
         
@@ -1706,8 +1736,10 @@ async function loadSettings() {
         setVal('connect-message-template', connect.message_template);
         setVal('referral-message-template', referralOutreach.message_template || '');
         
-        connectKeywords = connect.keywords || [];
-        renderKeywords('connect');
+        connectSearchKeywords = connect.search_keywords || connect.keywords || [];
+        renderKeywords('connect-search');
+        connectTitleKeywords = connect.title_keywords || connect.keywords || [];
+        renderKeywords('connect-title');
         connectExcludedKeywords = connect.excluded_keywords || [];
         renderKeywords('connect-excluded');
 
@@ -1788,7 +1820,9 @@ async function saveSettingsForm(event) {
                 document.getElementById('resume-filename-label').innerText.replace("No file uploaded", "").trim() : 
                 profile.resume_name,
             "current_ctc": getVal('profile-current-ctc', profile.current_ctc),
-            "expected_ctc": getVal('profile-expected-ctc', profile.expected_ctc)
+            "expected_ctc": getVal('profile-expected-ctc', profile.expected_ctc),
+            "notice_period": getVal('profile-notice-period', profile.notice_period),
+            "last_working_day": getVal('profile-last-working-day', profile.last_working_day)
         },
         "email_scraper": emailScraper,
         "linkedin_connect": linkedinConnect,
@@ -2005,26 +2039,48 @@ if (customTextInput) {
 }
 
 // Bind Tag keypress event
-const scraperTagInput = document.getElementById('scraper-tag-input');
-if (scraperTagInput) {
-    scraperTagInput.addEventListener('keypress', (e) => {
+const scraperSearchTagInput = document.getElementById('scraper-search-tag-input');
+if (scraperSearchTagInput) {
+    scraperSearchTagInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
-            addKeyword('scraper');
+            addKeyword('scraper-search');
         }
     });
-    scraperTagInput.addEventListener('blur', () => addKeyword('scraper'));
+    scraperSearchTagInput.addEventListener('blur', () => addKeyword('scraper-search'));
 }
 
-const connectTagInput = document.getElementById('connect-tag-input');
-if (connectTagInput) {
-    connectTagInput.addEventListener('keypress', (e) => {
+const scraperTitleTagInput = document.getElementById('scraper-title-tag-input');
+if (scraperTitleTagInput) {
+    scraperTitleTagInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
-            addKeyword('connect');
+            addKeyword('scraper-title');
         }
     });
-    connectTagInput.addEventListener('blur', () => addKeyword('connect'));
+    scraperTitleTagInput.addEventListener('blur', () => addKeyword('scraper-title'));
+}
+
+const connectSearchTagInput = document.getElementById('connect-search-tag-input');
+if (connectSearchTagInput) {
+    connectSearchTagInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addKeyword('connect-search');
+        }
+    });
+    connectSearchTagInput.addEventListener('blur', () => addKeyword('connect-search'));
+}
+
+const connectTitleTagInput = document.getElementById('connect-title-tag-input');
+if (connectTitleTagInput) {
+    connectTitleTagInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addKeyword('connect-title');
+        }
+    });
+    connectTitleTagInput.addEventListener('blur', () => addKeyword('connect-title'));
 }
 
 const scraperExcludedTagInput = document.getElementById('scraper-excluded-tag-input');
@@ -2159,7 +2215,9 @@ async function saveConfiguration(module) {
             "interval": getVal('scraper-interval'),
             "review_mode": getChecked('scraper-review-mode'),
             "max_emails_per_run": maxEmailsVal.toString(),
-            "keywords": scraperKeywords,
+            "search_keywords": scraperSearchKeywords,
+            "title_keywords": scraperTitleKeywords,
+            "keywords": scraperSearchKeywords,
             "excluded_keywords": scraperExcludedKeywords,
             "email_subject": getVal('scraper-email-subject'),
             "email_template": getVal('scraper-email-template')
@@ -2180,7 +2238,9 @@ async function saveConfiguration(module) {
             "interval": getVal('connect-interval') || '60',
             "review_mode": getChecked('connect-review-mode'),
             "max_connections_per_run": maxConnsVal.toString(),
-            "keywords": connectKeywords,
+            "search_keywords": connectSearchKeywords,
+            "title_keywords": connectTitleKeywords,
+            "keywords": connectSearchKeywords,
             "excluded_keywords": connectExcludedKeywords,
             "message_template": noteTemplate
         };
@@ -2586,7 +2646,7 @@ function updateStatusSelectColor(selectEl) {
     else if (val === 'replied') selectEl.classList.add('status-select-replied');
 }
 
-function showEditReferralContactModal(id, name, email, profileUrl, source, status, company, notes, verification, companyUrl) {
+function showEditReferralContactModal(id, name, email, profileUrl, source, status, company, notes, verification, jobUrl) {
     document.getElementById('edit-referral-contact-id').value = id;
     document.getElementById('edit-referral-contact-name').value = decodeURIComponent(name);
     document.getElementById('edit-referral-contact-email').value = decodeURIComponent(email === 'None' || email === 'null' || !email ? '' : email);
@@ -2598,7 +2658,7 @@ function showEditReferralContactModal(id, name, email, profileUrl, source, statu
     updateStatusSelectColor(statusEl);
     
     document.getElementById('edit-referral-contact-company').value = decodeURIComponent(company === 'None' || company === 'null' || !company ? '' : company);
-    document.getElementById('edit-referral-contact-company-url').value = decodeURIComponent(companyUrl === 'None' || companyUrl === 'null' || !companyUrl ? '' : companyUrl);
+    document.getElementById('edit-referral-contact-job-url').value = decodeURIComponent(jobUrl === 'None' || jobUrl === 'null' || !jobUrl ? '' : jobUrl);
     document.getElementById('edit-referral-contact-notes').value = decodeURIComponent(notes === 'None' || notes === 'null' || !notes ? '' : notes);
     
     const verificationVal = decodeURIComponent(verification || 'Verified');
@@ -2626,7 +2686,7 @@ async function saveReferralContactEditForm(event) {
     const source = document.getElementById('edit-referral-contact-source').value;
     const status = document.getElementById('edit-referral-contact-status').value;
     const company = document.getElementById('edit-referral-contact-company').value;
-    const company_url = document.getElementById('edit-referral-contact-company-url').value;
+    const job_url = document.getElementById('edit-referral-contact-job-url').value;
     const notes = document.getElementById('edit-referral-contact-notes').value;
     
     const verificationEl = document.getElementById('edit-referral-contact-verification');
@@ -2644,7 +2704,7 @@ async function saveReferralContactEditForm(event) {
                 source: source,
                 status: status,
                 company: company,
-                company_url: company_url,
+                job_url: job_url,
                 notes: notes,
                 employment_verification_status: verification
             })
@@ -2735,10 +2795,16 @@ setInterval(() => {
                                    document.activeElement.id.startsWith('referral-')
                                )));
     
-    if (!isModalOpen) {
+    // Check if the user is interacting with any input/select inside the tables
+    const isInteractingWithTable = document.activeElement && 
+                                  (document.activeElement.closest('.data-table') || 
+                                   document.activeElement.closest('.table-responsive') || 
+                                   document.activeElement.classList.contains('status-inline-select'));
+    
+    if (!isModalOpen && !isInteractingWithTable) {
         loadTableData('scraper');
         loadTableData('referral');
         loadTableData('referrals');
     }
-}, 5000);
+}, 30000);
 

@@ -276,7 +276,7 @@ class LinkedInScraper:
 
         user_conf = get_selected_user_config()
         email_scraper = user_conf.get("email_scraper", {})
-        search_keywords = email_scraper.get("keywords", DBA_KEYWORDS_DEFAULT)
+        title_keywords = email_scraper.get("title_keywords") or email_scraper.get("keywords") or DBA_KEYWORDS_DEFAULT
         excluded_keywords = [kw.lower().strip() for kw in email_scraper.get("excluded_keywords", []) if kw.strip()]
 
         logger.info(f"Starting keyword '{keyword}' scrape — timeout: {timeout_seconds}s")
@@ -333,7 +333,7 @@ class LinkedInScraper:
                     data = self.extract_post_data(post)
                     if data and data.get('content'):
                         content = data['content']
-                        if any(kw.lower() in content.lower() for kw in search_keywords):
+                        if any(kw.lower() in content.lower() for kw in title_keywords):
                             excluded_hit = next((kw for kw in excluded_keywords if kw in content.lower()), None)
                             if excluded_hit:
                                 logger.debug(f"Post excluded by exclusion keyword '{excluded_hit}' — skipped.")

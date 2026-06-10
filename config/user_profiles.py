@@ -235,16 +235,21 @@ def substitute_template_variables(template_str, profile_dict, extra_vars=None):
         "{CURRENT_LOCATION}": profile_dict.get("current_location", ""),
         "{PREFERRED_LOCATIONS}": profile_dict.get("preferred_locations", ""),
         "{CURRENT_CTC}": profile_dict.get("current_ctc", ""),
-        "{EXPECTED_CTC}": profile_dict.get("expected_ctc", "")
+        "{EXPECTED_CTC}": profile_dict.get("expected_ctc", ""),
+        "{NOTICE_PERIOD}": profile_dict.get("notice_period", ""),
+        "{LAST_WORKING_DAY}": profile_dict.get("last_working_day", ""),
+        "{RESUME}": profile_dict.get("resume_url", ""),
+        "{COMPANY}": "",
+        "{JOB_URL}": "",
+        "{RECEIVER_NAME}": ""
     }
     
+    if extra_vars:
+        mappings.update(extra_vars)
+        
     result = template_str
     for placeholder, val in mappings.items():
         result = result.replace(placeholder, str(val))
-        
-    if extra_vars:
-        for placeholder, val in extra_vars.items():
-            result = result.replace(placeholder, str(val))
             
     return result
 

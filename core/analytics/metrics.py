@@ -106,9 +106,9 @@ def get_email_metrics():
     if email_col:
         new_df = df[df['_status'] == 'new'].copy()
         if timestamp_col and not new_df.empty:
-            new_df = new_df.sort_values(by=timestamp_col, ascending=False).head(20)
+            new_df = new_df.sort_values(by=timestamp_col, ascending=False)
         rows = []
-        for _, row in new_df.head(20).iterrows():
+        for _, row in new_df.iterrows():
             kw_val = str(row.get(keyword_col, '')) if keyword_col else ''
             rows.append({
                 'Email':     str(row.get(email_col, '')) if email_col else '',

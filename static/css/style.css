@@ -1335,6 +1335,12 @@ body {
     color: var(--accent-cyan);
 }
 
+/* Purple for Referred */
+.badge-referred {
+    background: rgba(186, 104, 200, 0.2);
+    color: #ce93d8;
+}
+
 /* Dark Green for Done */
 .badge-done, .badge-dark-green {
     background: rgba(46, 125, 50, 0.25);
@@ -1399,6 +1405,12 @@ body {
     background: rgba(0, 176, 255, 0.15);
     color: var(--accent-cyan);
     box-shadow: 0 0 10px rgba(0, 176, 255, 0.1);
+}
+
+.status-select-wrapper.referred .status-inline-select {
+    background: rgba(186, 104, 200, 0.2);
+    color: #ce93d8;
+    border: 1px solid rgba(186, 104, 200, 0.4);
 }
 
 .status-select-wrapper.done .status-inline-select {

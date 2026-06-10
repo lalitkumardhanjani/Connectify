@@ -436,7 +436,8 @@ def run_job_finder(target_url=None):
         user_conf = get_selected_user_config()
         global_conf = get_global_settings()
         
-        keywords = user_conf.get("linkedin_connect", {}).get("keywords", LINKEDIN_CONNECT_KEYWORDS_DEFAULT)
+        search_keywords = user_conf.get("linkedin_connect", {}).get("search_keywords") or user_conf.get("linkedin_connect", {}).get("keywords") or LINKEDIN_CONNECT_KEYWORDS_DEFAULT
+        title_keywords = user_conf.get("linkedin_connect", {}).get("title_keywords") or user_conf.get("linkedin_connect", {}).get("keywords") or LINKEDIN_CONNECT_KEYWORDS_DEFAULT
         search_time_range = global_conf.get("search_time_range", "r604800")
         
         # Retrieve preferred locations from profile
@@ -452,7 +453,7 @@ def run_job_finder(target_url=None):
         
         search_combinations = []
         for loc in locations:
-            for kw in keywords:
+            for kw in search_keywords:
                 url = build_search_url(kw, loc, search_time_range)
                 search_combinations.append((kw, loc, url))
         
@@ -768,7 +769,7 @@ def run_job_finder(target_url=None):
                                 logger.info("  [SKIP] Job already processed (Excel signature check).")
                                 is_valid = False
 
-                            if is_valid and not is_title_matching_keywords(position, keywords):
+                            if is_valid and not is_title_matching_keywords(position, title_keywords):
                                 logger.info(f"  [SKIP] Title '{position}' does not match configured keyword list.")
                                 is_valid = False
 

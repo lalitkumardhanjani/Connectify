@@ -1226,6 +1226,7 @@ def run_phase_one_discovery():
         for job in job_data:
             company = job.get('CompanyName') or ''
             job_id = job.get('JobID') or ''
+            job_url = job.get('ShortenURL') or job.get('CompanyURL') or ''
             
             # Update current Job Lead status to In Progress
             try:
@@ -1234,20 +1235,9 @@ def run_phase_one_discovery():
                 logger.warning(f"Failed to update status to In Progress: {e}")
 
             # Check company target connections progress (active connection outreach/discovery count)
-            from core.storage.database import get_completed_referral_count, load_all_referrals, clean_company_url
-            
-            # Find any company url from referrals to match accurately
+            from core.storage.database import get_completed_referral_count, load_all_referrals
             referrals = load_all_referrals()
-            company_url = ""
-            for r_item in referrals:
-                if str(r_item.get("CompanyName") or "").strip().lower() == company.strip().lower() and r_item.get("Company_URL"):
-                    company_url = r_item.get("Company_URL")
-                    break
-            if not company_url:
-                slug = company.lower().replace(" ", "-").replace(".", "").replace(",", "")
-                company_url = f"https://www.linkedin.com/company/{slug}/"
-                
-            completed_progress = get_completed_referral_count(company, company_url, job_id=job_id)
+            completed_progress = get_completed_referral_count(company, job_url, job_id=job_id)
             
             # Count existing pending employee connections in database
             pending_count = sum(
@@ -1305,8 +1295,8 @@ def run_phase_one_discovery():
                         
                     profile_url = conn['profile_url']
                     
-                    if is_profile_already_contacted(profile_url):
-                        logger.info(f"Connection {conn['name']} already messaged or skipped. Skipping.")
+                    if is_profile_already_contacted(profile_url, job_url=job_url):
+                        logger.info(f"Connection {conn['name']} already messaged or skipped for job {job_url}. Skipping.")
                         continue
                         
                     logger.info(f"Navigating to {conn['name']}'s profile: {profile_url}")
@@ -1376,7 +1366,7 @@ def run_phase_one_discovery():
                 referral_data = {
                     'JobID': job_id,
                     'CompanyName': conn['actual_company'], # actual verified company name
-                    'Company_URL': company_url,
+                    'Job_URL': job_url,
                     'Referral_Person_Name': conn['name'],
                     'Referral_Person_Email': '',
                     'Referral_Person_Profile_URL': conn['profile_url'],
@@ -1507,8 +1497,8 @@ def run_phase_two_messaging():
             company = ref.get('CompanyName')
             
             from core.storage.database import get_completed_referral_count
-            company_url = ref.get("Company_URL") or ""
-            completed_progress = get_completed_referral_count(company, company_url, job_id=job_id)
+            job_url = ref.get("Job_URL") or job_urls.get(job_id) or ""
+            completed_progress = get_completed_referral_count(company, job_url, job_id=job_id)
             if completed_progress >= max_referrals:
                 logger.info(f"Target connection count of {max_referrals} already reached/completed for "
                             f"{company} (completed progress: {completed_progress}). "
@@ -1522,15 +1512,14 @@ def run_phase_two_messaging():
             name = ref.get('Referral_Person_Name')
             profile_url = ref.get('Referral_Person_Profile_URL')
             target_role = job_titles.get(job_id) or "DBA"
-            job_url = job_urls.get(job_id) or ""
             
             logger.info("\n" + "=" * 60)
             logger.info(f"[Contact {idx+1}/{len(pending)}] Processing referral message to {name} ({company})")
             logger.info("=" * 60)
             
             # ── Final eligibility check ──────────────────────────────────────
-            if is_profile_already_contacted(profile_url):
-                logger.info(f"Eligibility check: profile already messaged. Skipping.")
+            if is_profile_already_contacted(profile_url, job_url=job_url):
+                logger.info(f"Eligibility check: profile already messaged for job {job_url}. Skipping.")
                 ref['Referral_Status'] = 'Skipped'
                 add_or_update_referral(ref)
                 continue

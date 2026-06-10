@@ -33,7 +33,13 @@ def generate_email_draft():
     subject = email_scraper.get("email_subject", "").strip() or "Referral Request – DBA Opportunity"
 
     # Substitute variables
-    body = substitute_template_variables(raw_template, profile)
+    extra_vars = {
+        "{RECEIVER_NAME}": "Hiring Team",
+        "{COMPANY}": "your company",
+        "{JOB_URL}": ""
+    }
+    body = substitute_template_variables(raw_template, profile, extra_vars)
+    subject = substitute_template_variables(subject, profile, extra_vars)
     
     return subject, body
 

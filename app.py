@@ -316,7 +316,7 @@ def get_stats():
     
     total_leads = len(job_leads)
     
-    referral_requests_sent = sum(1 for r in job_leads if str(r.get('Status')).strip().lower() in ('ask for referral', 'asked for referral', 'done'))
+    referral_requests_sent = sum(1 for r in job_leads if str(r.get('Status')).strip().lower() in ('ask for referral', 'asked for referral', 'done', 'referred'))
     done_referrals = sum(1 for r in job_leads if str(r.get('Status')).strip().lower() == 'done')
 
     return jsonify({
@@ -576,6 +576,8 @@ def create_user_profile():
         "email_scraper": {
             "email_template": DEFAULT_EMAIL_TEMPLATE,
             "email_subject": "",
+            "search_keywords": [],
+            "title_keywords": [],
             "keywords": [],
             "excluded_keywords": [],
             "sender_email": "",
@@ -585,6 +587,8 @@ def create_user_profile():
         },
         "linkedin_connect": {
             "message_template": DEFAULT_CONNECTION_TEMPLATE,
+            "search_keywords": [],
+            "title_keywords": [],
             "keywords": [],
             "excluded_keywords": [],
             "interval": "60",
@@ -662,6 +666,8 @@ def save_user_configuration():
         "interval": "60",
         "review_mode": True,
         "max_emails_per_run": "5",
+        "search_keywords": [],
+        "title_keywords": [],
         "keywords": [],
         "excluded_keywords": [],
         "email_subject": "",
@@ -675,6 +681,8 @@ def save_user_configuration():
         "interval": "60",
         "review_mode": True,
         "max_connections_per_run": "5",
+        "search_keywords": [],
+        "title_keywords": [],
         "keywords": [],
         "excluded_keywords": [],
         "message_template": ""
@@ -802,7 +810,7 @@ def get_config():
     response_data = {
         "LINKEDIN_EMAIL": global_conf.get("linkedin_email", ""),
         "LINKEDIN_PASSWORD": global_conf.get("linkedin_password", ""),
-        "SEARCH_KEYWORDS": "|".join(scraper.get("keywords", [])),
+        "SEARCH_KEYWORDS": "|".join(scraper.get("search_keywords") or scraper.get("keywords") or []),
         "SEARCH_LOCATION": global_conf.get("search_location", "Bangalore, Karnataka, India"),
         "SEARCH_TIME_RANGE": global_conf.get("search_time_range", "r604800"),
         "DRY_RUN": global_conf.get("dry_run", "0"),
@@ -839,7 +847,10 @@ def save_config():
         if "RESUME_LINK" in body:
             config["users"][username]["profile"]["resume_url"] = body["RESUME_LINK"]
         if "SEARCH_KEYWORDS" in body:
-            config["users"][username]["email_scraper"]["keywords"] = [k.strip() for k in body["SEARCH_KEYWORDS"].split("|") if k.strip()]
+            keywords_list = [k.strip() for k in body["SEARCH_KEYWORDS"].split("|") if k.strip()]
+            config["users"][username]["email_scraper"]["search_keywords"] = keywords_list
+            config["users"][username]["email_scraper"]["title_keywords"] = keywords_list
+            config["users"][username]["email_scraper"]["keywords"] = keywords_list
         
         # global settings
         if "LINKEDIN_EMAIL" in body:
@@ -1050,7 +1061,7 @@ def edit_referral_row():
     source = body.get("source")
     status = body.get("status")
     company = body.get("company")
-    company_url = body.get("company_url")
+    job_url = body.get("job_url") or body.get("company_url")
     notes = body.get("notes")
     verification = body.get("employment_verification_status") or "Verified"
     
@@ -1059,7 +1070,7 @@ def edit_referral_row():
         
     update_data = {
         "CompanyName": company,
-        "Company_URL": company_url or "",
+        "Job_URL": job_url or "",
         "Referral_Person_Name": name,
         "Referral_Person_Email": email or "",
         "Referral_Person_Profile_URL": profile_url,
