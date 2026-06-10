@@ -559,12 +559,22 @@ class LinkedInScraper:
                                 if not expanded_preferred:
                                     location_matched = True
                                 else:
-                                    content_lower = content.lower()
                                     loc_lower = location.lower() if location else ""
-                                    for pref in expanded_preferred:
-                                        if pref in content_lower or (loc_lower and pref in loc_lower):
-                                            location_matched = True
-                                            break
+                                    if loc_lower:
+                                        # Location was extracted cleanly — match ONLY against it,
+                                        # NOT the full post body to avoid false positives
+                                        # (e.g. a Chennai post body that mentions "Bangalore" elsewhere)
+                                        for pref in expanded_preferred:
+                                            if pref in loc_lower:
+                                                location_matched = True
+                                                break
+                                    else:
+                                        # No location extracted — fall back to full post content search
+                                        content_lower = content.lower()
+                                        for pref in expanded_preferred:
+                                            if pref in content_lower:
+                                                location_matched = True
+                                                break
 
                                 if not location_matched:
                                     logger.info(f"Post location does not match preferred locations {preferred_locs}. Skipping post.")
