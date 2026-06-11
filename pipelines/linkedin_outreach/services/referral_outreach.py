@@ -1267,7 +1267,11 @@ def run_phase_one_discovery():
             
             search_url, actual_company_url = find_company_employees_search_url(driver, company)
             if not search_url:
-                logger.warning(f"Could not find employees search link for: {company}")
+                logger.warning(f"Could not find employees search link for: {company}. Reverting status to 'Interested' so LinkedIn connector can process it.")
+                try:
+                    update_status_by_id(job_id, 'Interested')
+                except Exception as e:
+                    logger.warning(f"Failed to revert status to Interested: {e}")
                 continue
                 
             if actual_company_url:
@@ -1377,8 +1381,22 @@ def run_phase_one_discovery():
                 add_or_update_referral(referral_data)
                 discovered_count += 1
                 logger.info(f"Discovered and Saved: {conn['name']} - Pending outreach")
-                
+
             logger.info(f"Found and stored {discovered_count} verified 1st-degree connection contacts for {company}.")
+
+            if discovered_count == 0:
+                # No 1st-degree employees found — revert status to 'Interested' so the
+                # LinkedIn connector pipeline (run_linkedin_connect.py) can still run
+                # and send connection requests to 2nd/3rd-degree people at this company.
+                logger.info(
+                    f"No verified 1st-degree employees found for {company}. "
+                    f"Reverting job status from 'In Progress' → 'Interested' so "
+                    f"LinkedIn connector can still process connection requests."
+                )
+                try:
+                    update_status_by_id(job_id, 'Interested')
+                except Exception as e:
+                    logger.warning(f"Failed to revert status to Interested: {e}")
             time.sleep(2)
             
     except Exception as e:
@@ -1682,6 +1700,23 @@ def run_phase_two_messaging():
             driver.quit()
         except Exception:
             pass
+
+    # ── Post-run job status updates ─────────────────────────────────────────
+    # For each distinct job that had messages sent this run, advance its status
+    # from 'In Progress' → 'Asked for Referral' so no job stays stuck.
+    try:
+        sent_job_ids = set(
+            str(r.get('JobID')) for r in pending
+            if str(r.get('Referral_Status', '')).strip().lower() == 'sent'
+        )
+        for jid in sent_job_ids:
+            try:
+                update_status_by_id(jid, 'Asked for Referral')
+                logger.info(f"Job {jid}: status updated to 'Asked for Referral' after referral messages sent.")
+            except Exception as e:
+                logger.warning(f"Failed to update status for job {jid}: {e}")
+    except Exception as e:
+        logger.warning(f"Post-run job status update failed: {e}")
 
     # ── Propagate Quit as exit code 2 ─────────────────────────────────────────
     # Exit code 2 is the contract with SubprocessRunner: non-zero stops the
