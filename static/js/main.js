@@ -1175,7 +1175,14 @@ function filterUserOptions() {
         return;
     }
     
-    filtered.forEach(user => {
+    // Active profile always floats to top; rest sorted alphabetically
+    const sorted = [...filtered].sort((a, b) => {
+        if (a === activeUser) return -1;
+        if (b === activeUser) return 1;
+        return a.toLowerCase().localeCompare(b.toLowerCase());
+    });
+    
+    sorted.forEach(user => {
         const option = document.createElement('div');
         const initials = getUserInitials(user);
         option.className = `searchable-select-option ${user === activeUser ? 'selected' : ''}`;
