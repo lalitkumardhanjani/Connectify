@@ -165,12 +165,12 @@ class LinkedInScraper:
                     break
                 except TimeoutException:
                     continue
-                    
+
             if email_input:
                 email_input.send_keys(email)
                 password_input = self.driver.find_element(By.CSS_SELECTOR, "input[type='password']")
                 password_input.send_keys(password)
-                
+
                 button_selectors = [
                     "button[type='submit']",
                     "button[data-litms-control-urn*='sign-in']",
@@ -183,8 +183,8 @@ class LinkedInScraper:
                     except NoSuchElementException:
                         continue
                 time.sleep(5)
-                
-                # Check if logged in
+
+                # Check if logged in after auto-submit
                 logged_in_after_auto = False
                 for selector in search_bar_selectors:
                     try:
@@ -194,28 +194,42 @@ class LinkedInScraper:
                             break
                     except NoSuchElementException:
                         continue
-                        
+
                 if logged_in_after_auto:
                     logger.info("Login successful!")
                     return True
                 else:
-                    logger.warning("Auto-login failed or security check (2FA) required. Waiting up to 300 seconds for manual login...")
-                    start_time = time.time()
-                    while time.time() - start_time < 300:
+                    logger.warning(
+                        "Auto-login did not complete (security check / 2FA / checkpoint). "
+                        "Waiting up to 300 seconds for manual login in the browser window..."
+                    )
+            else:
+                # LinkedIn showed a checkpoint, redirect, or changed its login page DOM
+                # so the email field could not be located. Fall back to manual login.
+                logger.warning(
+                    "Login form not found on page (LinkedIn may be showing a checkpoint "
+                    "or security screen). Waiting up to 300 seconds for manual login "
+                    "in the browser window — please log in manually and the pipeline "
+                    "will resume automatically."
+                )
+
+            # ── Manual login fallback (covers both: form-not-found and auto-login-failed) ──
+            start_time = time.time()
+            while time.time() - start_time < 300:
+                try:
+                    for selector in search_bar_selectors:
                         try:
-                            for selector in search_bar_selectors:
-                                try:
-                                    search_bar = self.driver.find_element(By.CSS_SELECTOR, selector)
-                                    if search_bar.is_displayed():
-                                        logger.info("Manual login completed!")
-                                        return True
-                                except NoSuchElementException:
-                                    continue
-                        except Exception:
-                            pass
-                        time.sleep(2)
-                    logger.error("Manual login timeout. Exiting.")
-                    return False
+                            search_bar = self.driver.find_element(By.CSS_SELECTOR, selector)
+                            if search_bar.is_displayed():
+                                logger.info("Manual login completed!")
+                                return True
+                        except NoSuchElementException:
+                            continue
+                except Exception:
+                    pass
+                time.sleep(2)
+            logger.error("Manual login timeout after 300 seconds. Exiting.")
+            return False
         except Exception as e:
             logger.error(f"Login error: {str(e)}")
             logger.info("Waiting up to 300 seconds for manual login...")

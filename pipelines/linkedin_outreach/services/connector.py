@@ -256,8 +256,19 @@ def login_to_linkedin(driver, email, password):
                         logger.error("Login timeout. Exiting.")
                         return False
             else:
-                logger.info("No login form found - assuming already logged in")
-                return True
+                # Login form not found — LinkedIn may be showing a checkpoint, security
+                # screen, or redirect. Fall back to manual login instead of assuming success.
+                logger.warning(
+                    "Login form not found on page (LinkedIn may be showing a checkpoint "
+                    "or security screen). Waiting up to 300 seconds for manual login "
+                    "in the browser window — please log in manually and the pipeline "
+                    "will resume automatically."
+                )
+                if wait_until_logged_in(driver, timeout_seconds=300):
+                    return True
+                else:
+                    logger.error("Manual login timeout. Exiting.")
+                    return False
         except Exception as e:
             logger.error(f"Login error: {str(e)}")
             logger.info("Waiting up to 300 seconds for manual login...")
