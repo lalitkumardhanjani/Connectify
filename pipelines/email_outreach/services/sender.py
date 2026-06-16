@@ -14,7 +14,7 @@ from config.user_profiles import get_selected_user_config, get_global_settings, 
 from config.email_templates import DEFAULT_EMAIL_TEMPLATE
 from core.logging.config import logger
 
-def generate_email_draft():
+def generate_email_draft(post_url=''):
     """Generate email subject and body dynamically using the active user configuration and templates."""
     try:
         user_conf = get_selected_user_config()
@@ -36,7 +36,8 @@ def generate_email_draft():
     extra_vars = {
         "{RECEIVER_NAME}": "Hiring Team",
         "{COMPANY}": "your company",
-        "{JOB_URL}": ""
+        "{JOB_URL}": "",
+        "{POST_URL}": post_url or ""
     }
     body = substitute_template_variables(raw_template, profile, extra_vars)
     subject = substitute_template_variables(subject, profile, extra_vars)
@@ -107,7 +108,7 @@ def send_email_smtp(to_email, name, post_url):
         return False
 
 
-def send_email_via_gmail(driver, to_email, review_mode=None):
+def send_email_via_gmail(driver, to_email, post_url='', review_mode=None):
     """Send email via Gmail web interface using Selenium."""
     try:
         user_conf = get_selected_user_config()
@@ -122,7 +123,7 @@ def send_email_via_gmail(driver, to_email, review_mode=None):
     
     review_mode = bool(review_mode)
     resume_file_path = get_resume_file_path(profile)
-    subject, body = generate_email_draft()
+    subject, body = generate_email_draft(post_url=post_url)
 
     # Prompt is moved to the end of Gmail composition
 

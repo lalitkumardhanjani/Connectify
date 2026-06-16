@@ -55,6 +55,7 @@ def run_phase_two(scraper, review_mode=None):
     col_map = {cell.value: idx+1 for idx, cell in enumerate(ws[1])}
     email_col = col_map.get('Email')
     status_col = col_map.get('Status')
+    post_url_col = col_map.get('PostURL')
     
     if not email_col or not status_col:
         logger.error("Excel schema missing required columns.")
@@ -68,7 +69,8 @@ def run_phase_two(scraper, review_mode=None):
         email = ws.cell(row=row, column=email_col).value
         if not email:
             continue
-        pending_rows.append((row, email))
+        post_url = ws.cell(row=row, column=post_url_col).value if post_url_col else ''
+        pending_rows.append((row, email, post_url or ''))
         
     user_conf = get_selected_user_config()
     email_scraper_conf = user_conf.get("email_scraper", {})
@@ -80,13 +82,13 @@ def run_phase_two(scraper, review_mode=None):
         return
         
     logger.info(f"Found {len(pending_rows)} pending emails to process. Target limit: {max_emails} per run.")
-    for row, email in pending_rows:
+    for row, email, post_url in pending_rows:
         if emails_sent >= max_emails:
             logger.info(f"Target limit of {max_emails} emails sent reached for this run. Stopping.")
             break
             
         logger.info(f"Processing email outreach for {email} (row {row})")
-        sent = send_email_via_gmail(scraper.driver, email, review_mode=review_mode)
+        sent = send_email_via_gmail(scraper.driver, email, post_url=post_url, review_mode=review_mode)
         if sent == "skipped":
             logger.info(f"Email to {email} skipped – updating status to 'skipped'.")
             update_status(email, 'skipped')
@@ -99,6 +101,7 @@ def run_phase_two(scraper, review_mode=None):
             emails_sent += 1
         else:
             logger.info(f"Email to {email} not sent – leaving status unchanged.")
+
 
 def run_pipeline(phase="full", review_mode=None):
     """Orchestrates the entire Email Outreach pipeline process."""

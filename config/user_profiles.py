@@ -241,6 +241,7 @@ def substitute_template_variables(template_str, profile_dict, extra_vars=None):
         "{RESUME}": profile_dict.get("resume_url", ""),
         "{COMPANY}": "",
         "{JOB_URL}": "",
+        "{POST_URL}": "",
         "{RECEIVER_NAME}": ""
     }
     

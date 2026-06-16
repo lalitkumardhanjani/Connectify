@@ -1554,6 +1554,7 @@ function switchTemplateMode(type, mode) {
             .replace(/{RECEIVER_NAME}/g, "John")
             .replace(/{COMPANY}/g, "Sample Company")
             .replace(/{JOB_URL}/g, "https://linkedin.com/jobs/view/12345")
+            .replace(/{POST_URL}/g, "https://linkedin.com/posts/sample-post-12345")
             .replace(/{RESUME}/g, resumeUrl)
             // legacy lowercase aliases (for templates saved before renaming)
             .replace(/{resume}/g, resumeUrl)
