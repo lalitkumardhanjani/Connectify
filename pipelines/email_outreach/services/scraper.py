@@ -476,8 +476,13 @@ class LinkedInScraper:
 
         user_conf = get_selected_user_config()
         email_scraper = user_conf.get("email_scraper", {})
-        title_keywords = email_scraper.get("title_keywords") or email_scraper.get("keywords") or DBA_KEYWORDS_DEFAULT
-        excluded_keywords = [kw.lower().strip() for kw in email_scraper.get("excluded_keywords", []) if kw.strip()]
+        
+        # Load and normalize keywords to lowercase strings
+        raw_keywords = email_scraper.get("title_keywords") or email_scraper.get("keywords") or DBA_KEYWORDS_DEFAULT
+        title_keywords = [str(kw).lower().strip() for kw in raw_keywords if str(kw).strip()]
+        
+        excluded_keywords = [str(kw).lower().strip() for kw in email_scraper.get("excluded_keywords", []) if str(kw).strip()]
+        max_emails = int(email_scraper.get("max_emails_per_run") or 5)
 
         logger.info(f"Starting keyword '{keyword}' scrape — timeout: {timeout_seconds}s")
 
@@ -535,8 +540,9 @@ class LinkedInScraper:
                     if data and data.get('content'):
                         content = data['content']
                         post_url = data.get('post_url', '')
-                        if any(kw.lower() in content.lower() for kw in title_keywords):
-                            excluded_hit = next((kw for kw in excluded_keywords if kw in content.lower()), None)
+                        content_lower = content.lower()
+                        if any(kw in content_lower for kw in title_keywords):
+                            excluded_hit = next((kw for kw in excluded_keywords if kw in content_lower), None)
                             if excluded_hit:
                                 logger.debug(f"Post excluded by exclusion keyword '{excluded_hit}' — skipped.")
                             else:
@@ -591,8 +597,7 @@ class LinkedInScraper:
                                                 break
 
                                 if not location_matched:
-                                    logger.info(f"Post location does not match preferred locations {preferred_locs}. Skipping post.")
-                                    continue
+                                    logger.debug(f"Post location does not match preferred locations {preferred_locs}. Bypassing skip check.")
 
                                 if company_name:
                                     logger.debug(f"Extracted company: {company_name}")
@@ -613,8 +618,8 @@ class LinkedInScraper:
                                     if appended:
                                         logger.info(f"Collected new email: {email} | Company: {refined_company} | Exp: {experience} | Loc: {location}")
                                         self.collected_count += 1
-                                        if self.collected_count >= 3:
-                                            raise ScraperTargetReached("Collected 3 new email records.")
+                                        if self.collected_count >= max_emails:
+                                            raise ScraperTargetReached(f"Collected {max_emails} new email records.")
                         else:
                             logger.debug("Post did not contain any target keyword — skipped.")
 

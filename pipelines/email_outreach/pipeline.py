@@ -34,14 +34,17 @@ def run_phase_one(scraper):
     if not locations:
         locations = [""]
     
-    for loc in locations:
-        for kw in keywords:
-            search_query = f"{kw} {loc}".strip() if loc else kw
-            logger.info(f"=== Processing keyword: '{kw}' at location: '{loc}' (Search query: '{search_query}') ===")
-            if scraper.search_for_keyword(search_query):
-                scraper.process_keyword(kw, timeout_seconds=timeout_seconds)
-            else:
-                logger.warning(f"Skipping query '{search_query}' due to navigation failure.")
+    try:
+        for loc in locations:
+            for kw in keywords:
+                search_query = f"{kw} {loc}".strip() if loc else kw
+                logger.info(f"=== Processing keyword: '{kw}' at location: '{loc}' (Search query: '{search_query}') ===")
+                if scraper.search_for_keyword(search_query):
+                    scraper.process_keyword(kw, timeout_seconds=timeout_seconds)
+                else:
+                    logger.warning(f"Skipping query '{search_query}' due to navigation failure.")
+    except ScraperTargetReached as e:
+        logger.info(f"Phase 1 scraping completed early: {e}")
 
 
 def run_phase_two(scraper, review_mode=None):

@@ -46,7 +46,7 @@ def is_title_matching_keywords(title, keyword_list):
     """Check if the job title matches any keyword from the configured keyword list."""
     title_lower = title.lower()
     for kw in keyword_list:
-        if kw.lower() in title_lower:
+        if str(kw).lower().strip() in title_lower:
             return True
     return False
 
@@ -774,7 +774,7 @@ def run_job_finder(target_url=None):
                                 is_valid = False
 
                             if is_valid:
-                                excluded_kws = [kw.lower().strip() for kw in user_conf.get("linkedin_connect", {}).get("excluded_keywords", []) if kw.strip()]
+                                excluded_kws = [str(kw).lower().strip() for kw in user_conf.get("linkedin_connect", {}).get("excluded_keywords", []) if str(kw).strip()]
                                 excluded_hit = next((kw for kw in excluded_kws if kw in position.lower()), None)
                                 if excluded_hit:
                                     logger.info(f"  [SKIP] Title '{position}' excluded by exclusion keyword '{excluded_hit}'.")
