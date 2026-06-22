@@ -477,9 +477,9 @@ class LinkedInScraper:
         user_conf = get_selected_user_config()
         email_scraper = user_conf.get("email_scraper", {})
         
-        # Load and normalize keywords to lowercase strings
+        # Load and preserve case of keywords
         raw_keywords = email_scraper.get("title_keywords") or email_scraper.get("keywords") or DBA_KEYWORDS_DEFAULT
-        title_keywords = [str(kw).lower().strip() for kw in raw_keywords if str(kw).strip()]
+        title_keywords = [str(kw).strip() for kw in raw_keywords if str(kw).strip()]
         
         excluded_keywords = [str(kw).lower().strip() for kw in email_scraper.get("excluded_keywords", []) if str(kw).strip()]
         max_emails = int(email_scraper.get("max_emails_per_run") or 5)
@@ -541,7 +541,8 @@ class LinkedInScraper:
                         content = data['content']
                         post_url = data.get('post_url', '')
                         content_lower = content.lower()
-                        if any(kw in content_lower for kw in title_keywords):
+                        # Case-sensitive keyword match in post content
+                        if any(kw in content for kw in title_keywords):
                             excluded_hit = next((kw for kw in excluded_keywords if kw in content_lower), None)
                             if excluded_hit:
                                 logger.debug(f"Post excluded by exclusion keyword '{excluded_hit}' — skipped.")

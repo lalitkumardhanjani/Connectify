@@ -44,9 +44,8 @@ def is_job_already_processed_excel(company, position):
 
 def is_title_matching_keywords(title, keyword_list):
     """Check if the job title matches any keyword from the configured keyword list."""
-    title_lower = title.lower()
     for kw in keyword_list:
-        if str(kw).lower().strip() in title_lower:
+        if str(kw).strip() in title:
             return True
     return False
 
