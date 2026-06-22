@@ -473,7 +473,7 @@ Connectify features a RESTful API to manage pipelines, query profiles, and edit 
 ### 4. User Profiles
 * **`GET /api/users`**: List all user profiles.
 * **`POST /api/users/select`**: Switch the active user profile.
-  * *Request Body*: `{"user": "Yuvashree"}`
+  * *Request Body*: `{"user": "Madhur"}`
 * **`POST /api/users/create`**: Create a new profile.
   * *Request Body*: `{"username": "Lalit"}`
 * **`GET /api/users/config`**: Fetch settings for the active user.
