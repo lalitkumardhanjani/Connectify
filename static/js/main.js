@@ -137,6 +137,7 @@ async function pollLogs() {
         const data = await response.json();
         
         if (data.status === 'error') {
+            setGlobalPipelineLock(null);
             stopPolling();
             return;
         }
@@ -187,7 +188,7 @@ async function pollLogs() {
         const runBtn = document.getElementById(`btn-run-${pipelinePrefix}`);
         const killBtn = document.getElementById(`btn-kill-${pipelinePrefix}`);
         
-        if (data.status === 'running') {
+        if (data.status === 'running' || data.status === 'queued') {
             if (runBtn) runBtn.classList.add('hidden');
             if (killBtn) killBtn.classList.remove('hidden');
             setGlobalPipelineLock(activeTaskId);
@@ -2032,7 +2033,7 @@ async function checkActiveTasks() {
         
         let foundRunning = false;
         for (let tid in tasks) {
-            if (tasks[tid].status === 'running') {
+            if (tasks[tid].status === 'running' || tasks[tid].status === 'queued') {
                 startPolling(tid);
                 foundRunning = true;
                 break;

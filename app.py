@@ -352,8 +352,8 @@ def job_leads_data():
 def start_scraper():
     with task_lock:
         task_id = "scraper_pipeline"
-        if task_id in active_tasks and active_tasks[task_id].status == "running":
-            return jsonify({"status": "error", "message": "Pipeline is already running."}), 400
+        if task_id in active_tasks and active_tasks[task_id].status in ("running", "queued"):
+            return jsonify({"status": "error", "message": "Pipeline is already running or queued."}), 400
         
         body = request.get_json(silent=True) or {}
         phase = body.get("phase", "full")
@@ -378,8 +378,8 @@ def start_scraper():
 def start_referral():
     with task_lock:
         task_id = "referral_pipeline"
-        if task_id in active_tasks and active_tasks[task_id].status == "running":
-            return jsonify({"status": "error", "message": "Pipeline is already running."}), 400
+        if task_id in active_tasks and active_tasks[task_id].status in ("running", "queued"):
+            return jsonify({"status": "error", "message": "Pipeline is already running or queued."}), 400
         
         body = request.get_json() or {}
         step = body.get("step")
@@ -415,8 +415,8 @@ def start_referral():
 def start_recruiter():
     with task_lock:
         task_id = "recruiter_pipeline"
-        if task_id in active_tasks and active_tasks[task_id].status == "running":
-            return jsonify({"status": "error", "message": "Pipeline is already running."}), 400
+        if task_id in active_tasks and active_tasks[task_id].status in ("running", "queued"):
+            return jsonify({"status": "error", "message": "Pipeline is already running or queued."}), 400
         
         body = request.get_json() or {}
         step = body.get("step")
