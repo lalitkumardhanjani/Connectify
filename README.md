@@ -1,432 +1,522 @@
 # Connectify – Automated LinkedIn Job Application & Outreach Hub
 
-Connectify is a clean, modular Python and Selenium-based automation framework that automates the process of finding job postings, scraping recruiter/contact emails, sending referral request messages, connecting with recruiters, and logging all activity in structured Excel sheets. It includes a user-friendly Flask-based web dashboard with real-time log streaming and full pipeline control.
+Connectify is an enterprise-grade, modular job search automation framework and cold-outreach engine. It bridges the gap between active job seeking and professional networking by automating the process of finding job postings, scraping contact emails, sending referral request messages, connecting with recruiters, and organizing all tracking data in isolated Excel databases.
+
+Connectify includes a sleek, modern, web-based control panel built on Flask that features real-time log streaming, profile management, and interactive database administration.
 
 ---
 
-## 📁 Project Directory Layout
+## 🏗️ Technical Architecture & Workflow
 
-```
-Connectify/
-├── app.py                             # Web dashboard server (Flask)
-│
-├── config/                            # Dynamic profile & settings configuration
-│   ├── settings.py                    # Runtime dynamic user path resolution
-│   ├── constants.py                   # Central schema definitions and default keywords
-│   ├── user_profiles.py               # Sandboxed profile management & upgrade scripts
-│   └── email_templates.py             # Static fallback outreach templates
-│
-├── core/                              # Shared library & support package
-│   ├── analytics/
-│   │   └── metrics.py                 # Sandboxed stats calculator
-│   ├── storage/
-│   │   └── database.py                # Unified openpyxl Excel read/write CRUD database
-│   ├── integrations/
-│   │   ├── selenium_driver.py         # Centralized Chrome WebDriver configurations
-│   │   └── url_shortener.py           # TinyURL shortening service
-│   ├── logging/
-│   │   └── config.py                  # DynamicUserFileHandler (sandboxed logger)
-│   └── utils/
-│       ├── string_utils.py            # Email address extraction regex
-│       └── url_utils.py               # URL normalization, decoding, and parsing
-│
-├── pipelines/                         # Pipeline execution modules
-│   ├── email_outreach/                # Pipeline 1: Email Scraper & Sender
-│   │   ├── services/
-│   │   │   ├── scraper.py             # Selenium post content email scraper
-│   │   │   └── sender.py              # SMTP & Gmail Web automation senders
-│   │   └── pipeline.py                # Phase 1 & 2 coordinator
-│   │
-│   └── linkedin_outreach/             # Pipeline 2–6: LinkedIn Job Search, Referral & Recruiter Outreach
-│       ├── services/
-│       │   ├── job_finder.py          # Scrapes external job postings (location-aware, sequential)
-│       │   ├── reviewer.py            # Terminal CLI reviewer for new jobs
-│       │   ├── connector.py           # LinkedIn Connect & referral message sender
-│       │   ├── referral_outreach.py   # Discover connected employees & send referral messages
-│       │   ├── recruiter_connector.py # Discover & message recruiters at target companies
-│       │   └── shortener.py          # TinyURL shortener service for job links
-│       └── pipeline.py                # Step coordinator interface
-│
-├── [GIT IGNORED] users/               # Local sandboxed profile data (NEVER committed)
-│   ├── active_user.json               # Tracks active user profile key
-│   └── <username>/                    # Dedicated sandbox directory per user
-│       ├── config.json                # Profile credentials, keywords, preferred locations
-│       ├── data/                      # job_tracker.xlsx, LinkedIn_Job_Tracker.xlsx
-│       ├── logs/                      # private automation.log, linkedin_connect.log
-│       ├── resumes/                   # private uploaded applicant resumes
-│       └── chrome-profile/            # private isolated Chrome Selenium profiles
-│
-├── static/                            # CSS/JS dashboard assets
-├── templates/                         # Flask dashboard view templates
-├── docs/
-│   └── architecture_docs.md           # Detailed technical architecture reference
-│
-├── run_email_outreach.py              # Pipeline 1 runner (full: scrape + send, graceful SIGTERM handling)
-├── run_email_scraper.py               # Pipeline 1a runner: Scrape emails from LinkedIn posts only
-├── run_email_sender.py                # Pipeline 1b runner: Send outreach emails to scraped contacts only
-├── run_job_search.py                  # Pipeline 2 runner: Find job opportunities
-├── run_referral_review.py             # Pipeline 3 runner: CLI job evaluator
-├── run_linkedin_connect.py            # Pipeline 4 runner: Outreach & messaging
-├── run_referral_outreach_discover.py  # Pipeline 5a runner: Discover connected employees
-├── run_referral_outreach_send.py      # Pipeline 5b runner: Send referral messages
-├── run_recruiter_outreach_discover.py # Pipeline 6a runner: Discover recruiters
-├── run_recruiter_outreach_send.py     # Pipeline 6b runner: Message recruiters
-├── run_recruiter_outreach.py          # Pipeline 6 runner: Complete recruiter pipeline
-├── run_url_shortener.py               # Utility runner to shorten job URLs
-└── update_project.py                  # One-command project updater (git fetch + reset)
+Connectify is built on clean architectural principles, separating cross-cutting configuration layers, common core utilities, storage APIs, and pipeline execution modules.
+
+### Component Architecture
+
+```mermaid
+graph TD
+    UI[Flask Web App / app.py] -->|Manages Subprocesses| SR[SubprocessRunner]
+    SR -->|Launches with signal traps| RS[Runner Scripts / run_*.py]
+    RS -->|Executes Workflow| PL[Pipelines Package]
+    
+    subgraph Pipelines
+        PL --> EO[email_outreach/]
+        PL --> LO[linkedin_outreach/]
+        EO --> ES[scraper.py]
+        EO --> ESe[sender.py]
+        LO --> JF[job_finder.py]
+        LO --> CR[reviewer.py]
+        LO --> CO[connector.py]
+        LO --> RO[referral_outreach.py]
+        LO --> RC[recruiter_connector.py]
+    end
+
+    subgraph Core Shared Layer
+        PL --> DB[storage/database.py]
+        PL --> SD[integrations/selenium_driver.py]
+        PL --> AM[analytics/metrics.py]
+        PL --> UT[utils/url_utils.py & string_utils.py]
+    end
+
+    subgraph Config Layer
+        DB --> SET[settings.py]
+        DB --> CON[constants.py]
+        DB --> UP[user_profiles.py]
+    end
 ```
 
 ---
 
-## 🚀 Onboarding & Cloning Guide (MacOS & Windows)
+### Pipeline Data Flows
 
-If your friend or colleague wants to clone and run this project, they can follow these steps.
+#### 1. Pipeline 1: Email Scraper & Cold Outreach Data Flow
+```mermaid
+sequenceDiagram
+    participant UserProfile as User Profile Config
+    participant Scraper as LinkedIn Content Scraper
+    participant Excel as job_tracker.xlsx
+    participant Sender as SMTP / Gmail Automator
+    
+    UserProfile->>Scraper: Get keywords & preferred locations
+    Scraper->>Scraper: Generate search query cartesian product
+    Scraper->>Scraper: Scroll LinkedIn feeds & extract posts
+    Scraper->>Scraper: Validate location & parse email via regex
+    Scraper->>Excel: Append new email row (Status: 'New')
+    Note over Excel: Manual Review Gate (If Enabled)
+    Excel->>Sender: Read rows with status = 'New'
+    Sender->>Sender: Substitute templates variables
+    Sender->>Sender: Send cold outreach email
+    Sender->>Excel: Update row status to 'sent'
+```
 
-### Step 1: Install System Dependencies
-- **All OS**: Make sure you have the standard [Google Chrome](https://www.google.com/chrome/) browser installed.
-- **Windows**:
-  1. Download and install [Git for Windows](https://gitforwindows.org/).
-  2. Download and install [Python 3.9+](https://www.python.org/). Make sure to check the box **"Add Python to PATH"** during installation.
+#### 2. Pipeline 2–4: LinkedIn Job Discovery & Application Flow
+```mermaid
+sequenceDiagram
+    participant JobsScraper as LinkedIn Job Finder
+    participant Tracker as LinkedIn_Job_Tracker.xlsx
+    participant Reviewer as CLI Job Reviewer (run_referral_review.py)
+    participant Connector as LinkedIn Connect (run_linkedin_connect.py)
+    
+    JobsScraper->>JobsScraper: Search jobs by keyword & location
+    JobsScraper->>JobsScraper: Detect external apply redirects
+    JobsScraper->>Tracker: Save unique jobs (Status: 'NEW')
+    Reviewer->>Tracker: Query jobs with status = 'NEW'
+    Note over Reviewer: Presents job details to User in CLI
+    User->>Reviewer: Select [S] Send, [K] Skip, or [Q] Quit
+    Reviewer->>Tracker: Update job status ('Interested' / 'Not Interested')
+    Connector->>Tracker: Read jobs with status = 'Interested'
+    Connector->>Connector: Search company employees on LinkedIn
+    Connector->>Connector: Send connection request + invitation note
+    Connector->>Tracker: Update job status to 'Asked for Referral'
+```
 
-### Step 2: Clone the Project
-Open your terminal (Terminal on Mac, or Command Prompt/PowerShell on Windows) and run:
+#### 3. Pipeline 5: Two-Stage Referral Outreach Flow
+```mermaid
+sequenceDiagram
+    participant Tracker as LinkedIn_Job_Tracker.xlsx
+    participant Discover as Referral Discover (run_referral_outreach_discover.py)
+    participant ReferralsDB as referrals.xlsx
+    participant Sender as Referral Sender (run_referral_outreach_send.py)
+    
+    Tracker->>Discover: Get companies with status = 'Interested'
+    Discover->>Discover: Search employees on LinkedIn (1st / 2nd deg)
+    Discover->>ReferralsDB: Save discovered employee (Status: 'Pending')
+    Discover->>Tracker: Update job status to 'In Progress' / 'Discovered'
+    Sender->>ReferralsDB: Load contacts with status = 'Pending'
+    Sender->>Sender: Inject variables into message template
+    Sender->>Sender: Send direct LinkedIn message
+    Sender->>ReferralsDB: Update contact status to 'Sent'
+    Note over ReferralsDB: When all company contacts are messaged
+    ReferralsDB->>Tracker: Update job status to 'Done'
+```
+
+#### 4. Pipeline 6: Recruiter outreach Flow
+```mermaid
+sequenceDiagram
+    participant Tracker as LinkedIn_Job_Tracker.xlsx
+    participant Discover as Recruiter Discover (run_recruiter_outreach_discover.py)
+    participant ReferralsDB as referrals.xlsx
+    participant Sender as Recruiter Sender (run_recruiter_outreach_send.py)
+    
+    Tracker->>Discover: Get companies with status = 'Interested' or 'Discovered'
+    Discover->>Discover: Search recruiters (title filtered) on LinkedIn
+    Discover->>ReferralsDB: Save recruiter contact (Status: 'Pending', Source: 'Existing Recruiter')
+    Sender->>ReferralsDB: Load recruiter contacts with status = 'Pending'
+    Sender->>Sender: Compose personalized recruiter message
+    Sender->>Sender: Send message (Direct or Connection Invite)
+    Sender->>ReferralsDB: Update contact status to 'Sent'
+    Sender->>Tracker: Update job status to 'Done'
+```
+
+---
+
+### Process Lifecycle & Signal Handling
+
+All wrapper scripts (`run_*.py`) follow a standardized lifecycle orchestrated by [app.py](file:///e:/Connectify/app.py)'s `SubprocessRunner`:
+
+```
+Web Dashboard UI (Kill Request)
+       |
+       v
+app.py (SubprocessRunner.kill())
+       |
+       +---> Sets status = "killed" (invariant: never overwritten by exit handlers)
+       |
+       +---> Sends signal.SIGTERM (or process.terminate() on Windows)
+       |
+       v
+Runner Script (SIGTERM handler caught)
+       |
+       v
+sys.exit(0) ---> Triggers Python 'finally' block cleanup
+       |
+       v
+Selenium Driver Module (driver.quit() executed cleanly)
+```
+
+---
+
+## 📁 Project Directory Layout & Code Components
+
+Here is the modular structure of the project directory. Each key folder and file has a specific, isolated role:
+
+* [app.py](file:///e:/Connectify/app.py): The main web dashboard server. Manages asynchronous runner scripts through the `SubprocessRunner` wrapper class.
+* [config/](file:///e:/Connectify/config): Configuration and metadata layer.
+  * [settings.py](file:///e:/Connectify/config/settings.py): Resolves file pathways dynamically at runtime based on the active user profile (sandboxing folders).
+  * [constants.py](file:///e:/Connectify/config/constants.py): Static database schemas, Excel column header formats, and default search keywords.
+  * [user_profiles.py](file:///e:/Connectify/config/user_profiles.py): Handles loading, saving, and migrating user-specific credentials, tag configurations, and message templates.
+  * [email_templates.py](file:///e:/Connectify/config/email_templates.py): Static fallback templates for outreach messages.
+* [core/](file:///e:/Connectify/core): Shared core framework.
+  * [analytics/metrics.py](file:///e:/Connectify/core/analytics/metrics.py): Analyzes Excel records to compile KPI metrics for the dashboard.
+  * [storage/database.py](file:///e:/Connectify/core/storage/database.py): Handles openpyxl database reads and writes. Features auto-incrementing ID generators, schema enforces, and AppleScript spreadsheet refreshers on macOS.
+  * [integrations/selenium_driver.py](file:///e:/Connectify/core/integrations/selenium_driver.py): Chrome profile configurator. Keeps browser sandboxes isolated under `users/<username>/chrome-profile/`.
+  * [integrations/url_shortener.py](file:///e:/Connectify/core/integrations/url_shortener.py): Connects with TinyURL API GET endpoints to shorten company apply links.
+  * [logging/config.py](file:///e:/Connectify/core/logging/config.py): Implements a `DynamicUserFileHandler` that routes logs dynamically based on the active user.
+  * [utils/string_utils.py](file:///e:/Connectify/core/utils/string_utils.py): Regex matching patterns to extract emails from post text.
+  * [utils/url_utils.py](file:///e:/Connectify/core/utils/url_utils.py): Decodes safety redirects, parses job URNs, and normalizes career site URLs.
+* [pipelines/](file:///e:/Connectify/pipelines): Domain-specific automation tasks.
+  * [email_outreach/](file:///e:/Connectify/pipelines/email_outreach): Pipeline 1. Contains [services/scraper.py](file:///e:/Connectify/pipelines/email_outreach/services/scraper.py) (scraping emails from posts) and [services/sender.py](file:///e:/Connectify/pipelines/email_outreach/services/sender.py) (sending outreach emails via SMTP/browser).
+  * [linkedin_outreach/](file:///e:/Connectify/pipelines/linkedin_outreach): Pipeline 2-6. Contains [services/job_finder.py](file:///e:/Connectify/pipelines/linkedin_outreach/services/job_finder.py) (finding jobs), [services/reviewer.py](file:///e:/Connectify/pipelines/linkedin_outreach/services/reviewer.py) (CLI reviewer), [services/connector.py](file:///e:/Connectify/pipelines/linkedin_outreach/services/connector.py) (messaging 1st-degree connections and sending connection requests), [services/referral_outreach.py](file:///e:/Connectify/pipelines/linkedin_outreach/services/referral_outreach.py) (two-stage referral outreach), and [services/recruiter_connector.py](file:///e:/Connectify/pipelines/linkedin_outreach/services/recruiter_connector.py) (recruiter outreach).
+* **[GIT IGNORED]** `users/`: Sandboxed folder created dynamically on runtime.
+  * `users/active_user.json`: Stores the current active username.
+  * `users/<username>/`: Private directory structure isolated per user:
+    * `users/<username>/config.json`: Stores user-specific settings, templates, and tags.
+    * `users/<username>/data/`: Dedicated databases (`job_tracker.xlsx`, `LinkedIn_Job_Tracker.xlsx`, `referrals.xlsx`).
+    * `users/<username>/logs/`: Private runtime logs (`automation.log`, `linkedin_connect.log`).
+    * `users/<username>/resumes/`: Uploaded applicant PDF/DOCX resumes.
+    * `users/<username>/chrome-profile/`: Isolated Chrome cache and session profiles.
+* [static/](file:///e:/Connectify/static) & [templates/](file:///e:/Connectify/templates): Front-end CSS, JS, and HTML templates for the web dashboard.
+* Root Runner Scripts: `run_*.py` wrapper entry points.
+* [update_project.py](file:///e:/Connectify/update_project.py): One-command git updater script.
+
+---
+
+## 🚀 Installation & Onboarding Guide
+
+Follow these steps to set up Connectify on your local machine.
+
+### System Requirements & Prerequisites
+1. **Google Chrome**: Ensure the latest standard Google Chrome browser is installed.
+2. **Git**: Ensure Git is installed for fetching code updates.
+3. **Python**: Python 3.9 or higher is required.
+
+### Step 1: Clone the Codebase
+Open your command prompt or terminal and run:
 ```bash
 git clone https://github.com/lalitkumardhanjani/Connectify.git
 cd Connectify
 ```
 
-### Step 3: Set Up Virtual Environment & Packages
-- **On macOS / Linux**:
-  ```bash
-  python3 -m venv .venv
-  source .venv/bin/activate
-  pip install -r requirements.txt
-  ```
-- **On Windows (Command Prompt / PowerShell)**:
-  ```cmd
-  python -m venv .venv
-  .venv\Scripts\activate
-  pip install -r requirements.txt
-  ```
-*Note: Pip will install Selenium, Flask, openpyxl, pandas, requests, python-dotenv, and webdriver-manager.*
+### Step 2: Set Up Virtual Environment & Dependencies
 
-> [!TIP]
-> **VS Code Extension Setup**: If you run the project in VS Code and receive `ModuleNotFoundError: No module named 'flask'`, it means VS Code is trying to run python using your global system interpreter rather than the virtual environment `.venv`.
-> To resolve this:
-> 1. Open the Command Palette (`Cmd + Shift + P` on Mac, `Ctrl + Shift + P` on Windows).
-> 2. Search for and select **`Python: Select Interpreter`**.
-> 3. Select the option pointing to the local directory's **`.venv`** interpreter (e.g. `./.venv/bin/python`).
-
-### Step 4: Configure Settings & Onboarding
-1. Copy the example configuration file:
-   - **On macOS / Linux**:
-     ```bash
-     cp .env.example .env
-     ```
-   - **On Windows (Command Prompt or PowerShell)**:
-     ```cmd
-     copy .env.example .env
-     ```
-2. Update the `.env` file with default environment fallbacks if needed (e.g. `SMTP_SERVER`). Note: LinkedIn credentials and user settings are now handled dynamically on a per-profile basis in the dashboard!
-3. **LinkedIn Credentials & Manual Login**:
-   - You do **not** need to pre-configure your LinkedIn email and password in settings.
-   - If credentials are left blank, or if auto-login triggers security verification / Two-Factor Authentication (2FA), the automation pipeline will output a warning in the console log and pause for up to **5 minutes (300 seconds)**.
-   - Simply log in manually in the opened Chrome browser window, and the pipeline will automatically resume running once it detects you have successfully signed in.
-4. **Launch Onboarding**:
-   - There is no need to copy `users_config.json` manually! On your first launch, the web dashboard will guide you through profile creation.
-   - **Legacy Upgrades**: If you have a legacy `users_config.json` from a previous version, placing it at the project root before launching will trigger a one-time automated migration, sandboxing your old profiles, databases, and Chrome profiles under `users/` automatically.
-
----
-
-## 🔄 Updating the Project
-
-To pull the latest code changes from GitHub without losing any local user data:
+#### On macOS and Linux:
 ```bash
-python update_project.py
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-This script performs a safe `git fetch` + `git reset --hard origin/main`, which:
-- Updates all source code files to the latest version.
-- **Never touches** your `users/` directory (which is git-ignored), so all profiles, data, and logs remain intact.
+#### On Windows (PowerShell or CMD):
+```powershell
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+```
 
-After updating, re-run `pip install -r requirements.txt` if dependencies have changed.
+> [!TIP]
+> **VS Code Interpreter Resolution**:
+> If VS Code reports `ModuleNotFoundError: No module named 'flask'`, press `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac), search for **`Python: Select Interpreter`**, and select the interpreter pointing to the local `./.venv` directory.
+
+### Step 3: Copy Environment Templates
+Copy the template `.env.example` file to `.env`:
+* **macOS/Linux**: `cp .env.example .env`
+* **Windows**: `copy .env.example .env`
 
 ---
 
-## 🛠️ Running the Application
+## ⚙️ Configuration System Reference
 
-### Option A: Running the Web Dashboard (Recommended)
-Launch the web interface locally:
+Connectify uses a hybrid configuration system split between global environmental variables and sandboxed user profiles.
+
+### 1. Global Configuration (`.env`)
+The `.env` file handles browser profiles, fallback credentials, and limits.
+
+| Variable Name | Default Value | Purpose / Recommendations |
+|---|---|---|
+| `LINKEDIN_EMAIL` | `your.email@example.com` | Primary account email used for LinkedIn login. |
+| `LINKEDIN_PASSWORD` | `your_linkedin_password` | Primary account password for automated login. |
+| `SEARCH_KEYWORDS` | `SQL Server DBA` | Fallback keywords if not defined in the user profile. |
+| `SEARCH_LOCATION` | `Bangalore, Karnataka, India` | Target location used for searches. |
+| `SEARCH_TIME_RANGE` | `r604800` | LinkedIn date range filter. `r604800` limits results to the last 24 hours. |
+| `DRY_RUN` | `1` | Set to `1` to test pipelines without executing final outreach sends. Set to `0` for production. |
+| `MAX_RUN_DURATION_SECONDS`| `600` | Safety cut-off duration for automation runs. |
+| `CHROME_PROFILE_DIR` | `.chrome-profile` | Legacy global Chrome profile storage location. |
+| `CHROME_BINARY_PATH` | *Optional* | Absolute path to Google Chrome binary (e.g. `C:\Program Files\Google\Chrome\Application\chrome.exe` on Windows). |
+
+### 2. User-Specific Profiles (`users/<username>/config.json`)
+Created automatically during first-time launch or dashboard onboarding.
+
+* **`profile`**: Candidate demographic details (First Name, Last Name, Phone, Resume URL, etc.).
+* **`email_scraper`**: Custom search keywords, excluded terms, and email templates for Pipeline 1.
+* **`linkedin_connect`**: Timing intervals, connection limit targets, and personalized note templates for Pipeline 4.
+* **`recruiter_outreach`**: Message templates and limits for recruiter outreach (Pipeline 6).
+* **`referral_outreach`**: Message templates and limits for employee referral outreach (Pipeline 5).
+
+---
+
+## 💻 Web Dashboard Guide
+
+Launch the web control panel locally by running:
 ```bash
 python app.py
 ```
-Open your browser and navigate to **`http://127.0.0.1:5001`**. From here, you can:
-- Swap profile contexts (e.g. Yuvashree, Lalit) using the avatar switcher in the top-right corner.
-- Upload resumes and manage your candidate profile.
-- Edit configurations dynamically under the **Settings** tab — keyword changes apply immediately to your JSON config.
-- Browse and search the **Outreach Leads** (email scraper) database with full pagination.
-- Browse and manage the **Referral Opportunities** (LinkedIn jobs) database with full pagination.
-- Monitor real-time execution logs and launch or stop pipeline steps from the **Pipelines** tab.
+Open your browser and navigate to **`http://127.0.0.1:5001`**.
 
-### Option B: Running Pipelines Individually via Terminal
-You can run any pipeline or utility directly from the command line using the root wrapper scripts:
+```
++---------------------------------------------------------------------------------+
+| CONNECTIFY AUTOMATION HUB                                 Profile: ExampleUser  |
++---------------------------------------------------------------------------------+
+|  [ Analytics ]  |  [ Pipelines ]  |  [ Database View ]  |  [ Settings ]        |
++---------------------------------------------------------------------------------+
+|                                                                                 |
+|  * Profile Creation & Switching: Manage resumes and isolate applicant data.     |
+|  * Live Logs Streaming: Start, stop, and monitor active Selenium pipelines.     |
+|  * Tag Keyword Manager: Add or remove target search keywords on-the-fly.       |
+|  * Template Studio: Real-time visual email and LinkedIn note preview editors.    |
+|  * Interactive Databases: Paginated spreadsheet editors with search filters.    |
+|                                                                                 |
++---------------------------------------------------------------------------------+
+```
 
-- **On macOS / Linux**:
-  ```bash
-  source .venv/bin/activate
-  python run_email_outreach.py --phase full
-  ```
-- **On Windows**:
-  ```cmd
-  .venv\Scripts\activate
-  python run_email_outreach.py --phase full
-  ```
+### Key UI Workflows & Features
+1. **Profile Onboarding**: Click the avatar button in the top-right to create new profiles. Uploading a resume isolates the file under `users/<username>/resumes/` and sets the config link.
+2. **Horizontal Settings Sub-Tabs**:
+   - **Outreach Engine Settings**: Set post-read frequencies, review gates, and compose cold outreach email templates. Features a live-rendering mock email client preview box.
+   - **LinkedIn Automator Settings**: Enforces a 300-character LinkedIn limit for invite notes. Click tokens to insert them at the current cursor position. Renders a live mock-up of the LinkedIn connection modal.
+3. **Ellipsis Pagination**: The database screens restrict viewable files to 10 rows per page. Column filtering allows targeted keyword and status searches.
 
-All available runner scripts:
+---
+
+## 🛠️ Individual CLI Runner Scripts
+
+You can run individual automation pipelines directly from the terminal. Ensure the virtual environment is active.
+
 ```bash
-# Pipeline 1 – Full Email Scraper & Outreach (scrape + send in one run)
+# Pipeline 1 - Full Scraper and Outreach (Scrape posts + Send cold outreach)
 python run_email_outreach.py
 
-# Pipeline 1a – Scrape emails from LinkedIn posts only
+# Pipeline 1a - Scrape emails from LinkedIn posts only
 python run_email_scraper.py
 
-# Pipeline 1b – Send outreach emails to already-scraped contacts only
+# Pipeline 1b - Send outreach emails to scraped contacts (from job_tracker.xlsx)
 python run_email_sender.py
 
-# Pipeline 2 – Find Job Opportunities (LinkedIn Job Search)
+# Pipeline 2 - Discover job postings matching keywords
 python run_job_search.py
 
-# Pipeline 3 – CLI Job Reviewer (mark jobs as Interested / Skip)
+# Pipeline 3 - CLI application reviewer (Prompt interface to review jobs)
 python run_referral_review.py
 
-# Pipeline 4 – LinkedIn Connect & Referral Messaging
+# Pipeline 4 - LinkedIn Automator (Send connections with notes to employees)
 python run_linkedin_connect.py
 
-# Pipeline 5a – Discover Connected Employees (for referral outreach)
+# Pipeline 5a - Stage 1 Discover (Find employees at Interested companies)
 python run_referral_outreach_discover.py
 
-# Pipeline 5b – Send Referral Messages to discovered employees
+# Pipeline 5b - Stage 2 Send (Send direct referral messages on profiles)
 python run_referral_outreach_send.py
 
-# Pipeline 6a – Discover Recruiters at target companies
+# Pipeline 6a - Stage 1 Recruiter Discover (Find HR/Recruiters at target companies)
 python run_recruiter_outreach_discover.py
 
-# Pipeline 6b – Send messages to discovered recruiters
+# Pipeline 6b - Stage 2 Recruiter Send (Send direct outreach to recruiters)
 python run_recruiter_outreach_send.py
 
-# Pipeline 6 (Complete) – Run full Recruiter Outreach pipeline end-to-end
+# Pipeline 6 (Full) - End-to-end recruiter discovery and messaging
 python run_recruiter_outreach.py
 
-# Utility – Shorten job URLs with TinyURL
+# Utility - Shorten target URLs using TinyURL
 python run_url_shortener.py
 ```
 
-> **Note:** All pipeline runners support graceful termination — pressing `Ctrl+C` or clicking Stop in the dashboard will cleanly shut down the Chrome browser and save all in-progress data before exiting.
+---
+
+## 🔍 Feature Deep Dives & Mechanics
+
+### Preferred Location Matching
+Each user profile supports a comma-separated list of **Preferred Locations** (e.g. `Bangalore, Remote`).
+* **Scraper Matching**: The email scraper appends each location to search keywords (e.g., `SQL DBA Bangalore`, `SQL DBA Remote`).
+* **Strict Filter Mode**: When a location is parsed from the post text (e.g. `Office - Chennai`), it is matched against the candidate's preferred location list. If the location does not match, the post is skipped.
+* **Synonym Expansion**: Connectify maps common city synonyms:
+  - `Bangalore` matches `Bengaluru`, `BLR`.
+  - `Delhi` matches `NCR`, `Gurgaon`, `Noida`, `Gurugram`.
+  - `Mumbai` matches `Bombay`.
+  - `Hyderabad` matches `Secunderabad`.
+
+### Smart Scroll Stagnation Detection
+To prevent waste during feed scraping, Connectify tracks consecutive page scroll attempts:
+- Connectify records the page height (`document.body.scrollHeight`) before and after scrolling.
+- If the page height remains unchanged and no new posts are discovered for a series of scrolls, it triggers a **lazy-load recovery**.
+- **Recovery Action**: The page scrolls up halfway, pauses for a delay (5–20 seconds) to allow the DOM to refresh, and then scrolls back down to trigger LinkedIn's lazy loader.
+- If height growth remains stagnant after 6 attempts, the scraper ends the current keyword search and moves to the next keyword to save API and processing time.
+
+### Automated Login and Manual Login Bypass
+When a Selenium run starts, it navigates to the LinkedIn feed. If credentials are missing in the configuration or LinkedIn shows a security checkpoint (such as a 2FA prompt or captcha):
+1. The pipeline halts execution and outputs a warning: `Waiting up to 300 seconds for manual login in the browser window...`.
+2. The user can complete the verification step manually in the browser window.
+3. The script continuously checks the browser state for a search bar. Once the search bar is detected, the script resumes automation.
 
 ---
 
-## 🖥️ Dashboard Overview
+## 📊 Database Excel Schema Reference
 
-### Pipelines Tab
-All 6 pipeline stages (plus their sub-steps) are available directly from the **Pipelines** tab. Each pipeline card provides:
-- A **Start** / **Stop** button to launch or kill the automation process.
-- A **real-time console** that streams live log output until the pipeline completes or is stopped.
-- **Graceful stop**: Clicking Stop sends a termination signal to the subprocess, which cleanly quits the Chrome driver. The status correctly reflects `stopped` — it will never incorrectly show `failed` after a manual stop.
+All data is structured under three spreadsheets in `users/<username>/data/`.
 
-Available pipeline steps in the UI:
-| Step | Name | Description |
-|------|------|-------------|
-| 1 | Email Scraper & Outreach | Scrapes LinkedIn posts for emails and sends outreach |
-| 2 | Find Job Opportunities | Searches LinkedIn Jobs for postings matching your keywords |
-| 3 | Review Job Applications | Terminal CLI to flag jobs as Interested or Skip |
-| 4 | LinkedIn Connect & Referral | Sends connection requests with personalized notes |
-| 5a | Discover Connected Employees | Finds employees at target companies via LinkedIn |
-| 5b | Send Referral Messages | Sends templated referral request messages to found contacts |
-| 6 | Run Complete Recruiter Pipeline | Discovers recruiters and messages them in one run |
-| 6a | Discover Recruiters | Finds recruiters at target companies |
-| 6b | Message Recruiters | Sends personalized messages to discovered recruiters |
+### 1. Outreach Leads Tracker (`job_tracker.xlsx`)
+Records emails parsed from posts and tracking states for cold email outreach.
 
-### Settings Tab
-The Settings panel uses a **horizontal tab layout** and is split into two sub-sections:
-
-#### Outreach Engine (Email Scraper Settings)
-- **Search Execution Frequency**: Controls how frequently the scraper paginates LinkedIn feeds between post reads.
-- **Outreach Quality Gate**: When enabled, emails are held in the database for manual review before sending. When disabled, outreach is sent automatically after scraping.
-- **Target Post Keywords**: Tag-based keyword manager. Add or remove terms searched on LinkedIn content boards. **Changes are persisted immediately** to the user's `config.json` on every add/remove action — no save button required.
-- **Outreach Email Template Studio**: Rich text editor with clickable variable tokens and a **Real-time Preview** mode that renders your template inside a mock email window.
-
-  **Available Tokens for Email Templates:**
-  | Token | Description |
-  |-------|-------------|
-  | `{FIRST_NAME}` | Recipient's first name |
-  | `{LAST_NAME}` | Recipient's last name |
-  | `{COMPANY}` | Company name |
-  | `{POSITION}` | Job position |
-  | `{MY_NAME}` | Your name |
-  | `{MY_EXPERIENCE}` | Your experience summary |
-
-#### LinkedIn Automator (LinkedIn Connect Settings)
-- **Action Timing Delay**: Controls wait time between LinkedIn browser automation steps.
-- **Invite Quality Gate**: When enabled, connection requests are staged for review before being sent. When disabled, requests are sent automatically.
-- **Target Connections Per Run**: Sets the maximum number of new LinkedIn connections to send per pipeline run.
-- **Target Network Keywords**: Tag-based keyword manager. Add or remove terms used for LinkedIn people search during connection routines. **Changes are persisted immediately** to the user's `config.json`.
-- **Available Invite Note Tokens** *(displayed above the editor)*: All tokens available for your LinkedIn invite notes, identical to the message template tokens. Click any token to insert it at the cursor.
-- **LinkedIn Invite Note Studio**: Rich text editor with a character counter (300-char LinkedIn limit enforced). **Real-time Preview** renders your note inside a mock LinkedIn invitation modal.
-
-  **Available Tokens for LinkedIn Invite Notes & All Message Templates:**
-  | Token | Description |
-  |-------|-------------|
-  | `{FIRST_NAME}` | Recipient's first name |
-  | `{LAST_NAME}` | Recipient's last name |
-  | `{COMPANY}` | Company name |
-  | `{POSITION}` | Job position |
-  | `{MY_NAME}` | Your name |
-  | `{MY_EXPERIENCE}` | Your experience summary |
-  | `{JOB_TITLE}` | Job title from the opportunity |
-  | `{JOB_URL}` | Direct URL to the job posting |
-  | `{SHORT_URL}` | TinyURL-shortened job URL |
-  | `{REFERRAL_INTRO}` | Introductory referral phrase |
-
-- **Referral Message Template Studio**: Compose referral request messages with the full token set. Tokens insert at cursor position.
-
-### Preferred Location Support
-Each user profile supports a **Preferred Location** field in the User Profile section. When set:
-- The **Email Scraper** automatically appends each location to your search keywords (e.g. `"SQL DBA Bangalore"`), expanding reach across all configured locations.
-- Posts are then **strictly filtered** by location: if a location is successfully parsed from the post (e.g. `"Work From Office — Bangalore"`), it is matched only against that extracted field. Posts from non-matching cities are rejected even if the word "Bangalore" appears elsewhere in the post body.
-- The **LinkedIn Job Finder** filters job postings by each preferred location automatically.
-- **Multiple locations** (comma-separated) are fully supported — the pipeline repeats the search for each location independently.
-- **City synonyms** are automatically expanded: `Bangalore` also matches `Bengaluru` / `BLR`; `Delhi` also matches `NCR`, `Gurgaon`, `Noida`, `Gurugram`; `Mumbai` matches `Bombay`; `Hyderabad` matches `Secunderabad`.
-
-### Database Tabs
-- **Outreach Leads**: Displays emails scraped from LinkedIn posts. Records are sorted by ID (ascending). Supports per-column filtering, status-based filtering, keyword dropdown, and paginated browsing (10 records per page).
-- **Referral Opportunities**: Displays job opportunities tracked for LinkedIn referral outreach. Records are sorted by ID (ascending). Supports full-text search, status and date filters, and paginated browsing (10 records per page).
-
-### Company Analytics Dashboard
-The **Company Analytics** panel in the Dashboard tab shows status breakdowns for your tracked companies:
-- 🔵 **New** — Blue badge: Companies newly added, not yet actioned.
-- 🟢 **Done** — Teal/green badge: Companies where outreach has been completed.
-- 🔴 **Not Interested** — Red badge: Companies marked as not relevant.
-
-Status colors are consistent across KPI cards, the status pie chart, the keyword-vs-status table, and the column header pills.
-
----
-
-## 🔁 Referral Outreach Workflow
-
-The Referral Outreach system is a two-stage pipeline for finding contacts at target companies and sending them personalized referral request messages.
-
-### Stage 1 – Discover Connected Employees (Pipeline 5a)
-- Reads target companies from your **Referral Opportunities** database with status `Interested`.
-- Searches LinkedIn for people working at each company.
-- Prioritizes **1st-degree connections** (people you already know) and **2nd-degree connections**.
-- Saves discovered contacts into the database and marks the company as `Discovered`.
-- Respects the **Target Connections Per Run** limit from Settings.
-
-### Stage 2 – Send Referral Messages (Pipeline 5b)
-- Reads discovered contacts with status `Pending Message`.
-- Opens each contact's LinkedIn profile and sends your configured **Referral Message Template**.
-- Marks each contact as `Message Sent` after successful delivery.
-- Marks the parent company as `Done` once all contacts have been messaged.
-
----
-
-## 📨 Recruiter Outreach Workflow
-
-The Recruiter Outreach system finds recruiters at target companies and messages them directly.
-
-### Recruiter Discovery (Pipeline 6a)
-- Searches LinkedIn for people with recruiter titles (e.g., "Talent Acquisition", "HR Manager") at each target company.
-- Saves discovered recruiters into the outreach database.
-
-### Recruiter Messaging (Pipeline 6b)
-- Sends personalized messages to each discovered recruiter using your message template.
-- Updates status to `Sent` after each successful message.
-
-### Complete Pipeline (Pipeline 6)
-- Runs both discovery and messaging sequentially in one go.
-
----
-
-## 📊 Spreadsheet Databases & Status Workflow
-
-Connectify records and manages its automation state across three user-specific Excel spreadsheets located in `users/<username>/data/`.
-
-### 1. Email Scraper Tracker (`job_tracker.xlsx`)
-Tracks contact email leads scraped from LinkedIn posts and the status of cold email outreach campaigns.
-* **Columns**: `ID`, `Email`, `Status`, `Timestamp`, `Keyword`, `PostURL`, `CompanyName`, `Experience`, `Location`
-* **Workflow & Pipeline Transitions**:
-  * **Email Scraper** (`run_email_scraper.py`): Appends scraped emails with status **`New`**. Also stores the LinkedIn post URL (`PostURL`), parsed company name (`CompanyName`), years of experience (`Experience`), and job location (`Location`) extracted from each post.
-  * **Email Sender** (`run_email_sender.py` / `run_email_outreach.py`): Reads emails with status `New`. If the email is successfully sent, updates to **`sent`**. If skipped by the user or pre-checks, updates to **`skipped`**.
-* **Location Filtering**: The scraper strictly filters posts based on the **Preferred Locations** field in the user profile (comma-separated). When a location is cleanly extracted from the post body (e.g. `"Work From Office — Bangalore"`), it is matched **only** against the extracted location field — not the full post text — to avoid false positives (e.g. a Chennai post that mentions "Bangalore" in passing). If no location can be extracted, the full post body is searched as a fallback.
-* **Status Definitions**:
-  * **`New`**: Newly scraped contact email address, queued for email sending.
-  * **`sent`**: Cold email outreach was successfully sent to this address.
-  * **`skipped`**: Cold email outreach was manually skipped by user choice or skipped during validation.
+| Column Header | Data Type | Expected Content / Description |
+|---|---|---|
+| `ID` | Integer | Primary key, automatically incremented. |
+| `Email` | String | Extracted contact email address. |
+| `Status` | String | Outreach status: `New`, `sent`, or `skipped`. |
+| `Timestamp` | DateTime | ISO 8601 timestamp of record creation or edit. |
+| `Keyword` | String | Scraper keyword that matched the post. |
+| `PostURL` | String | LinkedIn post link (canonical URL format). |
+| `CompanyName` | String | Parsed company name. |
+| `Experience` | String | Extracted years of experience required. |
+| `Location` | String | Extracted job location. |
 
 ---
 
 ### 2. Job Search Leads Tracker (`LinkedIn_Job_Tracker.xlsx`)
-Tracks job postings discovered during searches and their progression through the referral and recruiter outreach pipeline.
-* **Columns**: `JobID`, `JobTitle`, `CompanyName`, `CompanyURL`, `ShortenURL`, `SearchKeyword`, `Status`, `ShortUrlCreated`, `CreatedDateTime`
-* **Workflow & Pipeline Transitions**:
-  * **Find Relevant Jobs** (`run_job_search.py`): Automatically appends newly scraped job postings with status **`NEW`**.
-  * **Review Job Applications** (`run_referral_review.py`): Evaluates jobs with status **`NEW`**. The user selects either **`Interested`** or **`Not Interested`**.
-  * **Discover Connected Employees** (`run_referral_outreach_discover.py`): Processes jobs with status **`Interested`**. Sets job status to **`In Progress`** during execution. If company target outreach capacity is already met, sets status directly to **`Asked for Referral`**.
-  * **LinkedIn Connect & Referral** (`run_linkedin_connect.py`): Processes jobs with status **`Interested`**. If target connections are achieved, sets job status to **`Asked for Referral`**. If connection limit is reached but company capacity is not met, sets status to **`Completed – Target Not Met`**. If pipeline is stopped mid-way, sets status to **`Cancelled`**.
-  * **Discover Recruiters** (`run_recruiter_outreach_discover.py`): Processes jobs with status **`Asked for Referral`**. Sets job status to **`In Progress`** during discovery. If company recruiter capacity is already met, sets status directly to **`Done`**.
-  * **Recruiter Connector/Messaging** (`run_recruiter_outreach.py` / `run_recruiter_outreach_send.py`): Processes jobs with status **`Asked for Referral`**. If recruiter outreach target is successfully achieved, sets job status to **`Done`**. If recruiter limit is reached but target not met, sets status to **`Completed – Target Not Met`**. If stopped mid-way, sets status to **`Cancelled`**.
-* **Status Definitions**:
-  * **`NEW`**: Scraped job posting waiting for review.
-  * **`Interested`**: Approved by user, ready for employee discovery and referral outreach.
-  * **`Not Interested`**: Disapproved by user, excluded from further automation steps.
-  * **`In Progress`**: Discovery phase (employee or recruiter search) is actively running for the target company.
-  * **`Asked for Referral`**: Connection request notes or referral messages have been initiated towards target company employees, or target capacity is met.
-  * **`Cancelled`**: Runner pipeline was interrupted or stopped by the user.
-  * **`Completed – Target Not Met`**: Pipeline completed its search and outreach runs but could not meet the target capacity due to candidate/recruiter pool exhaustion.
-  * **`Done`**: Recruiter outreach is completed successfully for the target company.
+Tracks job postings discovered during searches and their progression through outreach pipelines.
+
+| Column Header | Data Type | Expected Content / Description |
+|---|---|---|
+| `JobID` | Integer | Primary key, automatically incremented. |
+| `JobTitle` | String | Title of the job posting. |
+| `CompanyName` | String | Hiring company name. |
+| `LinkedIn_Company_URL` | String | Autogenerated link to the company's LinkedIn profile. |
+| `CompanyURL` | String | Career page application link. |
+| `ShortenURL` | String | TinyURL shortened apply link. |
+| `SearchKeyword` | String | Keyword query used to discover the job. |
+| `Status` | String | Progress status: `NEW`, `Interested`, `Not Interested`, `In Progress`, `Asked for Referral`, `Cancelled`, `Completed – Target Not Met`, or `Done`. |
+| `ShortUrlCreated` | String | Tracks link shortening: `Yes` or `No`. |
+| `CreatedDateTime` | DateTime | Timestamp when the job was logged. |
 
 ---
 
-### 3. Referral Outreach Contacts (`referrals.xlsx`)
-Logs individual employee and recruiter contacts discovered at target companies, their source type, and outreach outcomes.
-* **Columns**: `ReferralID`, `JobID`, `CompanyName`, `Referral_Person_Name`, `Referral_Person_Email`, `Referral_Person_Profile_URL`, `Referral_Person_Designation`, `Referral_Source`, `Referral_Status`, `Employment_Verification_Status`, `Sent_Time`, `Error_Reason`
-* **Workflow & Pipeline Transitions**:
-  * **Discover Connected Employees** (`run_referral_outreach_discover.py`): Discovers and verifies 1st/2nd degree connections working at target companies. Saves profile with `Referral_Source='Existing Employee'`, `Employment_Verification_Status='Verified'`, and status **`Pending`**.
-  * **Send Referral Messages** (`run_referral_outreach_send.py`): Processes contacts with status **`Pending`** and source `Existing Employee`. If the template message is successfully sent and verified in chat history, updates to **`Sent`**. If skipped by user or pre-checks, updates to **`Skipped`**. If delivery verification fails, updates to **`Failed`**.
-  * **LinkedIn Connect & Referral** (`run_linkedin_connect.py`): Connects with 2nd/3rd degree connections, sending invitation notes. Appends contact details with `Referral_Source='Sent Employee Connection'` and status **`Sent`**, **`Skipped`**, or **`Failed`** depending on the connection prompt outcome.
-  * **Discover Recruiters** (`run_recruiter_outreach_discover.py`): Discovers recruiters. Saves profile with `Referral_Source='Existing Recruiter'` and status **`Pending`**.
-  * **Message Recruiters** (`run_recruiter_outreach_send.py`): Processes recruiter contacts with status **`Pending`**. If direct message is sent and verified, updates to **`Sent`**, otherwise **`Failed`** or **`Skipped`**.
-  * **Recruiter Connector** (`run_recruiter_outreach.py`): Connects with recruiters, sending invitation notes. Appends contact details with `Referral_Source='Sent Recruiter Connection'` and status **`Sent`**, **`Skipped`**, or **`Failed`**.
-  * **Manual Dashboard Updates**: Users can manually modify any contact row status to **`Replied`** or **`Referral Received`** inside the dashboard.
-* **Status Definitions**:
-  * **`Pending`**: Discovered and verified contact, queued for outreach message.
-  * **`Sent`**: Connection invitation note or direct message has been successfully sent.
-  * **`Skipped`**: Contact skipped manually by user, or because the profile was already messaged.
-  * **`Failed`**: Direct message input failed or delivery verification check failed.
-  * **`Replied`**: (Manual update) Contact has replied to our connection or message.
-  * **`Referral Received`**: (Manual update) Contact has successfully referred the applicant.
+### 3. Referral Contacts Tracker (`referrals.xlsx`)
+Tracks contacts discovered at target companies and the outcomes of referral outreach.
+
+| Column Header | Data Type | Expected Content / Description |
+|---|---|---|
+| `ReferralID` | Integer | Primary key, automatically incremented. |
+| `JobID` | Integer | Foreign key linking to the job in `LinkedIn_Job_Tracker.xlsx`. |
+| `CompanyName` | String | Hiring company name. |
+| `Referral_Person_Name`| String | Name of the LinkedIn contact. |
+| `Referral_Person_Email`| String | Contact's email address (if discovered). |
+| `Referral_Person_Profile_URL` | String | LinkedIn profile link of the contact. |
+| `Referral_Person_Designation` | String | Professional title of the contact. |
+| `Referral_Source` | String | Outreach type: `Existing Employee`, `Sent Employee Connection`, `Existing Recruiter`, or `Sent Recruiter Connection`. |
+| `Referral_Status` | String | Status: `Pending`, `Sent`, `Skipped`, `Failed`, `Replied`, or `Referral Received`. |
+| `Employment_Verification_Status`| String | Verification status: `Verified` or `Unverified`. |
+| `Sent_Time` | DateTime | Timestamp when the outreach message was sent. |
+| `Error_Reason` | String | Error details if sending failed or logs skipped. |
 
 ---
 
-## ⚠️ Troubleshooting & Browser Tips
+## 🌐 Flask API Endpoint Reference
 
-- **Windows Chrome & Chromedriver**: On Windows, the system automatically detects the OS, bypasses the Mac local binary check, and relies on `webdriver_manager` to download the matching Windows `chromedriver.exe` binary. No manual setup is needed.
-- **Unrecognized Chrome Version / Microsoft Edge Launching**: If you experience browser version errors (e.g., `SessionNotCreatedException: unrecognized Chrome version: Edg/...`), Microsoft Edge may have hijacked the default `chrome` app execution alias on Windows. To fix this, add the absolute path of your actual Google Chrome installation to your `.env` file using the `CHROME_BINARY_PATH` environment variable:
-  ```env
-  CHROME_BINARY_PATH=C:\Program Files\Google\Chrome\Application\chrome.exe
-  ```
-- **Mac Chrome Execution**: The driver is configured to automatically search for Google Chrome in the standard `/System/Volumes/Data/Volumes/Google Chrome/Google Chrome.app` path or default location.
-- **Mac Excel Sheet Reloads**: The system uses AppleScript to reload active Excel/Numbers sheets automatically if they are open while data is writing. If prompted, grant terminal permission to script applications.
-- **Google Sign-In**: Avoid choosing "Continue with Google" during automated sessions as Google security blocks automated login pages. Sign in directly using email and password.
-- **Empty Data for a New Profile**: Each user profile starts with an empty `data/` directory. Data files (`job_tracker.xlsx`, `LinkedIn_Job_Tracker.xlsx`) are automatically created the first time a pipeline is run under that profile.
-- **urllib3 SSL Warning**: If you see a `NotOpenSSLWarning` from urllib3, this is a known macOS LibreSSL compatibility notice and is automatically suppressed in all pipeline runners — it has no effect on functionality.
-- **LinkedIn Rate Limiting**: If LinkedIn temporarily restricts your account activity, increase the **Action Timing Delay** in the LinkedIn Automator settings to add more wait time between automation steps.
+Connectify features a RESTful API to manage pipelines, query profiles, and edit spreadsheets.
+
+### 1. Web Views
+* **`GET /`** & **`GET /dashboard`**: Renders the dashboard user interface.
+
+### 2. Task Management
+* **`GET /api/tasks`**: Returns status summaries for running tasks.
+  * *Response Example (`200 OK`)*:
+    ```json
+    {
+      "scraper_pipeline": {
+        "status": "running",
+        "waiting_for_input": false,
+        "current_step": 1,
+        "total_steps": 1
+      }
+    }
+    ```
+* **`GET /api/task/<task_id>/logs`**: Streams log data for a running task.
+  * *Response Example (`200 OK`)*:
+    ```json
+    {
+      "status": "running",
+      "waiting_for_input": false,
+      "logs": ["[12:00:01] Launching Step 1/1: run_email_scraper.py"],
+      "current_step_name": "run_email_scraper.py",
+      "args": [],
+      "is_single_step": true
+    }
+    ```
+* **`POST /api/task/<task_id>/input`**: Sends input to a task's stdin stream.
+  * *Request Body*: `{"input": "S"}`
+* **`POST /api/task/<task_id>/kill`**: Terminates a running task and closes the browser.
+
+### 3. Pipeline Control
+* **`POST /api/run/scraper`**: Starts Pipeline 1 (Email Scraper).
+  * *Request Body*: `{"phase": "full"}` (Options: `full`, `phase1`, `phase2`)
+* **`POST /api/run/referral`**: Starts Pipeline 2–4 (Job discovery and employee connection).
+  * *Request Body*: `{"step": 1}` (Run specific steps or omit to run the full pipeline)
+* **`POST /api/run/recruiter`**: Starts Pipeline 6 (Recruiter outreach).
+  * *Request Body*: `{"step": 1}`
+
+### 4. User Profiles
+* **`GET /api/users`**: List all user profiles.
+* **`POST /api/users/select`**: Switch the active user profile.
+  * *Request Body*: `{"user": "Yuvashree"}`
+* **`POST /api/users/create`**: Create a new profile.
+  * *Request Body*: `{"username": "Lalit"}`
+* **`GET /api/users/config`**: Fetch settings for the active user.
+* **`POST /api/users/config`**: Update configuration for the active user.
+* **`POST /api/users/config/keywords`**: Update keywords lists.
+  * *Request Body*: `{"type": "scraper", "keywords": ["Developer", "Data Analyst"]}`
+* **`POST /api/users/resume/upload`**: Upload a PDF or DOCX resume.
+* **`GET /api/users/resume/download/<username>`**: Download the active resume file.
+
+### 5. Database Actions
+* **`GET /api/data/job_tracker`**: Returns rows from `job_tracker.xlsx`.
+* **`GET /api/data/job_leads`**: Returns rows from `LinkedIn_Job_Tracker.xlsx`.
+* **`GET /api/data/referrals`**: Returns rows from `referrals.xlsx`.
+* **`POST /api/data/update_status`**: Edit the status of a database row.
+  * *Request Body*: `{"db_type": "scraper", "id": 1, "status": "sent"}`
+* **`POST /api/data/delete_row`**: Deletes a database row.
+* **`POST /api/data/edit_row`**: Edits values in a database row.
+  * *Request Body*: `{"db_type": "referral", "id": 1, "company": "Google", "url": "https://careers.google.com", "status": "Interested"}`
 
 ---
 
-## 📖 Additional Documentation
+## 🛠️ Troubleshooting & Support
 
-- **Technical Architecture**: See [`docs/architecture_docs.md`](docs/architecture_docs.md) for an in-depth breakdown of the system architecture, data flow diagrams, module responsibilities, and extension guidelines.
-- **Example Config**: See [`users_config.json.example`](users_config.json.example) for a reference user profile structure.
-- **Environment Variables**: See [`.env.example`](.env.example) for all supported environment variable overrides.
+### Common Issues & Resolutions
 
+| Issue / Error | Root Cause | Resolution |
+|---|---|---|
+| `SessionNotCreatedException: unrecognized Chrome version` | The Chrome version does not match the driver version, or Edge has hijacked the `chrome` path. | Define the absolute path to your Google Chrome installation in `.env`: <br>`CHROME_BINARY_PATH=C:\Program Files\Google\Chrome\Application\chrome.exe` |
+| `ModuleNotFoundError: No module named 'flask'` | The terminal command executed outside the active virtual environment. | Run `.venv\Scripts\activate` (Windows) or `source .venv/bin/activate` (Mac) before executing Python scripts. |
+| `TimeoutException: Manual login timeout` | The manual login window timed out after 300 seconds without detecting a search bar. | Re-run the script and complete the login and 2FA steps within the 5-minute limit. |
+| `SMTPAuthenticationError` | Gmail blocked the connection attempt, or app-specific passwords are not configured. | Enable App Passwords in your Gmail settings and use the generated app password in settings instead of your master password. |
+| `FileNotFoundError` (Excel sheets) | The database files were not initialized because the pipeline has not run yet. | Start a pipeline run to automatically generate the database templates. |
+
+---
+
+## 🔒 Security & Performance Guidelines
+
+### Security Best Practices
+* **Isolated Browser Sessions**: Chrome profile directories are stored under `users/<username>/chrome-profile/` to keep session cookies and browser history separated per user.
+* **Secure Environment Variables**: Never commit `.env` or files under `users/` to version control. The repository includes a preconfigured `.gitignore` file.
+* **No Hardcoded Paths**: Scripts should resolve files using helper methods (e.g. `get_job_tracker_file()`) instead of hardcoding paths.
+
+### Performance Optimization
+* **Stagnation Timeout**: Keeps scraping cycles short by skipping keywords when page height growth stops.
+* **Database Caching**: Connection requests check local databases to prevent duplicate outreach actions.
+* **Network Delay Tuning**: You can adjust `Action Timing Delay` (default: 60 seconds) in settings to control automation speed and reduce the risk of rate limit restrictions.
