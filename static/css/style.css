@@ -565,8 +565,7 @@ body {
     transform: scale(1.15);
 }
 
-.p-step-seq.active .btn-step-run,
-.p-step-seq.completed .btn-step-run {
+.p-step-seq.active .btn-step-run {
     pointer-events: none;
     opacity: 0.3;
 }
