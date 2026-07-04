@@ -559,9 +559,19 @@ class LinkedInScraper:
                         content_lower = content.lower()
                         # Case-insensitive keyword match in post content
                         if any(kw in content_lower for kw in title_keywords):
-                            excluded_hit = next((kw for kw in excluded_keywords if kw in content_lower), None)
+                            # Robust normalized matching for exclusion keywords (checks alphanumeric characters in content & URL)
+                            content_norm = re.sub(r'[^a-zA-Z0-9]', '', content_lower)
+                            url_norm = re.sub(r'[^a-zA-Z0-9]', '', post_url.lower())
+                            
+                            excluded_hit = None
+                            for kw in excluded_keywords:
+                                kw_clean = re.sub(r'[^a-zA-Z0-9]', '', kw)
+                                if kw_clean and (kw_clean in content_norm or kw_clean in url_norm):
+                                    excluded_hit = kw
+                                    break
+
                             if excluded_hit:
-                                logger.debug(f"Post excluded by exclusion keyword '{excluded_hit}' — skipped.")
+                                logger.info(f"Post excluded by exclusion keyword '{excluded_hit}' — skipped.")
                             else:
                                 # Extract structured fields from post text
                                 extracted = extract_post_fields(content)
