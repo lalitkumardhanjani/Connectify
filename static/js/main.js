@@ -2950,3 +2950,48 @@ setInterval(() => {
     }
 }, 30000);
 
+// Check pipeline status on page load to restore running state if active
+async function initPipelineStatus() {
+    try {
+        const response = await fetch('/api/tasks');
+        const tasks = await response.json();
+        
+        const pipelines = ['scraper', 'referral', 'recruiter'];
+        
+        pipelines.forEach(p => {
+            const taskId = `${p}_pipeline`;
+            const task = tasks[taskId];
+            const isRunning = task && (task.status === 'running' || task.status === 'queued');
+            
+            // Set buttons visibility and lock state based on status
+            const runBtn = document.getElementById(`btn-run-${p}`);
+            const killBtn = document.getElementById(`btn-kill-${p}`);
+            const badge = document.getElementById(`badge-${p}`);
+            
+            if (isRunning) {
+                if (runBtn) runBtn.classList.add('hidden');
+                if (killBtn) killBtn.classList.remove('hidden');
+                if (killBtn) killBtn.disabled = false;
+                startPolling(taskId);
+            } else {
+                if (runBtn) runBtn.classList.remove('hidden');
+                if (killBtn) killBtn.classList.add('hidden');
+            }
+            
+            if (badge && task) {
+                badge.innerText = task.status;
+                badge.className = `status-badge status-${task.status}`;
+            }
+        });
+        
+        updatePipelineLocks();
+    } catch (e) {
+        console.error("Failed to initialize pipeline status on load:", e);
+    }
+}
+
+// Run on page load
+document.addEventListener('DOMContentLoaded', () => {
+    initPipelineStatus();
+});
+

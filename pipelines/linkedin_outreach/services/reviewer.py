@@ -66,7 +66,8 @@ def run_reviewer():
         driver = get_driver()
     except Exception as e:
         logger.error(f"Error starting Chrome browser: {e}")
-        return
+        import sys
+        sys.exit(1)
 
     updated_rows = []
     try:
@@ -119,9 +120,14 @@ def run_reviewer():
             logger.info("Saved progress to Excel.")
     except Exception as e:
         logger.exception(f"\nFatal error during review session: {e}")
+        import sys
+        sys.exit(1)
     finally:
         logger.info("\nClosing browser...")
-        driver.quit()
+        try:
+            driver.quit()
+        except NameError:
+            pass
         logger.info("Reviewer script finished.")
 
 if __name__ == "__main__":
