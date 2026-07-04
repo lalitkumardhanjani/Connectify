@@ -476,10 +476,26 @@ class LinkedInScraper:
 
         user_conf = get_selected_user_config()
         email_scraper = user_conf.get("email_scraper", {})
+        linkedin_connect = user_conf.get("linkedin_connect", {})
         
-        # Load and lowercase keywords for case-insensitive matching
-        raw_keywords = email_scraper.get("title_keywords") or email_scraper.get("keywords") or DBA_KEYWORDS_DEFAULT
-        title_keywords = [str(kw).lower().strip() for kw in raw_keywords if str(kw).strip()]
+        # Load keywords from both Email Scraper and LinkedIn Automator settings
+        def extract_kw_list(val):
+            if not val:
+                return []
+            if isinstance(val, list):
+                return val
+            if isinstance(val, str):
+                return [val]
+            return []
+
+        email_kws = extract_kw_list(email_scraper.get("title_keywords")) or extract_kw_list(email_scraper.get("keywords"))
+        linkedin_kws = extract_kw_list(linkedin_connect.get("title_keywords")) or extract_kw_list(linkedin_connect.get("search_keywords")) or extract_kw_list(linkedin_connect.get("keywords"))
+        
+        all_raw_keywords = email_kws + linkedin_kws
+        if not all_raw_keywords:
+            all_raw_keywords = DBA_KEYWORDS_DEFAULT
+            
+        title_keywords = list(set([str(kw).lower().strip() for kw in all_raw_keywords if str(kw).strip()]))
         
         excluded_keywords = [str(kw).lower().strip() for kw in email_scraper.get("excluded_keywords", []) if str(kw).strip()]
         max_emails = int(email_scraper.get("max_emails_per_run") or 5)
