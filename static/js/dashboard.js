@@ -37,9 +37,14 @@ const BAR_COLORS = [
 // Active chart instances (so we can destroy and re-create cleanly)
 let emailStatusChartInst   = null;
 let emailKeywordChartInst  = null;
+let emailDomainChartInst   = null;
 let emailDailyChartInst    = null;
 let coStatusChartInst      = null;
 let coKeywordChartInst     = null;
+let coHiringChartInst      = null;
+let outreachStatusChartInst = null;
+let outreachSourceChartInst = null;
+let outreachDailyChartInst = null;
 
 // Pending Queue Pagination State
 let pendingCurrentPage = 1;
@@ -92,12 +97,16 @@ function progressBar(value, max) {
 //  Module tab switching
 // ─────────────────────────────────────────────────────────
 function switchDashModule(module) {
-    ['email', 'company'].forEach(m => {
-        document.getElementById(`dash-panel-${m}`).classList.remove('active');
-        document.getElementById(`dash-module-${m}`).classList.remove('active');
+    ['email', 'company', 'outreach'].forEach(m => {
+        const panel = document.getElementById(`dash-panel-${m}`);
+        const tab = document.getElementById(`dash-module-${m}`);
+        if (panel) panel.classList.remove('active');
+        if (tab) tab.classList.remove('active');
     });
-    document.getElementById(`dash-panel-${module}`).classList.add('active');
-    document.getElementById(`dash-module-${module}`).classList.add('active');
+    const activePanel = document.getElementById(`dash-panel-${module}`);
+    const activeTab = document.getElementById(`dash-module-${module}`);
+    if (activePanel) activePanel.classList.add('active');
+    if (activeTab) activeTab.classList.add('active');
 }
 
 // ─────────────────────────────────────────────────────────
@@ -233,8 +242,8 @@ async function loadEmailDashboard() {
         console.warn('Could not fetch email stats:', e);
         d = {
             total_emails: 0, sent: 0, pending: 0, added_today: 0,
-            status_distribution: {}, keyword_counts: {}, daily_counts: [],
-            pending_queue: []
+            send_success_rate: 0.0, status_distribution: {}, domain_distribution: {},
+            keyword_counts: {}, daily_counts: [], pending_queue: []
         };
     }
 
@@ -244,6 +253,11 @@ async function loadEmailDashboard() {
     document.getElementById('email-pending').textContent = fmt(d.pending);
     document.getElementById('email-today').textContent   = fmt(d.added_today);
     document.getElementById('pending-count-badge').textContent = fmt(d.pending) + ' pending';
+
+    const successRateEl = document.getElementById('email-success-rate');
+    if (successRateEl) {
+        successRateEl.textContent = (d.send_success_rate !== undefined ? d.send_success_rate : 0) + '% rate';
+    }
 
     // Leaderboard
     const kwEntries = Object.entries(d.keyword_counts || {}).sort((a,b) => b[1]-a[1]);
@@ -272,6 +286,20 @@ async function loadEmailDashboard() {
         topKws.map(([,v]) => v)
     );
 
+    // Domain Doughnut Chart
+    const domains = Object.entries(d.domain_distribution || {}).sort((a,b)=>b[1]-a[1]);
+    const topDomains = domains.slice(0, 7);
+    const otherDomainsCount = domains.slice(7).reduce((sum, [,v]) => sum + v, 0);
+    const domainLabels = topDomains.map(([k]) => k.startsWith('.') ? k : '@' + k);
+    const domainData = topDomains.map(([,v]) => v);
+    if (otherDomainsCount > 0) {
+        domainLabels.push('Other corporate');
+        domainData.push(otherDomainsCount);
+    }
+    
+    if (emailDomainChartInst) emailDomainChartInst.destroy();
+    emailDomainChartInst = makePieChart('emailDomainChart', domainLabels, domainData, BAR_COLORS);
+
     // Daily Line Chart
     const daily = d.daily_counts || [];
     if (emailDailyChartInst) emailDailyChartInst.destroy();
@@ -283,19 +311,21 @@ async function loadEmailDashboard() {
 
     // Keyword Effectiveness Table
     const kwTbody = document.querySelector('#email-keyword-table tbody');
-    if (kwEntries.length === 0) {
-        kwTbody.innerHTML = emptyRow(4);
-    } else {
-        const maxKw = kwEntries[0][1];
-        kwTbody.innerHTML = '';
-        kwEntries.slice(0, 15).forEach(([kw, count], i) => {
-            kwTbody.appendChild(mkRow(
-                `<span class="rank-num ${rankClass(i)}">${i+1}</span>`,
-                kw,
-                `<span class="count-value">${fmt(count)}</span>`,
-                progressBar(count, maxKw)
-            ));
-        });
+    if (kwTbody) {
+        if (kwEntries.length === 0) {
+            kwTbody.innerHTML = emptyRow(4);
+        } else {
+            const maxKw = kwEntries[0][1];
+            kwTbody.innerHTML = '';
+            kwEntries.slice(0, 15).forEach(([kw, count], i) => {
+                kwTbody.appendChild(mkRow(
+                    `<span class="rank-num ${rankClass(i)}">${i+1}</span>`,
+                    kw,
+                    `<span class="count-value">${fmt(count)}</span>`,
+                    progressBar(count, maxKw)
+                ));
+            });
+        }
     }
 
     // Pending Queue Table
@@ -316,7 +346,8 @@ async function loadCompanyDashboard() {
         console.warn('Could not fetch company stats:', e);
         d = {
             total_companies: 0, new: 0, done: 0, not_interested: 0,
-            status_distribution: {}, keyword_counts: {}, keyword_status: {}
+            status_distribution: {}, keyword_counts: {}, keyword_status: {},
+            top_hiring_companies: {}
         };
     }
 
@@ -332,10 +363,22 @@ async function loadCompanyDashboard() {
     document.getElementById('co-top-keyword').textContent =
         topCoKw ? `${topCoKw[0]}  —  ${fmt(topCoKw[1])} companies` : 'No data yet';
 
-    // Status Pie Chart
-    const coStatusLabels = ['New', 'Done', 'Not Interested'];
-    const coStatusData   = [d.new||0, d.done||0, d.not_interested||0];
-    const coStatusColors = [PALETTE.cyan, PALETTE.teal, PALETTE.red];
+    // Dynamic Status Pie Chart
+    const statusDist = d.status_distribution || {};
+    const coStatusLabels = Object.keys(statusDist).map(s => s.charAt(0).toUpperCase() + s.slice(1));
+    const coStatusData = Object.values(statusDist);
+    
+    const statusColorsMap = {
+        'new': PALETTE.cyan,
+        'done': PALETTE.teal,
+        'not interested': PALETTE.red,
+        'interested': PALETTE.purple,
+        'asked for referral': PALETTE.indigo,
+        'in progress': PALETTE.yellow,
+        'discovered': PALETTE.green,
+        'referred': PALETTE.pink
+    };
+    const coStatusColors = Object.keys(statusDist).map(s => statusColorsMap[s.toLowerCase()] || PALETTE.gray);
 
     if (coStatusChartInst) coStatusChartInst.destroy();
     coStatusChartInst = makePieChart('coStatusChart', coStatusLabels, coStatusData, coStatusColors);
@@ -350,44 +393,57 @@ async function loadCompanyDashboard() {
         topCoKws.map(([,v])=>v)
     );
 
+    // Top Hiring Companies Chart
+    const hiringEntries = Object.entries(d.top_hiring_companies || {}).sort((a,b)=>b[1]-a[1]);
+    if (coHiringChartInst) coHiringChartInst.destroy();
+    coHiringChartInst = makeBarChart(
+        'coHiringChart',
+        hiringEntries.map(([k])=>k),
+        hiringEntries.map(([,v])=>v)
+    );
+
     // Keyword Analysis Table
     const coKwTbody = document.querySelector('#co-keyword-table tbody');
-    if (coKwEntries.length === 0) {
-        coKwTbody.innerHTML = emptyRow(4);
-    } else {
-        const maxCoKw = coKwEntries[0][1];
-        coKwTbody.innerHTML = '';
-        coKwEntries.slice(0, 15).forEach(([kw, count], i) => {
-            coKwTbody.appendChild(mkRow(
-                `<span class="rank-num ${rankClass(i)}">${i+1}</span>`,
-                kw,
-                `<span class="count-value">${fmt(count)}</span>`,
-                progressBar(count, maxCoKw)
-            ));
-        });
+    if (coKwTbody) {
+        if (coKwEntries.length === 0) {
+            coKwTbody.innerHTML = emptyRow(4);
+        } else {
+            const maxCoKw = coKwEntries[0][1];
+            coKwTbody.innerHTML = '';
+            coKwEntries.slice(0, 15).forEach(([kw, count], i) => {
+                coKwTbody.appendChild(mkRow(
+                    `<span class="rank-num ${rankClass(i)}">${i+1}</span>`,
+                    kw,
+                    `<span class="count-value">${fmt(count)}</span>`,
+                    progressBar(count, maxCoKw)
+                ));
+            });
+        }
     }
 
     // Keyword vs Status Table
     const ksTbody = document.querySelector('#co-keyword-status-table tbody');
-    const ks = d.keyword_status || {};
-    const ksEntries = Object.entries(ks).sort((a,b) => {
-        const totalA = (a[1].new||0)+(a[1].done||0)+(a[1].not_interested||0);
-        const totalB = (b[1].new||0)+(b[1].done||0)+(b[1].not_interested||0);
-        return totalB - totalA;
-    });
-
-    if (ksEntries.length === 0) {
-        ksTbody.innerHTML = emptyRow(4);
-    } else {
-        ksTbody.innerHTML = '';
-        ksEntries.slice(0, 15).forEach(([kw, s]) => {
-            ksTbody.appendChild(mkRow(
-                `<strong>${kw}</strong>`,
-                `<span class="count-value" style="color:var(--accent-cyan)">${fmt(s.new||0)}</span>`,
-                `<span class="count-value" style="color:var(--accent-teal)">${fmt(s.done||0)}</span>`,
-                `<span class="count-value" style="color:var(--accent-red)">${fmt(s.not_interested||0)}</span>`
-            ));
+    if (ksTbody) {
+        const ks = d.keyword_status || {};
+        const ksEntries = Object.entries(ks).sort((a,b) => {
+            const totalA = (a[1].new||0)+(a[1].done||0)+(a[1].not_interested||0);
+            const totalB = (b[1].new||0)+(b[1].done||0)+(b[1].not_interested||0);
+            return totalB - totalA;
         });
+
+        if (ksEntries.length === 0) {
+            ksTbody.innerHTML = emptyRow(4);
+        } else {
+            ksTbody.innerHTML = '';
+            ksEntries.slice(0, 15).forEach(([kw, s]) => {
+                ksTbody.appendChild(mkRow(
+                    `<strong>${kw}</strong>`,
+                    `<span class="count-value" style="color:var(--accent-cyan)">${fmt(s.new||0)}</span>`,
+                    `<span class="count-value" style="color:var(--accent-teal)">${fmt(s.done||0)}</span>`,
+                    `<span class="count-value" style="color:var(--accent-red)">${fmt(s.not_interested||0)}</span>`
+                ));
+            });
+        }
     }
 }
 
@@ -475,8 +531,103 @@ window.changePendingPage = changePendingPage;
 // ─────────────────────────────────────────────────────────
 //  Bootstrap — run when dashboard tab is active
 // ─────────────────────────────────────────────────────────
+async function loadOutreachDashboard() {
+    let d;
+    try {
+        const res = await fetch('/api/outreach_stats');
+        d = await res.json();
+    } catch(e) {
+        console.warn('Could not fetch outreach stats:', e);
+        d = {
+            total_contacts: 0, sent: 0, pending: 0, failed: 0,
+            status_distribution: {}, source_distribution: {}, company_distribution: {},
+            daily_counts: [], recent_outreach: []
+        };
+    }
+
+    // KPI cards
+    const elTotal = document.getElementById('outreach-total');
+    const elSent = document.getElementById('outreach-sent');
+    const elPending = document.getElementById('outreach-pending');
+    const elFailed = document.getElementById('outreach-failed');
+
+    if (elTotal) elTotal.textContent = fmt(d.total_contacts);
+    if (elSent) elSent.textContent = fmt(d.sent);
+    if (elPending) elPending.textContent = fmt(d.pending);
+    if (elFailed) elFailed.textContent = fmt(d.failed);
+
+    // Leaderboard Target Company
+    const compEntries = Object.entries(d.company_distribution || {}).sort((a,b)=>b[1]-a[1]);
+    const topComp = compEntries[0];
+    const elLeaderboard = document.getElementById('outreach-top-company');
+    if (elLeaderboard) {
+        elLeaderboard.textContent = topComp ? `${topComp[0]}  —  ${fmt(topComp[1])} outreach contacts` : 'No data yet';
+    }
+
+    // Status Pie Chart
+    const statusLabels = Object.keys(d.status_distribution || {}).map(s => s.charAt(0).toUpperCase() + s.slice(1));
+    const statusData = Object.values(d.status_distribution || {});
+    const statusColorsMap = {
+        'sent': PALETTE.green,
+        'pending': PALETTE.yellow,
+        'failed': PALETTE.red,
+        'error': PALETTE.red
+    };
+    const statusColors = Object.keys(d.status_distribution || {}).map(s => statusColorsMap[s.toLowerCase()] || PALETTE.gray);
+
+    if (outreachStatusChartInst) outreachStatusChartInst.destroy();
+    outreachStatusChartInst = makePieChart('outreachStatusChart', statusLabels, statusData, statusColors);
+    renderLegend('outreach-status-legend', statusLabels, statusColors, statusData);
+
+    // Source Bar Chart
+    const sourceEntries = Object.entries(d.source_distribution || {}).sort((a,b)=>b[1]-a[1]);
+    if (outreachSourceChartInst) outreachSourceChartInst.destroy();
+    outreachSourceChartInst = makeBarChart(
+        'outreachSourceChart',
+        sourceEntries.map(([k])=>k),
+        sourceEntries.map(([,v])=>v)
+    );
+
+    // Daily Line Chart
+    const daily = d.daily_counts || [];
+    if (outreachDailyChartInst) outreachDailyChartInst.destroy();
+    outreachDailyChartInst = makeLineChart(
+        'outreachDailyChart',
+        daily.map(r => r.date),
+        daily.map(r => r.count)
+    );
+
+    // Recent Outreach Log Table
+    const tbody = document.querySelector('#outreach-recent-table tbody');
+    if (tbody) {
+        const recent = d.recent_outreach || [];
+        if (recent.length === 0) {
+            tbody.innerHTML = emptyRow(6, 'No outreach sent yet');
+        } else {
+            tbody.innerHTML = '';
+            recent.forEach(row => {
+                const statusClass = row.Status.toLowerCase() === 'sent' ? 'status-pill done' : 
+                                   (row.Status.toLowerCase() === 'pending' ? 'status-pill new' : 'status-pill ni');
+                const statusText = row.Status || 'Unknown';
+                const statusBadge = `<span class="${statusClass}">${statusText}</span>`;
+                
+                tbody.appendChild(mkRow(
+                    row.Name || '—',
+                    `<strong>${row.Company}</strong>`,
+                    row.Source || '—',
+                    row.SentTime || '—',
+                    statusBadge,
+                    row.Error ? `<span class="text-danger" style="color:var(--accent-red);font-size:0.82rem;"><i class="fa-solid fa-triangle-exclamation"></i> ${row.Error}</span>` : '—'
+                ));
+            });
+        }
+    }
+}
+
+//  Bootstrap — run when dashboard tab is active
+// ─────────────────────────────────────────────────────────
 async function loadDashboardAnalytics() {
-    await Promise.all([loadEmailDashboard(), loadCompanyDashboard()]);
+    await Promise.all([loadEmailDashboard(), loadCompanyDashboard(), loadOutreachDashboard()]);
 }
 
 // Hook into main.js tab click (the `loadStats` call in main.js already

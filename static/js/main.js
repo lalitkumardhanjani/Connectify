@@ -53,7 +53,9 @@ if (logoContainer) {
 // ChartJS Configuration
 let metricsChartInstance = null;
 function updateChart(stats) {
-    const ctx = document.getElementById('metricsChart').getContext('2d');
+    const canvas = document.getElementById('metricsChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
     
     if (metricsChartInstance) {
         metricsChartInstance.destroy();
@@ -112,10 +114,15 @@ async function loadStats() {
         const response = await fetch('/api/stats');
         const stats = await response.json();
         
-        document.getElementById('stat-emails-scraped').innerText = stats.total_emails_scraped;
-        document.getElementById('stat-emails-sent').innerText = stats.emails_sent;
-        document.getElementById('stat-jobs-scraped').innerText = stats.total_jobs_scraped;
-        document.getElementById('stat-referrals-sent').innerText = stats.referral_requests_sent;
+        const elEmailsScraped = document.getElementById('stat-emails-scraped');
+        const elEmailsSent = document.getElementById('stat-emails-sent');
+        const elJobsScraped = document.getElementById('stat-jobs-scraped');
+        const elReferralsSent = document.getElementById('stat-referrals-sent');
+
+        if (elEmailsScraped) elEmailsScraped.innerText = stats.total_emails_scraped;
+        if (elEmailsSent) elEmailsSent.innerText = stats.emails_sent;
+        if (elJobsScraped) elJobsScraped.innerText = stats.total_jobs_scraped;
+        if (elReferralsSent) elReferralsSent.innerText = stats.referral_requests_sent;
 
         updateChart(stats);
     } catch (e) {
@@ -164,6 +171,26 @@ async function pollLogs() {
             });
             lastLogLength = data.logs.length;
             consoleLogs.scrollTop = consoleLogs.scrollHeight;
+
+            // Trigger real-time updates for dashboard and database tracker tables
+            const isModalOpen = !document.getElementById('edit-scraper-modal').classList.contains('hidden') ||
+                                (document.getElementById('edit-referral-modal') && !document.getElementById('edit-referral-modal').classList.contains('hidden')) ||
+                                (document.getElementById('edit-referral-contact-modal') && !document.getElementById('edit-referral-contact-modal').classList.contains('hidden')) ||
+                                document.querySelector('.modal-overlay:not(.hidden)');
+            
+            const isInteractingWithTable = document.activeElement && 
+                                          (document.activeElement.closest('.data-table') || 
+                                           document.activeElement.closest('.table-responsive') || 
+                                           document.activeElement.classList.contains('status-inline-select'));
+                                           
+            if (!isModalOpen && !isInteractingWithTable) {
+                loadTableData('scraper');
+                loadTableData('referral');
+                loadTableData('referrals');
+            }
+            if (typeof loadDashboardAnalytics === 'function') {
+                loadDashboardAnalytics();
+            }
         }
 
         // Highlight step numbers in sequence
@@ -199,6 +226,9 @@ async function pollLogs() {
             stopPolling();
             loadStats(); // Reload stats after completion
             if (typeof loadDashboardAnalytics === 'function') loadDashboardAnalytics();
+            loadTableData('scraper');
+            loadTableData('referral');
+            loadTableData('referrals');
             
             // Clear active steps, but keep completed steps visible
             if (activeTaskId === 'scraper_pipeline') {

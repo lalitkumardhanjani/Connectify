@@ -97,6 +97,9 @@
                     <button class="dash-module-btn" id="dash-module-company" onclick="switchDashModule('company')">
                         <i class="fa-solid fa-building"></i> Company Database Analytics
                     </button>
+                    <button class="dash-module-btn" id="dash-module-outreach" onclick="switchDashModule('outreach')">
+                        <i class="fa-solid fa-share-nodes"></i> Outreach & Referral Analytics
+                    </button>
                 </div>
 
                 <!-- ===== MODULE 1: EMAIL SCRAPER ===== -->
@@ -114,7 +117,10 @@
                             <div class="kpi-icon"><i class="fa-solid fa-paper-plane"></i></div>
                             <div class="kpi-body">
                                 <span class="kpi-label">Emails Sent</span>
-                                <h2 class="kpi-value" id="email-sent">—</h2>
+                                <div style="display: flex; align-items: baseline; gap: 8px;">
+                                    <h2 class="kpi-value" id="email-sent">—</h2>
+                                    <span class="kpi-badge-teal" id="email-success-rate" style="font-size: 0.76rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; background: rgba(0, 230, 118, 0.12); color: var(--accent-green); border: 1px solid rgba(0, 230, 118, 0.2);">0% rate</span>
+                                </div>
                             </div>
                         </div>
                         <div class="kpi-card kpi-yellow">
@@ -155,7 +161,13 @@
                                 <canvas id="emailKeywordChart"></canvas>
                             </div>
                         </div>
-                        <div class="chart-card card-glass chart-card-wide">
+                        <div class="chart-card card-glass">
+                            <h3 class="chart-title"><i class="fa-solid fa-at"></i> Email Domains</h3>
+                            <div class="chart-wrap">
+                                <canvas id="emailDomainChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="chart-card card-glass chart-card-wide" style="grid-column: span 3;">
                             <h3 class="chart-title"><i class="fa-solid fa-chart-line"></i> Emails Generated Per Day</h3>
                             <div class="chart-wrap">
                                 <canvas id="emailDailyChart"></canvas>
@@ -248,7 +260,7 @@
                     </div>
 
                     <!-- Charts Row -->
-                    <div class="charts-grid-equal">
+                    <div class="charts-grid">
                         <div class="chart-card card-glass">
                             <h3 class="chart-title"><i class="fa-solid fa-chart-pie"></i> Company Status Distribution</h3>
                             <div class="chart-wrap">
@@ -260,6 +272,12 @@
                             <h3 class="chart-title"><i class="fa-solid fa-chart-bar"></i> Search Keyword Analysis</h3>
                             <div class="chart-wrap">
                                 <canvas id="coKeywordChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="chart-card card-glass">
+                            <h3 class="chart-title"><i class="fa-solid fa-building-user"></i> Top Hiring Companies</h3>
+                            <div class="chart-wrap">
+                                <canvas id="coHiringChart"></canvas>
                             </div>
                         </div>
                     </div>
@@ -302,6 +320,94 @@
                                     </tr>
                                 </thead>
                                 <tbody><tr><td colspan="4" class="table-empty">Loading...</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== MODULE 3: OUTREACH & REFERRAL ===== -->
+                <div id="dash-panel-outreach" class="dash-panel">
+                    <!-- KPI Cards -->
+                    <div class="kpi-grid">
+                        <div class="kpi-card kpi-cyan">
+                            <div class="kpi-icon"><i class="fa-solid fa-share-nodes"></i></div>
+                            <div class="kpi-body">
+                                <span class="kpi-label">Total Contacts</span>
+                                <h2 class="kpi-value" id="outreach-total">—</h2>
+                            </div>
+                        </div>
+                        <div class="kpi-card kpi-green">
+                            <div class="kpi-icon"><i class="fa-solid fa-paper-plane"></i></div>
+                            <div class="kpi-body">
+                                <span class="kpi-label">Messages Sent</span>
+                                <h2 class="kpi-value" id="outreach-sent">—</h2>
+                            </div>
+                        </div>
+                        <div class="kpi-card kpi-yellow">
+                            <div class="kpi-icon"><i class="fa-solid fa-hourglass-half"></i></div>
+                            <div class="kpi-body">
+                                <span class="kpi-label">Pending</span>
+                                <h2 class="kpi-value" id="outreach-pending">—</h2>
+                            </div>
+                        </div>
+                        <div class="kpi-card kpi-red">
+                            <div class="kpi-icon"><i class="fa-solid fa-circle-exclamation"></i></div>
+                            <div class="kpi-body">
+                                <span class="kpi-label">Outreach Failed</span>
+                                <h2 class="kpi-value" id="outreach-failed">—</h2>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Leaderboard: Top target company for outreach -->
+                    <div class="leaderboard-strip" id="outreach-leaderboard">
+                        <i class="fa-solid fa-trophy" style="color:#ffb300"></i>
+                        <span class="lb-label">Top Target Company:</span>
+                        <span class="lb-value" id="outreach-top-company">Loading...</span>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="charts-grid">
+                        <div class="chart-card card-glass">
+                            <h3 class="chart-title"><i class="fa-solid fa-chart-pie"></i> Outreach Status</h3>
+                            <div class="chart-wrap">
+                                <canvas id="outreachStatusChart"></canvas>
+                            </div>
+                            <div class="chart-legend" id="outreach-status-legend"></div>
+                        </div>
+                        <div class="chart-card card-glass">
+                            <h3 class="chart-title"><i class="fa-solid fa-chart-bar"></i> Connection Source</h3>
+                            <div class="chart-wrap">
+                                <canvas id="outreachSourceChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="chart-card card-glass chart-card-wide" style="grid-column: span 3;">
+                            <h3 class="chart-title"><i class="fa-solid fa-chart-line"></i> Daily Outreach Activity</h3>
+                            <div class="chart-wrap">
+                                <canvas id="outreachDailyChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Outreach Log Table -->
+                    <div class="analytics-table-section card-glass" style="margin-top:1rem;">
+                        <div class="table-section-header">
+                            <h3><i class="fa-solid fa-history"></i> Recent Outreach Log (Last 20)</h3>
+                            <span class="table-badge" style="background:rgba(127,90,240,0.15);color:#7f5af0;">Outreach History</span>
+                        </div>
+                        <div class="table-wrap">
+                            <table class="analytics-table" id="outreach-recent-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Company</th>
+                                        <th>Outreach Type</th>
+                                        <th>Time Sent</th>
+                                        <th>Status</th>
+                                        <th>Detail / Error</th>
+                                    </tr>
+                                </thead>
+                                <tbody><tr><td colspan="6" class="table-empty">Loading...</td></tr></tbody>
                             </table>
                         </div>
                     </div>

@@ -30,7 +30,7 @@ from config.user_profiles import (
     get_selected_user_config, get_global_settings, get_resume_file_path
 )
 from config.email_templates import DEFAULT_EMAIL_TEMPLATE, DEFAULT_CONNECTION_TEMPLATE
-from core.analytics.metrics import get_email_metrics, get_company_metrics
+from core.analytics.metrics import get_email_metrics, get_company_metrics, get_outreach_metrics
 from core.storage.database import _trigger_mac_excel_reload, update_status_by_id, edit_row, edit_lead_row
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
@@ -344,6 +344,10 @@ def email_stats():
 @app.route('/api/company_stats')
 def company_stats():
     return jsonify(get_company_metrics())
+
+@app.route('/api/outreach_stats')
+def outreach_stats():
+    return jsonify(get_outreach_metrics())
 
 @app.route('/api/data/job_tracker')
 def job_tracker_data():
