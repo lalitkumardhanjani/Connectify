@@ -290,24 +290,59 @@ function updateReferralPipelineSteps(taskData) {
     }
 }
 
-function setGlobalPipelineLock(runningTaskId) {
-    const buttonsToLock = document.querySelectorAll('#btn-run-scraper, #btn-run-referral, #btn-run-recruiter, .btn-step-run');
-    if (runningTaskId) {
-        buttonsToLock.forEach(btn => {
-            btn.disabled = true;
-        });
+async function updatePipelineLocks() {
+    try {
+        const response = await fetch('/api/tasks');
+        const tasks = await response.json();
         
-        // Ensure the active task's stop button is enabled
-        const pipelinePrefix = runningTaskId.replace('_pipeline', '').replace(/_/g, '-');
-        const activeKillBtn = document.getElementById(`btn-kill-${pipelinePrefix}`);
-        if (activeKillBtn) {
-            activeKillBtn.disabled = false;
-        }
-    } else {
-        buttonsToLock.forEach(btn => {
-            btn.disabled = false;
+        const pipelines = ['scraper', 'referral', 'recruiter'];
+        
+        pipelines.forEach(p => {
+            const taskId = `${p}_pipeline`;
+            const isRunning = tasks[taskId] && (tasks[taskId].status === 'running' || tasks[taskId].status === 'queued');
+            
+            // 1. Run Complete Pipeline button
+            const runBtn = document.getElementById(`btn-run-${p}`);
+            if (runBtn) {
+                runBtn.disabled = isRunning;
+            }
+            
+            // 2. Individual step buttons inside this card
+            const cardEl = document.getElementById(`card-${p}`);
+            if (cardEl) {
+                const stepBtns = cardEl.querySelectorAll('.btn-step-run');
+                stepBtns.forEach(btn => {
+                    btn.disabled = isRunning;
+                });
+            }
+            
+            // 3. Kill button
+            const killBtn = document.getElementById(`btn-kill-${p}`);
+            if (killBtn) {
+                killBtn.disabled = !isRunning;
+                if (isRunning) {
+                    killBtn.classList.remove('hidden');
+                    if (runBtn) runBtn.classList.add('hidden');
+                } else {
+                    killBtn.classList.add('hidden');
+                    if (runBtn) runBtn.classList.remove('hidden');
+                }
+            }
+            
+            // 4. Update status badges
+            const badge = document.getElementById(`badge-${p}`);
+            if (badge && tasks[taskId]) {
+                badge.innerText = tasks[taskId].status;
+                badge.className = `status-badge status-${tasks[taskId].status}`;
+            }
         });
+    } catch (e) {
+        console.error("Failed to update pipeline locks:", e);
     }
+}
+
+function setGlobalPipelineLock(runningTaskId) {
+    updatePipelineLocks();
 }
 
 function startPolling(taskId) {
@@ -334,6 +369,14 @@ function stopPolling() {
 // Start Pipelines triggers
 async function runPipeline(type) {
     try {
+        const checkRes = await fetch('/api/tasks');
+        const tasks = await checkRes.json();
+        const taskId = `${type}_pipeline`;
+        if (tasks[taskId] && (tasks[taskId].status === 'running' || tasks[taskId].status === 'queued')) {
+            alert(`The ${type.charAt(0).toUpperCase() + type.slice(1)} pipeline is already running. Please stop it or wait for it to finish first.`);
+            return;
+        }
+
         const response = await fetch(`/api/run/${type}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -359,15 +402,13 @@ async function runSingleStep(stepNum, event) {
         event.stopPropagation();
     }
     
-    // Check if any active task is running
+    // Check if referral pipeline is running
     try {
         const checkRes = await fetch('/api/tasks');
         const tasks = await checkRes.json();
-        for (let tid in tasks) {
-            if (tasks[tid].status === 'running') {
-                alert("A pipeline or step is already running. Please stop it or wait for it to finish first.");
-                return;
-            }
+        if (tasks['referral_pipeline'] && (tasks['referral_pipeline'].status === 'running' || tasks['referral_pipeline'].status === 'queued')) {
+            alert("The Referral pipeline is already running. Please stop it or wait for it to finish first.");
+            return;
         }
         
         const response = await fetch('/api/run/referral', {
@@ -395,15 +436,13 @@ async function runRecruiterStep(stepNum, event) {
         event.stopPropagation();
     }
     
-    // Check if any active task is running
+    // Check if recruiter pipeline is running
     try {
         const checkRes = await fetch('/api/tasks');
         const tasks = await checkRes.json();
-        for (let tid in tasks) {
-            if (tasks[tid].status === 'running') {
-                alert("A pipeline or step is already running. Please stop it or wait for it to finish first.");
-                return;
-            }
+        if (tasks['recruiter_pipeline'] && (tasks['recruiter_pipeline'].status === 'running' || tasks['recruiter_pipeline'].status === 'queued')) {
+            alert("The Recruiter pipeline is already running. Please stop it or wait for it to finish first.");
+            return;
         }
         
         const response = await fetch('/api/run/recruiter', {
@@ -431,15 +470,13 @@ async function runScraperStep(phase, event) {
         event.stopPropagation();
     }
     
-    // Check if any active task is running
+    // Check if scraper pipeline is running
     try {
         const checkRes = await fetch('/api/tasks');
         const tasks = await checkRes.json();
-        for (let tid in tasks) {
-            if (tasks[tid].status === 'running') {
-                alert("A pipeline or step is already running. Please stop it or wait for it to finish first.");
-                return;
-            }
+        if (tasks['scraper_pipeline'] && (tasks['scraper_pipeline'].status === 'running' || tasks['scraper_pipeline'].status === 'queued')) {
+            alert("The Scraper pipeline is already running. Please stop it or wait for it to finish first.");
+            return;
         }
         
         const response = await fetch('/api/run/scraper', {
@@ -1330,16 +1367,32 @@ document.querySelectorAll('.settings-tab-btn').forEach(btn => {
 });
 
 // Subtab navigation in Pipelines section
+// Subtab navigation in Pipelines section
 document.querySelectorAll('.pipeline-tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('.pipeline-tab-btn').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.pipeline-tab-pane').forEach(p => p.classList.remove('active'));
         
         btn.classList.add('active');
-        const paneId = `pane-${btn.getAttribute('data-pipeline-tab')}`;
+        const tabName = btn.getAttribute('data-pipeline-tab');
+        const paneId = `pane-${tabName}`;
         const pane = document.getElementById(paneId);
         if (pane) {
             pane.classList.add('active');
+        }
+
+        // Switch active console log viewer when switching sub-tabs
+        let newTaskId = null;
+        if (tabName === 'email-scraper') {
+            newTaskId = 'scraper_pipeline';
+        } else if (tabName === 'referral-connect') {
+            newTaskId = 'referral_pipeline';
+        } else if (tabName === 'recruiter-outreach') {
+            newTaskId = 'recruiter_pipeline';
+        }
+        
+        if (newTaskId) {
+            startPolling(newTaskId);
         }
     });
 });
@@ -2036,6 +2089,21 @@ async function checkActiveTasks() {
             if (tasks[tid].status === 'running' || tasks[tid].status === 'queued') {
                 startPolling(tid);
                 foundRunning = true;
+                
+                // Auto-activate the sub-tab corresponding to the running task
+                const pipelinePrefix = tid.replace('_pipeline', '').replace(/_/g, '-');
+                let tabName = '';
+                if (pipelinePrefix === 'scraper') tabName = 'email-scraper';
+                else if (pipelinePrefix === 'referral') tabName = 'referral-connect';
+                else if (pipelinePrefix === 'recruiter') tabName = 'recruiter-outreach';
+                
+                if (tabName) {
+                    const tabBtn = document.querySelector(`.pipeline-tab-btn[data-pipeline-tab="${tabName}"]`);
+                    if (tabBtn) {
+                        // Click it to switch view and switch logs console
+                        tabBtn.click();
+                    }
+                }
                 break;
             }
         }
