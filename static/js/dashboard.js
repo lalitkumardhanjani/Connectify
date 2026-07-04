@@ -107,6 +107,15 @@ function switchDashModule(module) {
     const activeTab = document.getElementById(`dash-module-${module}`);
     if (activePanel) activePanel.classList.add('active');
     if (activeTab) activeTab.classList.add('active');
+    
+    // Refresh statistics upon module switch to show real-time changes
+    if (module === 'email') {
+        loadEmailDashboard();
+    } else if (module === 'company') {
+        loadCompanyDashboard();
+    } else if (module === 'outreach') {
+        loadOutreachDashboard();
+    }
 }
 
 // ─────────────────────────────────────────────────────────

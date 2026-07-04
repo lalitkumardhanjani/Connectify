@@ -315,6 +315,14 @@ def index():
 def dashboard():
     return render_template('dashboard.html')
 
+@app.after_request
+def add_header(response):
+    if request.path.startswith('/api/'):
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '-1'
+    return response
+
 @app.route('/api/stats')
 def get_stats():
     job_tracker = get_excel_data(get_job_tracker_file())
