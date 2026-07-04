@@ -252,7 +252,7 @@ class LinkedInScraper:
     def search_for_keyword(self, keyword):
         """Navigate to the LinkedIn search page for a given keyword and ensure the Posts/LATEST view is active."""
         search_query = quote(keyword)
-        url = f"https://www.linkedin.com/search/results/content/?keywords={search_query}&origin=GLOBAL_SEARCH_HEADER&sortBy=%22date_posted%22"
+        url = f"https://www.linkedin.com/search/results/content/?datePosted=%22past-week%22&keywords={search_query}&origin=GLOBAL_SEARCH_HEADER&sortBy=%22date_posted%22"
         logger.info(f"Navigating to: {url}")
         self.driver.get(url)
         time.sleep(5)

@@ -37,7 +37,7 @@ def run_phase_one(scraper):
     try:
         for loc in locations:
             for kw in keywords:
-                search_query = f"{kw} job {loc}".strip() if loc else f"{kw} job"
+                search_query = f"{kw} hiring {loc}".strip() if loc else f"{kw} hiring"
                 logger.info(f"=== Processing keyword: '{kw}' at location: '{loc}' (Search query: '{search_query}') ===")
                 if scraper.search_for_keyword(search_query):
                     scraper.process_keyword(kw, timeout_seconds=timeout_seconds)
