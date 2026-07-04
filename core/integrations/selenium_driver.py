@@ -25,6 +25,10 @@ def _kill_stale_chrome_processes():
     Note: We intentionally do NOT kill chrome.exe to avoid closing the user's personal browser.
     Stale Chrome profile locks are handled separately by _cleanup_chrome_locks().
     """
+    if os.getenv("CONNECTIFY_PARALLEL") == "true":
+        logger.info("Parallel run detected; skipping global chromedriver process termination.")
+        return
+
     if sys.platform == 'win32':
         result = os.system("taskkill /F /IM chromedriver.exe /T >nul 2>&1")
         if result == 0:
@@ -40,7 +44,7 @@ def _kill_lingering_chrome_instances(profile_dir):
         norm_path = os.path.abspath(profile_dir).replace('\\', '\\\\')
         import subprocess
         # Query and kill chrome processes matching our custom profile directory path
-        ps_cmd = f'Get-CimInstance Win32_Process -Filter "name = \'chrome.exe\'" | Where-Object {{ $_.CommandLine -like \'*{norm_path}*\' -or $_.CommandLine -like \'*chrome-profile*\' }} | ForEach-Object {{ Stop-Process -Id $_.ProcessId -Force }}'
+        ps_cmd = f'Get-CimInstance Win32_Process -Filter "name = \'chrome.exe\'" | Where-Object {{ $_.CommandLine -like \'*{norm_path}*\' }} | ForEach-Object {{ Stop-Process -Id $_.ProcessId -Force }}'
         cmd = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_cmd]
         subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         logger.info(f"Cleaned up lingering Chrome processes using profile: {profile_dir}")

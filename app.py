@@ -23,7 +23,7 @@ import openpyxl
 
 # Connectify Consolidated Configurations and Core Imports
 from config.settings import (
-    BASE_DIR, get_job_tracker_file, get_job_leads_file, get_referrals_file, get_resumes_dir, get_active_user
+    BASE_DIR, get_job_tracker_file, get_job_leads_file, get_referrals_file, get_resumes_dir, get_active_user, get_user_dir
 )
 from config.user_profiles import (
     load_all_configs, save_all_configs, get_selected_user_name,
@@ -149,6 +149,15 @@ class SubprocessRunner:
                         if line and not line.startswith("#") and "=" in line:
                             k, v = line.split("=", 1)
                             env_copy[k.strip()] = v.strip()
+
+            # Enable isolated and parallel execution of Chrome instances
+            env_copy["CONNECTIFY_PARALLEL"] = "true"
+            if self.task_id == "scraper_pipeline":
+                env_copy["CHROME_PROFILE_DIR"] = os.path.join(get_user_dir(), "chrome-profile-scraper")
+            elif self.task_id == "referral_pipeline":
+                env_copy["CHROME_PROFILE_DIR"] = os.path.join(get_user_dir(), "chrome-profile-referral")
+            elif self.task_id == "recruiter_pipeline":
+                env_copy["CHROME_PROFILE_DIR"] = os.path.join(get_user_dir(), "chrome-profile-recruiter")
             
             try:
                 self.process = subprocess.Popen(
