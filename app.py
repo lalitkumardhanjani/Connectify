@@ -74,36 +74,7 @@ class SubprocessRunner:
         for idx, (script, args) in enumerate(self.commands):
             self.current_step = idx + 1
             if script == "run_linkedin_connect.py":
-                try:
-                    from config.user_profiles import get_selected_user_config
-                    from core.storage.database import load_all_referrals
-                    user_conf = get_selected_user_config()
-                    connect_conf = user_conf.get("linkedin_connect", {})
-                    max_connections = int(connect_conf.get("max_connections_per_run") or 5)
-                    
-                    referrals = load_all_referrals()
-                    today_str = datetime.now().strftime("%Y-%m-%d")
-                    
-                    # Target connections per run vs completed outreach count (referrals sent + connections sent)
-                    ref_sent_count = sum(
-                        1 for r in referrals
-                        if str(r.get('Referral_Status') or '').strip().lower() == 'sent'
-                        and str(r.get('Sent_Time') or '').strip().startswith(today_str)
-                        and not str(r.get('Referral_Source') or '').strip().startswith('Recruiter')
-                    )
-                    conn_sent_count = sum(
-                        1 for r in referrals
-                        if str(r.get('Referral_Status') or '').strip().lower() == 'sent'
-                        and str(r.get('Sent_Time') or '').strip().startswith(today_str)
-                        and str(r.get('Referral_Source') or '').strip() == 'Sent Employee Connection'
-                    )
-                    total_sent_today = ref_sent_count + conn_sent_count
-                    
-                    if total_sent_today >= max_connections:
-                        self.log(f"Target count of {max_connections} reached via referral outreach today ({total_sent_today} sent). Skipping connection requests pipeline.")
-                        break
-                except Exception as e:
-                    self.log(f"Warning: error checking run target limits in runner: {e}")
+                pass
             elif script == "run_recruiter_outreach.py":
                 try:
                     from config.user_profiles import get_selected_user_config
@@ -256,10 +227,8 @@ class SubprocessRunner:
                 connect_conf = user_conf.get("linkedin_connect", {})
                 max_connections = int(connect_conf.get("max_connections_per_run") or 5)
                 
-                if total_sent >= max_connections:
-                    self.log("Status: Completed Successfully – Target Met")
-                elif total_sent > 0:
-                    self.log("Status: Completed – Target Not Met (Candidate Pool Exhausted)")
+                if total_sent > 0:
+                    self.log("Status: Completed Successfully")
                 else:
                     self.log("Status: Completed – No Candidates Available")
                 self.log("=" * 60)
@@ -614,6 +583,7 @@ def create_user_profile():
             "excluded_keywords": [],
             "interval": "60",
             "review_mode": True,
+            "max_connections_per_company": "5",
             "max_connections_per_run": "5"
         },
         "recruiter_outreach": {
@@ -701,6 +671,7 @@ def save_user_configuration():
     connect_defaults = {
         "interval": "60",
         "review_mode": True,
+        "max_connections_per_company": "5",
         "max_connections_per_run": "5",
         "search_keywords": [],
         "title_keywords": [],

@@ -1201,7 +1201,7 @@ def run_phase_one_discovery():
     user_conf = get_selected_user_config()
     global_conf = get_global_settings()
     connect_conf = user_conf.get("linkedin_connect", {})
-    max_referrals = int(connect_conf.get("max_connections_per_run") or 5)
+    max_referrals = int(connect_conf.get("max_connections_per_company") or connect_conf.get("max_connections_per_run") or 5)
     
     email = global_conf.get("linkedin_email")
     password = global_conf.get("linkedin_password")
@@ -1459,7 +1459,7 @@ def run_phase_two_messaging():
         review_mode = connect_conf.get("review_mode", True)
     review_mode = bool(review_mode)
     interval = int(referral_conf.get("interval") or connect_conf.get("interval") or 5)
-    max_referrals = int(connect_conf.get("max_connections_per_run") or 5)
+    max_referrals = int(connect_conf.get("max_connections_per_company") or connect_conf.get("max_connections_per_run") or 5)
     
     email = global_conf.get("linkedin_email")
     password = global_conf.get("linkedin_password")

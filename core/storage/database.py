@@ -1190,7 +1190,7 @@ def sync_job_lead_referral_statuses(path=None):
         from config.user_profiles import get_selected_user_config
         user_conf = get_selected_user_config()
         connect_conf = user_conf.get("linkedin_connect", {})
-        target = int(connect_conf.get("max_connections_per_run") or 5)
+        target = int(connect_conf.get("max_connections_per_company") or connect_conf.get("max_connections_per_run") or 5)
         
         referrals = load_all_referrals()
         company_data = {}
@@ -1261,7 +1261,7 @@ def load_job_leads_with_referral_counts():
     except Exception:
         user_conf = {}
     connect_conf = user_conf.get("linkedin_connect", {})
-    target = int(connect_conf.get("max_connections_per_run") or 5)
+    target = int(connect_conf.get("max_connections_per_company") or connect_conf.get("max_connections_per_run") or 5)
 
     leads_file = get_job_leads_file()
     init_job_leads_store(leads_file)

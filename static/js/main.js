@@ -1843,7 +1843,7 @@ async function loadSettings() {
         // 3. LinkedIn Connect fields
         setVal('connect-interval', connect.interval || '60');
         setChecked('connect-review-mode', connect.review_mode === true);
-        setVal('connect-max-connections', connect.max_connections_per_run || '5');
+        setVal('connect-max-connections', connect.max_connections_per_company || connect.max_connections_per_run || '5');
         setVal('connect-message-template', connect.message_template);
         setVal('referral-message-template', referralOutreach.message_template || '');
         
@@ -2351,7 +2351,7 @@ async function saveConfiguration(module) {
     } else if (module === 'connect') {
         const maxConnsVal = parseInt(getVal('connect-max-connections'), 10);
         if (isNaN(maxConnsVal) || maxConnsVal < 1 || maxConnsVal > 100) {
-            showSaveError(statusEl, '✕ Target Connections Per Run must be between 1 and 100.');
+            showSaveError(statusEl, '✕ Target Connections Per Company must be between 1 and 100.');
             return;
         }
         const noteTemplate = getVal('connect-message-template');
@@ -2363,6 +2363,7 @@ async function saveConfiguration(module) {
         cachedConfig.config.linkedin_connect = {
             "interval": getVal('connect-interval') || '60',
             "review_mode": getChecked('connect-review-mode'),
+            "max_connections_per_company": maxConnsVal.toString(),
             "max_connections_per_run": maxConnsVal.toString(),
             "search_keywords": connectSearchKeywords,
             "title_keywords": connectTitleKeywords,

@@ -888,7 +888,7 @@ def run_connector():
     global_conf = get_global_settings()
     
     connect_conf = user_conf.get("linkedin_connect", {})
-    max_connections = int(connect_conf.get("max_connections_per_run") or 5)
+    max_connections = int(connect_conf.get("max_connections_per_company") or connect_conf.get("max_connections_per_run") or 5)
     total_connections_sent = 0
     
     outreach_mode = os.getenv("OUTREACH_MODE", "connect_only")
@@ -924,9 +924,6 @@ def run_connector():
             sys.exit(1)
 
         for job in job_data:
-            if total_connections_sent >= max_connections:
-                logger.info(f"Global run limit of {max_connections} connection requests reached. Stopping pipeline.")
-                break
 
             company = job.get('CompanyName') or ''
             job_id = job.get('JobID') or ''
@@ -973,9 +970,9 @@ def run_connector():
             # Send connect requests to new people
             if outreach_mode in ("connect_only", "both"):
                 page_number = 1
-                while success_count < max_apply and total_connections_sent < max_connections:
+                while success_count < max_apply:
                     logger.info(f"\nProcessing page {page_number} for connect requests")
-                    remaining = min(max_apply - success_count, max_connections - total_connections_sent)
+                    remaining = max_apply - success_count
                     people = find_people_with_connect_button(driver, max_people=remaining)
 
                     if not people:
@@ -987,7 +984,7 @@ def run_connector():
                         continue
 
                     for person in people:
-                        if success_count >= max_apply or total_connections_sent >= max_connections:
+                        if success_count >= max_apply:
                             break
                         try:
                             raw_name = person.get('name') or ''
@@ -1022,7 +1019,7 @@ def run_connector():
                                 total_connections_sent += 1
                                 logger.info("Recorded connection request success.")
                                 logger.info(f"Connect requests sent: {success_count}/{max_apply}")
-                                logger.info(f"Total connections sent in this run: {total_connections_sent}/{max_connections}")
+                                logger.info(f"Total connections sent in this run: {total_connections_sent}")
                             else:
                                 status_val = 'Failed'
                                 error_reason = 'Connection invitation note could not be sent'
@@ -1052,7 +1049,7 @@ def run_connector():
                             logger.warning(f"Failed sending connect request: {str(e)}")
                         time.sleep(random.randint(3, 7))
 
-                    if success_count >= max_apply or total_connections_sent >= max_connections:
+                    if success_count >= max_apply:
                         break
 
                     if not go_to_next_page(driver):
