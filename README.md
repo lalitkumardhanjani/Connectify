@@ -470,20 +470,36 @@ Setting up Google Sheets is simple and can be completed in a few steps.
 
 ---
 
-### 🔄 Migrating Existing Local Excel Data
+### 🔄 Automatic & Reverse Database Migration
 
-If you have already collected data in your local Excel files, you can migrate it to your new Google Sheet cleanly without creating duplicates:
+Connectify makes it extremely easy to move between local and cloud databases. When you change the storage type dropdown in **Settings** > **Database Storage** and click **Save**, the application will:
+1. **Open a Live Migration Terminal**: A progress modal with real-time scrolling logs will open automatically.
+2. **Transfer Data Bidirectionally**:
+   - **Local to Cloud**: If switching to Google Sheets, it scans local `.xlsx` files and uploads new records to the cloud.
+   - **Cloud to Local**: If switching to Local Database, it queries your cloud worksheets and pulls the data down to your local `.xlsx` files.
+3. **Prevent Duplication**: Both migration flows are completely idempotent and deduplicate by primary key.
 
-1. Ensure your active profile is configured with the Google Sheet URL and Credentials JSON (via Settings as described above).
-2. Run the migration script in your terminal:
-   ```bash
-   python migrate_to_google_sheets.py
-   ```
-3. The script will:
-   - Connect to your Google Sheet.
-   - Initialize the worksheets (`Job Leads`, `Scraped Emails`, and `Referrals & Connections`).
-   - Deduplicate rows against current cloud worksheets (ensuring it is safe to run multiple times).
-   - Apply professional visual formatting (styling dark headers, freezing the top row, adding basic filters, and auto-resizing columns).
+For manual terminal-based operations, two helper utilities are provided at the root:
+* **Local to Google Sheets**: `python migrate_to_google_sheets.py`
+* **Google Sheets to Local**: `python migrate_to_local.py`
+
+---
+
+## 👥 Isolated Multi-User & Parallel Execution
+
+Connectify supports **fully isolated, concurrent pipeline runs for multiple user profiles**. If you and your friend create separate profiles on the dashboard, you can run all of your pipelines simultaneously on the same machine.
+
+### ⚙️ How User Isolation Works
+1. **Pinnned Subprocesses (`CONNECTIFY_USER`)**: When a pipeline starts, it is launched with the `CONNECTIFY_USER` environment variable. This pins the runner process permanently to that user's configuration and templates, even if someone switches the viewed user in the web UI.
+2. **Chrome Browser Isolation**: Each user gets their own separate, sandboxed Chrome directories:
+   - `users/{username}/chrome-profile-scraper`
+   - `users/{username}/chrome-profile-referral`
+   - `users/{username}/chrome-profile-recruiter`
+   This allows you and your friend to run LinkedIn automation side-by-side in separate windows without browser cookie collisions or "profile already in use" errors.
+3. **Database File Sandboxing**: Each user's data is safely written to `users/{username}/data/` (or their own private Google Sheet), preventing profiles from overwriting each other.
+4. **Task Namespacing**: Tasks are tracked in the execution queue as `{username}::pipeline_type` (e.g. `Lalit::referral_pipeline` and `Friend::referral_pipeline`), allowing the dashboard to manage and display logs/controls for each user independently.
+
+---
 
 ---
 
