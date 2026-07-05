@@ -1927,6 +1927,7 @@ async function loadSettings() {
 
 
         // Reset Template mode displays to Edit
+        switchTemplateMode('scraper', 'edit');
         switchTemplateMode('connect', 'edit');
         switchTemplateMode('referral', 'edit');
         switchTemplateMode('recruiter', 'edit');
