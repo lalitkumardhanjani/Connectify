@@ -148,7 +148,10 @@ def load_all_configs():
             "smtp_server": os.getenv("SMTP_SERVER", "smtp.gmail.com"),
             "smtp_port": os.getenv("SMTP_PORT", "587"),
             "smtp_email": os.getenv("SMTP_EMAIL", ""),
-            "smtp_password": os.getenv("SMTP_PASSWORD", "")
+            "smtp_password": os.getenv("SMTP_PASSWORD", ""),
+            "database_type": "local",
+            "google_sheet_url": "",
+            "google_credentials_json": ""
         }
 
     return {

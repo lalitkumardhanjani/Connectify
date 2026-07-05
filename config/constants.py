@@ -17,3 +17,18 @@ REFERRAL_HEADERS = [
     'Referral_Person_Profile_URL', 'Referral_Source',
     'Referral_Status', 'Employment_Verification_Status', 'Sent_Time', 'Error_Reason'
 ]
+
+GOOGLE_SHEET_WORKSHEETS = {
+    "jobs": {
+        "name": "Job Leads",
+        "headers": JOB_LEADS_HEADERS
+    },
+    "emails": {
+        "name": "Scraped Emails",
+        "headers": SCRAPER_HEADERS
+    },
+    "referrals": {
+        "name": "Referrals & Connections",
+        "headers": REFERRAL_HEADERS
+    }
+}

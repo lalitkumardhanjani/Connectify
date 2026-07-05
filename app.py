@@ -262,6 +262,27 @@ class SubprocessRunner:
 
 
 def get_excel_data(file_path):
+    from core.storage.database import get_sheets_config
+    sheets_conf = get_sheets_config()
+    if sheets_conf:
+        url, creds = sheets_conf
+        from core.storage.sheets import read_rows
+        from config.settings import get_job_tracker_file, get_job_leads_file, get_referrals_file
+        
+        worksheet_name = None
+        if str(file_path) == str(get_job_tracker_file()):
+            worksheet_name = "Scraped Emails"
+        elif str(file_path) == str(get_job_leads_file()):
+            worksheet_name = "Job Leads"
+        elif str(file_path) == str(get_referrals_file()):
+            worksheet_name = "Referrals & Connections"
+            
+        if worksheet_name:
+            try:
+                return read_rows(url, creds, worksheet_name)
+            except Exception as e:
+                print(f"Error reading Google Sheets worksheet '{worksheet_name}': {e}")
+
     if not os.path.exists(file_path):
         return []
     try:
@@ -605,6 +626,25 @@ def create_user_profile():
     return jsonify({"status": "success", "selected_user": username})
 
 
+@app.route('/api/config/sheets/test', methods=['POST'])
+def test_sheets_connection():
+    body = request.get_json() or {}
+    url = body.get("google_sheet_url", "").strip()
+    creds = body.get("google_credentials_json", "").strip()
+    
+    if not url:
+        return jsonify({"status": "error", "message": "Google Sheet URL is required"}), 400
+    if not creds:
+        return jsonify({"status": "error", "message": "Google Credentials JSON content is required"}), 400
+        
+    try:
+        from core.storage.sheets import ensure_worksheets_exist
+        ensure_worksheets_exist(url, creds)
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+
+
 @app.route('/api/users/config', methods=['GET'])
 def get_user_configuration():
     config = load_all_configs()
@@ -881,6 +921,32 @@ def update_row_status():
     except ValueError:
         pass
         
+    from core.storage.database import get_sheets_config
+    sheets_conf = get_sheets_config()
+    if sheets_conf:
+        url, creds = sheets_conf
+        from core.storage.sheets import read_rows, write_rows
+        worksheet_name = "Scraped Emails" if db_type == "scraper" else "Job Leads"
+        try:
+            rows = read_rows(url, creds, worksheet_name)
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 400
+        id_field = "ID" if db_type == "scraper" else "JobID"
+        updated = False
+        for r in rows:
+            if str(r.get(id_field)).strip() == str(row_id).strip():
+                r['Status'] = status
+                if db_type == "scraper":
+                    r['Timestamp'] = datetime.utcnow().isoformat()
+                else:
+                    r['CreatedDateTime'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                updated = True
+                break
+        if updated:
+            write_rows(url, creds, worksheet_name, rows)
+            return jsonify({"status": "success"})
+        return jsonify({"status": "error", "message": f"{id_field} not found in Google Sheets"}), 404
+
     if db_type == "scraper":
         path = get_job_tracker_file()
         if not os.path.exists(path):
@@ -931,6 +997,23 @@ def delete_table_row():
     except ValueError:
         pass
         
+    from core.storage.database import get_sheets_config
+    sheets_conf = get_sheets_config()
+    if sheets_conf:
+        url, creds = sheets_conf
+        from core.storage.sheets import read_rows, write_rows
+        worksheet_name = "Scraped Emails" if db_type == "scraper" else "Job Leads"
+        try:
+            rows = read_rows(url, creds, worksheet_name)
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 400
+        id_field = "ID" if db_type == "scraper" else "JobID"
+        filtered_rows = [r for r in rows if str(r.get(id_field)).strip() != str(row_id).strip()]
+        if len(filtered_rows) < len(rows):
+            write_rows(url, creds, worksheet_name, filtered_rows)
+            return jsonify({"status": "success"})
+        return jsonify({"status": "error", "message": f"{id_field} not found in Google Sheets"}), 404
+
     path = get_job_tracker_file() if db_type == "scraper" else get_job_leads_file()
     if not os.path.exists(path):
         return jsonify({"status": "error", "message": "File not found"}), 404
@@ -1099,6 +1182,21 @@ def delete_referral_row():
     except ValueError:
         pass
         
+    from core.storage.database import get_sheets_config
+    sheets_conf = get_sheets_config()
+    if sheets_conf:
+        url, creds = sheets_conf
+        from core.storage.sheets import read_rows, write_rows
+        try:
+            rows = read_rows(url, creds, "Referrals & Connections")
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 400
+        filtered_rows = [r for r in rows if str(r.get("ReferralID")).strip() != str(referral_id).strip()]
+        if len(filtered_rows) < len(rows):
+            write_rows(url, creds, "Referrals & Connections", filtered_rows)
+            return jsonify({"status": "success"})
+        return jsonify({"status": "error", "message": "ReferralID not found in Google Sheets"}), 404
+
     path = get_referrals_file()
     if not os.path.exists(path):
         return jsonify({"status": "error", "message": "File not found"}), 404

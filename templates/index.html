@@ -1068,6 +1068,10 @@
                             <i class="fa-solid fa-user-tie"></i> Recruiter Outreach
                             <span class="unsaved-dot hidden" id="unsaved-dot-recruiter" style="color: var(--accent-yellow); margin-left: 5px; font-weight: bold;">*</span>
                         </button>
+                        <button type="button" class="settings-tab-btn" data-settings-tab="cloud-db">
+                            <i class="fa-solid fa-cloud"></i> Database Storage
+                            <span class="unsaved-dot hidden" id="unsaved-dot-cloud-db" style="color: var(--accent-yellow); margin-left: 5px; font-weight: bold;">*</span>
+                        </button>
                     </div>
 
                     <form id="settings-form" onsubmit="saveSettingsForm(event)">
@@ -1685,6 +1689,56 @@
                                     <i class="fa-solid fa-floppy-disk"></i> Save Recruiter Outreach Configuration
                                 </button>
                                 <span id="save-status-recruiter" class="save-status"></span>
+                            </div>
+                        </div>
+
+                        <!-- SUB-TAB 5: DATABASE & CLOUD SYNC -->
+                        <div class="settings-tab-pane" id="subtab-cloud-db">
+                            <div class="settings-grid">
+                                <div class="settings-card card-glass grid-span-3">
+                                    <h3><i class="fa-solid fa-database glow-icon-teal" style="color: var(--accent-teal);"></i> Database Storage Configuration</h3>
+                                    <p class="card-subtitle">Choose between local file storage and a centralized Google Sheets database</p>
+                                    
+                                    <div class="form-group" style="margin-top: 15px;">
+                                        <label for="setting-database-type">Database Storage Type</label>
+                                        <select id="setting-database-type" onchange="toggleGoogleSheetsFields()" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--glass-border); background:rgba(0,0,0,0.4); color:var(--text-primary);">
+                                            <option value="local">Local Excel Workbooks (Default)</option>
+                                            <option value="google_sheets">Centralized Google Sheets</option>
+                                        </select>
+                                    </div>
+
+                                    <div id="google-sheets-config-group" style="display: none; margin-top: 15px;">
+                                        <div class="form-group">
+                                            <label for="setting-google-sheet-url">Google Sheet URL</label>
+                                            <input type="url" id="setting-google-sheet-url" placeholder="https://docs.google.com/spreadsheets/d/.../edit" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--glass-border); background:rgba(0,0,0,0.4); color:var(--text-primary);">
+                                            <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px; display: block;">
+                                                Create a Google Sheet and share it with Editor permissions to your Google Service Account email address.
+                                            </small>
+                                        </div>
+                                        
+                                        <div class="form-group" style="margin-top: 12px;">
+                                            <label for="setting-google-credentials-json">Google Service Account Credentials (JSON content)</label>
+                                            <textarea id="setting-google-credentials-json" rows="6" placeholder='{ "type": "service_account", ... }' style="width: 100%; min-height: 120px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: 6px; padding: 10px; color: var(--text-primary); font-family: monospace; font-size: 0.8rem; resize: vertical; outline: none;"></textarea>
+                                            <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px; display: block;">
+                                                Paste the full content of your Google Cloud Service Account JSON credentials key file.
+                                            </small>
+                                        </div>
+
+                                        <div style="display: flex; gap: 10px; align-items: center; margin-top: 15px;">
+                                            <button type="button" class="btn btn-secondary" onclick="testSheetsConnection()" style="height: 38px;">
+                                                <i class="fa-solid fa-plug"></i> Test Cloud Connection
+                                            </button>
+                                            <span id="sheets-test-status" style="font-size: 0.85rem; font-weight: 500;"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="settings-actions" style="margin-top: 20px;">
+                                <button type="button" class="btn btn-success btn-glow-success" onclick="saveConfiguration('cloud-db')">
+                                    <i class="fa-solid fa-floppy-disk"></i> Save Database Configuration
+                                </button>
+                                <span id="save-status-cloud-db" class="save-status"></span>
                             </div>
                         </div>
                     </form>

@@ -13,6 +13,21 @@ from core.utils.url_utils import is_valid_external_url, normalize_external_url
 # Cache set for fast duplicate checks of external apply URLs
 seen_external_urls = set()
 
+def get_sheets_config():
+    """Helper to retrieve active Google Sheets configuration if enabled."""
+    try:
+        from config.user_profiles import get_selected_user_config
+        user_conf = get_selected_user_config()
+        global_settings = user_conf.get("global_settings", {})
+        if global_settings.get("database_type") == "google_sheets":
+            url = global_settings.get("google_sheet_url")
+            creds = global_settings.get("google_credentials_json")
+            if url and creds:
+                return url, creds
+    except Exception as e:
+        logger.warning(f"Error checking sheets configuration: {e}")
+    return None
+
 def migrate_old_data_files():
     """Migrates existing tracking databases from the root directory to the active user's data/ directory."""
     from config.settings import get_active_user
@@ -175,6 +190,13 @@ def _trigger_mac_excel_reload(path):
 
 def init_scraper_store(path=None):
     """Initializes the scraper database Excel sheet if it does not exist."""
+    sheets_conf = get_sheets_config()
+    if sheets_conf:
+        url, creds = sheets_conf
+        from core.storage.sheets import ensure_worksheets_exist
+        ensure_worksheets_exist(url, creds)
+        return
+
     if path is None:
         path = get_job_tracker_file()
     if not os.path.exists(path):
@@ -253,6 +275,34 @@ def trim_scraper_excel_to_schema(path=None):
 
 def append_email(email, keyword='', post_url='', company_name='', experience='', location='', path=None):
     """Appends extracted email to the job tracker if it's unique."""
+    sheets_conf = get_sheets_config()
+    if sheets_conf:
+        url, creds = sheets_conf
+        from core.storage.sheets import read_rows, append_row
+        try:
+            rows = read_rows(url, creds, "Scraped Emails")
+            normalized_email = str(email or '').strip().lower()
+            for r in rows:
+                if str(r.get('Email')).strip().lower() == normalized_email:
+                    return False
+            max_id = max([int(r.get('ID') or 0) for r in rows]) if rows else 0
+        except Exception:
+            max_id = 0
+            
+        data = {
+            'ID': max_id + 1,
+            'Email': email,
+            'Status': 'New',
+            'Timestamp': datetime.utcnow().isoformat(),
+            'Keyword': keyword,
+            'PostURL': post_url,
+            'CompanyName': company_name,
+            'Experience': experience,
+            'Location': location
+        }
+        append_row(url, creds, "Scraped Emails", data)
+        return True
+
     if path is None:
         path = get_job_tracker_file()
     init_scraper_store(path)
@@ -293,6 +343,23 @@ def append_email(email, keyword='', post_url='', company_name='', experience='',
 
 def update_status(email, status, path=None):
     """Updates status for a specific scraped email row."""
+    sheets_conf = get_sheets_config()
+    if sheets_conf:
+        url, creds = sheets_conf
+        from core.storage.sheets import read_rows, write_rows
+        rows = read_rows(url, creds, "Scraped Emails")
+        normalized_email = str(email or '').strip().lower()
+        updated = False
+        for r in rows:
+            if str(r.get('Email')).strip().lower() == normalized_email:
+                r['Status'] = status
+                r['Timestamp'] = datetime.utcnow().isoformat()
+                updated = True
+                break
+        if updated:
+            write_rows(url, creds, "Scraped Emails", rows)
+        return updated
+
     if path is None:
         path = get_job_tracker_file()
     init_scraper_store(path)
@@ -336,6 +403,31 @@ def count_unique_emails(path=None):
 
 def edit_row(row_id, email, status, keyword, post_url=None, company_name=None, experience=None, location=None, path=None):
     """Modifies details of an existing scraper log by row ID."""
+    sheets_conf = get_sheets_config()
+    if sheets_conf:
+        url, creds = sheets_conf
+        from core.storage.sheets import read_rows, write_rows
+        rows = read_rows(url, creds, "Scraped Emails")
+        updated = False
+        for r in rows:
+            if str(r.get('ID')).strip() == str(row_id).strip():
+                r['Email'] = email
+                r['Status'] = status
+                r['Keyword'] = keyword
+                if post_url is not None:
+                    r['PostURL'] = post_url
+                if company_name is not None:
+                    r['CompanyName'] = company_name
+                if experience is not None:
+                    r['Experience'] = experience
+                if location is not None:
+                    r['Location'] = location
+                updated = True
+                break
+        if updated:
+            write_rows(url, creds, "Scraped Emails", rows)
+        return updated
+
     if path is None:
         path = get_job_tracker_file()
     init_scraper_store(path)
@@ -405,6 +497,13 @@ def migrate_pending_to_new(path=None):
 
 def init_job_leads_store(path=None):
     """Ensures the job search leads database exists and contains standard headers."""
+    sheets_conf = get_sheets_config()
+    if sheets_conf:
+        url, creds = sheets_conf
+        from core.storage.sheets import ensure_worksheets_exist
+        ensure_worksheets_exist(url, creds)
+        return
+
     if path is None:
         path = get_job_leads_file()
     if not os.path.exists(path):
@@ -534,6 +633,54 @@ def load_saved_jobs(path=None):
 
 def save_job(data, path=None):
     """Saves a discovered external apply job to the Excel leads sheet."""
+    sheets_conf = get_sheets_config()
+    if sheets_conf:
+        url, creds = sheets_conf
+        from core.storage.sheets import read_rows, append_row
+        url_val = (data.get("url") or "").strip()
+        company = (data.get("company") or "").strip()
+        search_keyword = (data.get("search_keyword") or "").strip()
+        job_title = (data.get("position") or data.get("job_title") or "").strip()
+
+        if not url_val or not is_valid_external_url(url_val):
+            return False
+
+        normalized_url = normalize_external_url(url_val)
+        try:
+            rows = read_rows(url, creds, "Job Leads")
+        except Exception as e:
+            logger.error(f"Error loading Job Leads from Google Sheets: {e}")
+            return False
+            
+        # Check duplicate
+        for r in rows:
+            exist_url = r.get('CompanyURL') or ''
+            if exist_url:
+                if normalize_external_url(exist_url) == normalized_url or exist_url == url_val:
+                    logger.info(f"Duplicate job URL skipped in sheets: {url_val}")
+                    return False
+
+        max_id = max([int(r.get('JobID') or 0) for r in rows]) if rows else 0
+        new_job_id = max_id + 1
+        created_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        slug = company.lower().replace(" ", "-").replace(".", "").replace(",", "")
+
+        row_data = {
+            'JobID': new_job_id,
+            'JobTitle': job_title,
+            'CompanyName': company,
+            'LinkedIn_Company_URL': f"https://www.linkedin.com/company/{slug}/",
+            'CompanyURL': url_val,
+            'ShortenURL': '',
+            'SearchKeyword': search_keyword,
+            'Status': 'NEW',
+            'ShortUrlCreated': 'No',
+            'CreatedDateTime': created_time
+        }
+        append_row(url, creds, "Job Leads", row_data)
+        logger.info(f"Saved & Appended in Google Sheet (JobID {new_job_id}): {url_val}")
+        return True
+
     if path is None:
         path = get_job_leads_file()
     url = (data.get("url") or "").strip()
@@ -636,6 +783,21 @@ def load_jobs_for_referral(path=None, status_filter='Asked for Referral'):
     
     If status_filter is None, returns ALL rows regardless of status.
     """
+    sheets_conf = get_sheets_config()
+    if sheets_conf:
+        url, creds = sheets_conf
+        from core.storage.sheets import read_rows
+        rows = read_rows(url, creds, "Job Leads")
+        if status_filter is None:
+            return rows
+        filtered = []
+        for r in rows:
+            raw_status = r.get('Status')
+            status = str(raw_status).strip().lower() if raw_status is not None else ''
+            if status == status_filter.strip().lower():
+                filtered.append(r)
+        return filtered
+
     if path is None:
         path = get_job_leads_file()
     if not os.path.exists(path):
@@ -664,6 +826,22 @@ def load_jobs_for_referral(path=None, status_filter='Asked for Referral'):
 
 def update_status_by_id(job_id, status, path=None):
     """Updates status for a specific lead row identified by JobID."""
+    sheets_conf = get_sheets_config()
+    if sheets_conf:
+        url, creds = sheets_conf
+        from core.storage.sheets import read_rows, write_rows
+        rows = read_rows(url, creds, "Job Leads")
+        updated = False
+        for r in rows:
+            if str(r.get('JobID')).strip() == str(job_id).strip():
+                r['Status'] = status
+                r['CreatedDateTime'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                updated = True
+                break
+        if updated:
+            write_rows(url, creds, "Job Leads", rows)
+        return updated
+
     if path is None:
         path = get_job_leads_file()
     if not os.path.exists(path):
@@ -694,6 +872,36 @@ def update_status_by_id(job_id, status, path=None):
 
 def edit_lead_row(job_id, company, url, shorten, keyword, position, status, path=None):
     """Modifies details of an existing job lead by JobID."""
+    sheets_conf = get_sheets_config()
+    if sheets_conf:
+        url_sheet, creds = sheets_conf
+        from core.storage.sheets import read_rows, write_rows
+        rows = read_rows(url_sheet, creds, "Job Leads")
+        updated = False
+        for r in rows:
+            if str(r.get('JobID')).strip() == str(job_id).strip():
+                if company is not None:
+                    r['CompanyName'] = company
+                if url is not None:
+                    r['CompanyURL'] = url
+                if shorten is not None:
+                    r['ShortenURL'] = shorten
+                    if shorten and str(shorten).strip().startswith("http"):
+                        r['ShortUrlCreated'] = 'Yes'
+                    else:
+                        r['ShortUrlCreated'] = 'No'
+                if keyword is not None:
+                    r['SearchKeyword'] = keyword
+                if position is not None:
+                    r['JobTitle'] = position
+                if status is not None:
+                    r['Status'] = status
+                updated = True
+                break
+        if updated:
+            write_rows(url_sheet, creds, "Job Leads", rows)
+        return updated
+
     if path is None:
         path = get_job_leads_file()
     init_job_leads_store(path)
@@ -744,6 +952,13 @@ def edit_lead_row(job_id, company, url, shorten, keyword, position, status, path
 
 def init_referrals_store(path=None):
     """Initializes the referrals worksheet inside referrals.xlsx if it doesn't exist."""
+    sheets_conf = get_sheets_config()
+    if sheets_conf:
+        url, creds = sheets_conf
+        from core.storage.sheets import ensure_worksheets_exist
+        ensure_worksheets_exist(url, creds)
+        return
+
     if path is None:
         path = get_referrals_file()
     
@@ -832,6 +1047,12 @@ def trim_referrals_excel_to_schema(path=None):
 
 def load_all_referrals(path=None):
     """Loads all referral contact records from the Referrals sheet."""
+    sheets_conf = get_sheets_config()
+    if sheets_conf:
+        url, creds = sheets_conf
+        from core.storage.sheets import read_rows
+        return read_rows(url, creds, "Referrals & Connections")
+
     if path is None:
         path = get_referrals_file()
     init_referrals_store(path)
@@ -849,6 +1070,49 @@ def load_all_referrals(path=None):
 
 def add_or_update_referral(referral_data, path=None):
     """Adds a new referral contact or updates status/fields of an existing one by profile URL and job URL combination."""
+    if 'Job_URL' not in referral_data and 'Company_URL' in referral_data:
+        referral_data['Job_URL'] = referral_data['Company_URL']
+        
+    profile_url = referral_data.get('Referral_Person_Profile_URL')
+    job_url = referral_data.get('Job_URL')
+    if not profile_url:
+        return False
+
+    sheets_conf = get_sheets_config()
+    if sheets_conf:
+        url, creds = sheets_conf
+        from core.storage.sheets import read_rows, write_rows, append_row
+        try:
+            rows = read_rows(url, creds, "Referrals & Connections")
+        except Exception as e:
+            logger.error(f"Error loading referrals from Google Sheets: {e}")
+            return False
+            
+        existing_idx = None
+        for idx, r in enumerate(rows):
+            prof_match = str(r.get('Referral_Person_Profile_URL') or '').strip() == str(profile_url).strip()
+            job_match = str(r.get('Job_URL') or '').strip() == str(job_url or '').strip()
+            if prof_match and job_match:
+                existing_idx = idx
+                break
+                
+        if existing_idx is not None:
+            # Update existing
+            for key, val in referral_data.items():
+                if key != 'ReferralID' and val is not None:
+                    rows[existing_idx][key] = val
+            write_rows(url, creds, "Referrals & Connections", rows)
+            logger.info(f"Updated referral contact in sheets: {referral_data.get('Referral_Person_Name')}")
+        else:
+            # Insert new
+            max_id = max([int(r.get('ReferralID') or 0) for r in rows]) if rows else 0
+            referral_data['ReferralID'] = max_id + 1
+            if 'Sent_Time' not in referral_data or not referral_data['Sent_Time']:
+                referral_data['Sent_Time'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            append_row(url, creds, "Referrals & Connections", referral_data)
+            logger.info(f"Added new referral contact in sheets: {referral_data.get('Referral_Person_Name')}")
+        return True
+
     if path is None:
         path = get_referrals_file()
     init_referrals_store(path)
@@ -930,6 +1194,23 @@ def add_or_update_referral(referral_data, path=None):
 
 def is_profile_already_contacted(profile_url, job_url=None, path=None):
     """Checks if connection profile URL has been contacted or skipped before (optionally scoped to a specific Job_URL)."""
+    sheets_conf = get_sheets_config()
+    if sheets_conf:
+        url, creds = sheets_conf
+        from core.storage.sheets import read_rows
+        rows = read_rows(url, creds, "Referrals & Connections")
+        for r in rows:
+            cell_url = r.get('Referral_Person_Profile_URL')
+            if cell_url and str(cell_url).strip().lower() == str(profile_url).strip().lower():
+                if job_url is not None:
+                    cell_job = r.get('Job_URL')
+                    if str(cell_job or '').strip().lower() != str(job_url).strip().lower():
+                        continue
+                status = str(r.get('Referral_Status') or "").strip().lower()
+                if status in ('sent', 'replied', 'referral received', 'skipped'):
+                    return True
+        return False
+
     if path is None:
         path = get_referrals_file()
     init_referrals_store(path)
@@ -958,6 +1239,23 @@ def is_profile_already_contacted(profile_url, job_url=None, path=None):
 
 def edit_referral_contact_row(referral_id, referral_data, path=None):
     """Modifies an existing referral contact record directly by ReferralID."""
+    sheets_conf = get_sheets_config()
+    if sheets_conf:
+        url, creds = sheets_conf
+        from core.storage.sheets import read_rows, write_rows
+        rows = read_rows(url, creds, "Referrals & Connections")
+        updated = False
+        for r in rows:
+            if str(r.get('ReferralID')).strip() == str(referral_id).strip():
+                for key, value in referral_data.items():
+                    if key != 'ReferralID' and value is not None:
+                        r[key] = value
+                updated = True
+                break
+        if updated:
+            write_rows(url, creds, "Referrals & Connections", rows)
+        return updated
+
     if path is None:
         path = get_referrals_file()
     init_referrals_store(path)
@@ -986,6 +1284,19 @@ def edit_referral_contact_row(referral_id, referral_data, path=None):
 
 def get_company_sent_count(company_name, path=None):
     """Counts successfully sent referral/outreach messages or connection requests for a company."""
+    sheets_conf = get_sheets_config()
+    if sheets_conf:
+        url, creds = sheets_conf
+        from core.storage.sheets import read_rows
+        rows = read_rows(url, creds, "Referrals & Connections")
+        count = 0
+        normalized_company = str(company_name or '').strip().lower()
+        for r in rows:
+            if str(r.get('CompanyName') or '').strip().lower() == normalized_company:
+                if str(r.get('Referral_Status') or '').strip().lower() == 'sent':
+                    count += 1
+        return count
+
     if path is None:
         path = get_referrals_file()
     if not os.path.exists(path):
@@ -1014,6 +1325,18 @@ def get_company_sent_count(company_name, path=None):
 
 def get_company_referrals_count(company_name, path=None):
     """Counts total existing referral contacts (regardless of status) in database for a company."""
+    sheets_conf = get_sheets_config()
+    if sheets_conf:
+        url, creds = sheets_conf
+        from core.storage.sheets import read_rows
+        rows = read_rows(url, creds, "Referrals & Connections")
+        count = 0
+        normalized_company = str(company_name or '').strip().lower()
+        for r in rows:
+            if str(r.get('CompanyName') or '').strip().lower() == normalized_company:
+                count += 1
+        return count
+
     if path is None:
         path = get_referrals_file()
     if not os.path.exists(path):
@@ -1043,6 +1366,23 @@ def get_employee_outreach_progress(company_name, path=None):
     Includes existing employee connections and connection requests with status
     in ('Pending', 'Sent', 'Replied', 'Referral Received').
     """
+    sheets_conf = get_sheets_config()
+    if sheets_conf:
+        url, creds = sheets_conf
+        from core.storage.sheets import read_rows
+        rows = read_rows(url, creds, "Referrals & Connections")
+        count = 0
+        normalized_company = str(company_name or '').strip().lower()
+        for r in rows:
+            if str(r.get('CompanyName') or '').strip().lower() == normalized_company:
+                source = str(r.get('Referral_Source') or '').strip().lower()
+                if 'recruiter' in source:
+                    continue
+                status = str(r.get('Referral_Status') or '').strip().lower()
+                if status in ('pending', 'sent', 'replied', 'referral received'):
+                    count += 1
+        return count
+
     if path is None:
         path = get_referrals_file()
     if not os.path.exists(path):
@@ -1080,6 +1420,23 @@ def get_recruiter_outreach_progress(company_name, path=None):
     Includes existing recruiter connections and recruiter connection requests
     with status in ('Pending', 'Sent', 'Replied', 'Referral Received').
     """
+    sheets_conf = get_sheets_config()
+    if sheets_conf:
+        url, creds = sheets_conf
+        from core.storage.sheets import read_rows
+        rows = read_rows(url, creds, "Referrals & Connections")
+        count = 0
+        normalized_company = str(company_name or '').strip().lower()
+        for r in rows:
+            if str(r.get('CompanyName') or '').strip().lower() == normalized_company:
+                source = str(r.get('Referral_Source') or '').strip().lower()
+                if 'recruiter' not in source:
+                    continue
+                status = str(r.get('Referral_Status') or '').strip().lower()
+                if status in ('pending', 'sent', 'replied', 'referral received'):
+                    count += 1
+        return count
+
     if path is None:
         path = get_referrals_file()
     if not os.path.exists(path):
@@ -1126,6 +1483,31 @@ def clean_company_url(url):
 
 def get_completed_referral_count(company_name, job_url=None, job_id=None, path=None):
     """Counts completed referral outreach actions (sent, replied, referral received) for a company and optional JobID/JobURL."""
+    sheets_conf = get_sheets_config()
+    if sheets_conf:
+        url, creds = sheets_conf
+        from core.storage.sheets import read_rows
+        rows = read_rows(url, creds, "Referrals & Connections")
+        count = 0
+        normalized_company = str(company_name or '').strip().lower()
+        normalized_url = str(job_url).strip().lower() if job_url else ""
+        for r in rows:
+            if str(r.get('CompanyName') or '').strip().lower() == normalized_company:
+                if normalized_url:
+                    row_url = str(r.get('Job_URL') or "").strip().lower()
+                    if row_url and row_url != normalized_url:
+                        continue
+                if job_id is not None:
+                    row_job_id = r.get('JobID')
+                    if row_job_id is not None and str(row_job_id).strip() != str(job_id).strip():
+                        continue
+                row_source = str(r.get('Referral_Source') or '').strip().lower()
+                if row_source in ('existing employee', 'sent employee connection'):
+                    row_status = str(r.get('Referral_Status') or '').strip().lower()
+                    if row_status in ('sent', 'replied', 'referral received'):
+                        count += 1
+        return count
+
     if path is None:
         path = get_referrals_file()
     if not os.path.exists(path):
@@ -1263,26 +1645,37 @@ def load_job_leads_with_referral_counts():
     connect_conf = user_conf.get("linkedin_connect", {})
     target = int(connect_conf.get("max_connections_per_company") or connect_conf.get("max_connections_per_run") or 5)
 
-    leads_file = get_job_leads_file()
-    init_job_leads_store(leads_file)
-    
-    # Run sync to ensure latest states are written back
-    sync_job_lead_referral_statuses()
-    
-    wb = openpyxl.load_workbook(leads_file)
-    ws = wb.active
-    col_indices = {cell.value: idx for idx, cell in enumerate(ws[1], start=1)}
-    
-    leads = []
-    for row in range(2, ws.max_row + 1):
-        row_dict = {}
-        for h, idx in col_indices.items():
-            if h:
-                row_dict[h] = ws.cell(row=row, column=idx).value
-        if any(val is not None for val in row_dict.values()):
-            leads.append(row_dict)
-            
-    referrals = load_all_referrals()
+    sheets_conf = get_sheets_config()
+    if sheets_conf:
+        url, creds = sheets_conf
+        from core.storage.sheets import read_rows
+        try:
+            leads = read_rows(url, creds, "Job Leads")
+            referrals = read_rows(url, creds, "Referrals & Connections")
+        except Exception as e:
+            logger.error(f"Error reading job leads or referrals from Google Sheets: {e}")
+            return []
+    else:
+        leads_file = get_job_leads_file()
+        init_job_leads_store(leads_file)
+        
+        # Run sync to ensure latest states are written back
+        sync_job_lead_referral_statuses()
+        
+        wb = openpyxl.load_workbook(leads_file)
+        ws = wb.active
+        col_indices = {cell.value: idx for idx, cell in enumerate(ws[1], start=1)}
+        
+        leads = []
+        for row in range(2, ws.max_row + 1):
+            row_dict = {}
+            for h, idx in col_indices.items():
+                if h:
+                    row_dict[h] = ws.cell(row=row, column=idx).value
+            if any(val is not None for val in row_dict.values()):
+                leads.append(row_dict)
+                
+        referrals = load_all_referrals()
     company_data = {}
     for ref in referrals:
         c_name = str(ref.get("CompanyName") or "").strip().lower()

@@ -1884,6 +1884,12 @@ async function loadSettings() {
         setChecked('setting-dry-run', globalSettings.dry_run === '1');
         setVal('setting-smtp-password', globalSettings.smtp_password);
         
+        // Google Sheets Database configuration
+        setVal('setting-database-type', globalSettings.database_type || 'local');
+        setVal('setting-google-sheet-url', globalSettings.google_sheet_url || '');
+        setVal('setting-google-credentials-json', globalSettings.google_credentials_json || '');
+        if (typeof toggleGoogleSheetsFields === 'function') toggleGoogleSheetsFields();
+        
         // Reset unsaved indicators
         updateTabUnsavedState('scraper', false);
         updateTabUnsavedState('connect', false);
@@ -1950,7 +1956,10 @@ async function saveSettingsForm(event) {
             "smtp_server": globalSettings.smtp_server || "smtp.gmail.com",
             "smtp_port": globalSettings.smtp_port || "587",
             "smtp_email": globalSettings.smtp_email || "",
-            "smtp_password": getVal('setting-smtp-password', globalSettings.smtp_password || "")
+            "smtp_password": getVal('setting-smtp-password', globalSettings.smtp_password || ""),
+            "database_type": getVal('setting-database-type', globalSettings.database_type || "local"),
+            "google_sheet_url": getVal('setting-google-sheet-url', globalSettings.google_sheet_url || ""),
+            "google_credentials_json": getVal('setting-google-credentials-json', globalSettings.google_credentials_json || "")
         }
     };
     
@@ -2398,6 +2407,31 @@ async function saveConfiguration(module) {
             "message_template": recruiterTemplate,
             "direct_message_template": recruiterDirectTemplate
         };
+    } else if (module === 'cloud-db') {
+        const dbType = getVal('setting-database-type');
+        const sheetUrl = getVal('setting-google-sheet-url').trim();
+        const credsJson = getVal('setting-google-credentials-json').trim();
+        
+        if (dbType === 'google_sheets') {
+            if (!sheetUrl) {
+                showSaveError(statusEl, '✕ Google Sheet URL is required.');
+                return;
+            }
+            if (!credsJson) {
+                showSaveError(statusEl, '✕ Credentials JSON is required.');
+                return;
+            }
+            try {
+                JSON.parse(credsJson);
+            } catch (e) {
+                showSaveError(statusEl, '✕ Google Credentials must be a valid JSON format string.');
+                return;
+            }
+        }
+        
+        cachedConfig.global_settings.database_type = dbType;
+        cachedConfig.global_settings.google_sheet_url = sheetUrl;
+        cachedConfig.global_settings.google_credentials_json = credsJson;
     }
 
     // Now post the FULL config body
@@ -2995,4 +3029,57 @@ async function initPipelineStatus() {
 document.addEventListener('DOMContentLoaded', () => {
     initPipelineStatus();
 });
+
+function toggleGoogleSheetsFields() {
+    const dbTypeEl = document.getElementById('setting-database-type');
+    const sheetsGroup = document.getElementById('google-sheets-config-group');
+    if (dbTypeEl && sheetsGroup) {
+        if (dbTypeEl.value === 'google_sheets') {
+            sheetsGroup.style.display = 'block';
+        } else {
+            sheetsGroup.style.display = 'none';
+        }
+    }
+}
+
+async function testSheetsConnection() {
+    const testStatus = document.getElementById('sheets-test-status');
+    const url = document.getElementById('setting-google-sheet-url').value.trim();
+    const creds = document.getElementById('setting-google-credentials-json').value.trim();
+    
+    if (!url || !creds) {
+        if (testStatus) {
+            testStatus.innerText = '⚠️ Please fill in Sheet URL and Credentials JSON first.';
+            testStatus.style.color = '#ef4444';
+        }
+        return;
+    }
+    
+    if (testStatus) {
+        testStatus.innerText = '⚡ Connecting to Google Sheets...';
+        testStatus.style.color = '#38bdf8';
+    }
+    
+    try {
+        const response = await fetch('/api/config/sheets/test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                google_sheet_url: url,
+                google_credentials_json: creds
+            })
+        });
+        const data = await response.json();
+        if (data.status === 'success') {
+            testStatus.innerText = '✅ Connection Successful! Worksheets verified.';
+            testStatus.style.color = '#22c55e';
+        } else {
+            testStatus.innerText = `❌ Connection Failed: ${data.message}`;
+            testStatus.style.color = '#ef4444';
+        }
+    } catch (e) {
+        testStatus.innerText = `❌ Error: ${e.message}`;
+        testStatus.style.color = '#ef4444';
+    }
+}
 
