@@ -87,6 +87,8 @@ def main():
     print("\nStep 3: Pulling data from Google Sheets into local Excel files...")
 
     for key, info in GOOGLE_SHEET_WORKSHEETS.items():
+        if key == "config":
+            continue
         ws_name = info["name"]
         headers = info["headers"]
         local_file = local_paths[ws_name]
@@ -154,22 +156,21 @@ def main():
         print(f"  ✅ Written {len(new_rows)} rows to '{os.path.basename(local_file)}'.")
 
     # --- Update config to local ---
-    print("\nStep 4: Switching active storage to Local Excel...")
+    print("\nStep 4: Downloading configuration settings from Google Sheets and switching active storage to Local Excel...")
     try:
-        config_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "users", username, "config.json"
-        )
-        with open(config_path, "r", encoding="utf-8") as f:
-            config = json.load(f)
-        if "global_settings" not in config:
-            config["global_settings"] = {}
-        config["global_settings"]["database_type"] = "local"
-        with open(config_path, "w", encoding="utf-8") as f:
-            json.dump(config, f, indent=2)
-        print("✅ Config updated. Active Storage is now LOCAL EXCEL.")
+        from core.storage.engine import GoogleSheetsStorageProvider, LocalStorageProvider
+        sheets_provider = GoogleSheetsStorageProvider()
+        full_config = sheets_provider.get_config(username)
+        
+        if "global_settings" not in full_config:
+            full_config["global_settings"] = {}
+        full_config["global_settings"]["database_type"] = "local"
+        
+        local_provider = LocalStorageProvider()
+        local_provider.save_config(username, full_config)
+        print("✅ Config updated. Configuration settings downloaded from Google Sheets and Active Storage is now LOCAL EXCEL.")
     except Exception as e:
-        print(f"❌ Error updating config: {e}")
+        print(f"❌ Error downloading and updating configuration: {e}")
 
     print("\n🎉 Reverse migration completed successfully!")
 

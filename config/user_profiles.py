@@ -94,7 +94,7 @@ def migrate_old_monolithic_config():
 
 def load_all_configs():
     """
-    Loads user profiles from individual users/<username>/config.json files
+    Loads user profiles dynamically from the active storage provider
     and reconstructs the unified configuration format.
     """
     migrate_old_monolithic_config()
@@ -114,15 +114,13 @@ def load_all_configs():
     users = {}
     if os.path.exists(users_dir):
         try:
+            from core.storage.engine import get_user_config
             for d in os.listdir(users_dir):
                 if d == "default" or not os.path.isdir(os.path.join(users_dir, d)):
                     continue
-                user_conf_file = get_user_config_file(d)
-                if os.path.exists(user_conf_file):
-                    with open(user_conf_file, "r") as f:
-                        users[d] = json.load(f)
-        except Exception:
-            pass
+                users[d] = get_user_config(d)
+        except Exception as e:
+            logger.error(f"Error loading configs via storage provider: {e}")
             
     # If no users exist, or selected_user not found in users list, select first available
     if users:
@@ -163,7 +161,7 @@ def load_all_configs():
 
 def save_all_configs(config):
     """
-    Saves configurations back to individual user directories and updates active user state.
+    Saves configurations dynamically back to the active storage provider.
     """
     users_dir = os.path.join(BASE_DIR, "users")
     os.makedirs(users_dir, exist_ok=True)
@@ -177,12 +175,12 @@ def save_all_configs(config):
     except Exception:
         pass
         
-    # 2. Save individual user configs
+    # 2. Save individual user configs via storage provider
+    from core.storage.engine import save_user_config
     for username, user_data in config.get("users", {}).items():
-        # Ensure user folder exists
+        # Ensure user folder exists (to store bootstrap files and local excel cache)
         user_dir = os.path.join(users_dir, username)
         os.makedirs(user_dir, exist_ok=True)
-        # Create user specific subfolders (data, logs, resumes, chrome-profile)
         os.makedirs(os.path.join(user_dir, "data"), exist_ok=True)
         os.makedirs(os.path.join(user_dir, "logs"), exist_ok=True)
         os.makedirs(os.path.join(user_dir, "resumes"), exist_ok=True)
@@ -192,25 +190,15 @@ def save_all_configs(config):
         if username == selected_user:
             user_data["global_settings"] = config.get("global_settings", {})
         else:
-            # Otherwise, read existing global settings from file to prevent losing them
-            user_conf_file = get_user_config_file(username)
-            if os.path.exists(user_conf_file):
-                try:
-                    with open(user_conf_file, "r") as f:
-                        existing_data = json.load(f)
-                        user_data["global_settings"] = existing_data.get("global_settings", {})
-                except Exception:
-                    pass
-            if "global_settings" not in user_data:
-                user_data["global_settings"] = {}
+            # Otherwise, read existing global settings from provider to prevent losing them
+            existing_user_data = get_user_config(username)
+            user_data["global_settings"] = existing_user_data.get("global_settings", {})
+            
+        if "global_settings" not in user_data:
+            user_data["global_settings"] = {}
 
-        # Save configuration
-        user_conf_file = get_user_config_file(username)
-        try:
-            with open(user_conf_file, "w") as f:
-                json.dump(user_data, f, indent=2)
-        except Exception:
-            pass
+        # Save via active storage provider
+        save_user_config(user_data, username)
 
 def get_selected_user_name():
     env_user = os.getenv("CONNECTIFY_USER")

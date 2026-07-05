@@ -30,5 +30,9 @@ GOOGLE_SHEET_WORKSHEETS = {
     "referrals": {
         "name": "Referrals & Connections",
         "headers": REFERRAL_HEADERS
+    },
+    "config": {
+        "name": "Profile & Settings",
+        "headers": ["Key", "Value"]
     }
 }

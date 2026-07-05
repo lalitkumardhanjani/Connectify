@@ -31,7 +31,7 @@ from config.user_profiles import (
 )
 from config.email_templates import DEFAULT_EMAIL_TEMPLATE, DEFAULT_CONNECTION_TEMPLATE
 from core.analytics.metrics import get_email_metrics, get_company_metrics, get_outreach_metrics
-from core.storage.database import _trigger_mac_excel_reload, update_status_by_id, edit_row, edit_lead_row
+from core.storage.database import update_status_by_id, edit_row, edit_lead_row
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
@@ -762,6 +762,8 @@ def switch_storage_type():
 
                 yield from emit("log", "Step 2: Migrating local Excel data to Google Sheets...")
                 for key, info in GOOGLE_SHEET_WORKSHEETS.items():
+                    if key == "config":
+                        continue
                     ws_name = info["name"]
                     headers = info["headers"]
                     local_file = local_paths[ws_name]
@@ -867,6 +869,8 @@ def switch_storage_type():
 
                     yield from emit("log", "Step 2: Pulling Google Sheets data into local Excel files...")
                     for key, info in GOOGLE_SHEET_WORKSHEETS.items():
+                        if key == "config":
+                            continue
                         ws_name = info["name"]
                         headers = info["headers"]
                         local_file = local_paths[ws_name]
@@ -1229,55 +1233,18 @@ def update_row_status():
     except ValueError:
         pass
         
-    from core.storage.database import get_sheets_config
-    sheets_conf = get_sheets_config()
-    if sheets_conf:
-        url, creds = sheets_conf
-        from core.storage.sheets import read_rows, write_rows
-        worksheet_name = "Scraped Emails" if db_type == "scraper" else "Job Leads"
-        try:
-            rows = read_rows(url, creds, worksheet_name)
-        except Exception as e:
-            return jsonify({"status": "error", "message": str(e)}), 400
-        id_field = "ID" if db_type == "scraper" else "JobID"
+    if db_type == "scraper":
+        from core.storage.engine import read_database_rows, write_database_rows
+        rows = read_database_rows("emails")
         updated = False
         for r in rows:
-            if str(r.get(id_field)).strip() == str(row_id).strip():
+            if str(r.get('ID')).rstrip(".0") == str(row_id).rstrip(".0"):
                 r['Status'] = status
-                if db_type == "scraper":
-                    r['Timestamp'] = datetime.utcnow().isoformat()
-                else:
-                    r['CreatedDateTime'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                r['Timestamp'] = datetime.utcnow().isoformat()
                 updated = True
                 break
         if updated:
-            write_rows(url, creds, worksheet_name, rows)
-            return jsonify({"status": "success"})
-        return jsonify({"status": "error", "message": f"{id_field} not found in Google Sheets"}), 404
-
-    if db_type == "scraper":
-        path = get_job_tracker_file()
-        if not os.path.exists(path):
-            return jsonify({"status": "error", "message": "File not found"}), 404
-        wb = openpyxl.load_workbook(path)
-        ws = wb.active
-        col_indices = {cell.value: idx for idx, cell in enumerate(ws[1], start=1)}
-        id_col = col_indices.get('ID', 1)
-        status_col = col_indices.get('Status', 3)
-        timestamp_col = col_indices.get('Timestamp', 4)
-        updated = False
-        for row in range(2, ws.max_row + 1):
-            if ws.cell(row=row, column=id_col).value == row_id:
-                ws.cell(row=row, column=status_col, value=status)
-                ws.cell(row=row, column=timestamp_col, value=datetime.utcnow().isoformat())
-                updated = True
-                break
-        if updated:
-            wb.save(path)
-            try:
-                _trigger_mac_excel_reload(path)
-            except Exception:
-                pass
+            write_database_rows("emails", rows)
             return jsonify({"status": "success"})
         return jsonify({"status": "error", "message": "ID not found"}), 404
         
@@ -1300,58 +1267,17 @@ def delete_table_row():
     if not db_type or row_id is None:
         return jsonify({"status": "error", "message": "Missing required fields"}), 400
         
+    table_key = "emails" if db_type == "scraper" else "jobs"
+    id_field = "ID" if db_type == "scraper" else "JobID"
+    
+    from core.storage.engine import read_database_rows, write_database_rows
     try:
-        row_id = int(row_id)
-    except ValueError:
-        pass
-        
-    from core.storage.database import get_sheets_config
-    sheets_conf = get_sheets_config()
-    if sheets_conf:
-        url, creds = sheets_conf
-        from core.storage.sheets import read_rows, write_rows
-        worksheet_name = "Scraped Emails" if db_type == "scraper" else "Job Leads"
-        try:
-            rows = read_rows(url, creds, worksheet_name)
-        except Exception as e:
-            return jsonify({"status": "error", "message": str(e)}), 400
-        id_field = "ID" if db_type == "scraper" else "JobID"
-        filtered_rows = [r for r in rows if str(r.get(id_field)).strip() != str(row_id).strip()]
+        rows = read_database_rows(table_key)
+        filtered_rows = [r for r in rows if str(r.get(id_field)).rstrip(".0") != str(row_id).rstrip(".0")]
         if len(filtered_rows) < len(rows):
-            write_rows(url, creds, worksheet_name, filtered_rows)
+            write_database_rows(table_key, filtered_rows)
             return jsonify({"status": "success"})
-        return jsonify({"status": "error", "message": f"{id_field} not found in Google Sheets"}), 404
-
-    path = get_job_tracker_file() if db_type == "scraper" else get_job_leads_file()
-    if not os.path.exists(path):
-        return jsonify({"status": "error", "message": "File not found"}), 404
-        
-    try:
-        wb = openpyxl.load_workbook(path)
-        ws = wb.active
-        col_indices = {cell.value: idx for idx, cell in enumerate(ws[1], start=1)}
-        id_col_name = 'ID' if db_type == "scraper" else 'JobID'
-        id_col = col_indices.get(id_col_name)
-        
-        if not id_col:
-            return jsonify({"status": "error", "message": "ID column not found"}), 500
-            
-        deleted = False
-        for row in range(2, ws.max_row + 1):
-            if ws.cell(row=row, column=id_col).value == row_id:
-                ws.delete_rows(row)
-                deleted = True
-                break
-                
-        if deleted:
-            wb.save(path)
-            try:
-                _trigger_mac_excel_reload(path)
-            except Exception:
-                pass
-            return jsonify({"status": "success"})
-            
-        return jsonify({"status": "error", "message": "ID not found"}), 404
+        return jsonify({"status": "error", "message": f"{id_field} not found"}), 404
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 

@@ -86,6 +86,8 @@ def main():
     import time
     
     for key, info in GOOGLE_SHEET_WORKSHEETS.items():
+        if key == "config":
+            continue
         ws_name = info["name"]
         headers = info["headers"]
         local_file = local_paths[ws_name]
@@ -216,23 +218,17 @@ def main():
         except Exception as e:
             print(f"  ⚠️ Formatting warning: {e}")
 
-    # 6. Set database mode to sheets
-    print("\nStep 4: Activating Google Sheets mode in configuration...")
+    # 6. Set database mode to sheets and upload settings
+    print("\nStep 4: Activating Google Sheets mode and uploading configuration settings...")
     try:
-        config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "users", username, "config.json")
-        with open(config_path, "r", encoding="utf-8") as f:
-            config = json.load(f)
-            
-        if "global_settings" not in config:
-            config["global_settings"] = {}
-            
-        config["global_settings"]["database_type"] = "google_sheets"
+        user_conf["global_settings"]["database_type"] = "google_sheets"
         
-        with open(config_path, "w", encoding="utf-8") as f:
-            json.dump(config, f, indent=2)
-        print("✅ User configuration saved. Active Storage is now GOOGLE SHEETS.")
+        from core.storage.engine import GoogleSheetsStorageProvider
+        provider = GoogleSheetsStorageProvider()
+        provider.save_config(username, user_conf)
+        print("✅ User configuration saved & uploaded to Google Sheets. Active Storage is now GOOGLE SHEETS.")
     except Exception as e:
-        print(f"❌ Error updating config.json: {e}")
+        print(f"❌ Error updating configuration settings: {e}")
         
     print("\n🎉 Migration process completed successfully!")
     print(f"👉 Open your Google Sheet here: {sheet_url}")
