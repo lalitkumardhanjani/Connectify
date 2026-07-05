@@ -1,10 +1,52 @@
 import json
 import time
+import threading
 from core.logging.config import logger
 from config.constants import GOOGLE_SHEET_WORKSHEETS
 
 # We will import gspread and google-auth inside functions to allow starting the app
 # even if packages are still installing.
+
+# ---------------------------------------------------------------------------
+# In-memory TTL cache — prevents hammering the Google Sheets API quota (429)
+# Each worksheet gets its own cache entry:  { worksheet_name: (timestamp, data) }
+# ---------------------------------------------------------------------------
+_cache_lock = threading.Lock()
+_row_cache: dict = {}          # { worksheet_name: (fetched_at_monotonic, [rows]) }
+_CACHE_TTL_SECONDS = 60        # Re-fetch from Sheets at most once per minute per worksheet
+
+
+def _cache_get(worksheet_name: str):
+    """Return cached rows if they are fresh, otherwise None."""
+    with _cache_lock:
+        entry = _row_cache.get(worksheet_name)
+        if entry:
+            fetched_at, rows = entry
+            if time.monotonic() - fetched_at < _CACHE_TTL_SECONDS:
+                return rows
+    return None
+
+
+def _cache_set(worksheet_name: str, rows: list):
+    """Store rows in the cache."""
+    with _cache_lock:
+        _row_cache[worksheet_name] = (time.monotonic(), rows)
+
+
+def _cache_invalidate(worksheet_name: str):
+    """Remove a worksheet entry from the cache, forcing the next read to fetch fresh data."""
+    with _cache_lock:
+        _row_cache.pop(worksheet_name, None)
+
+
+def _cache_invalidate_all():
+    """Clear the entire row cache."""
+    with _cache_lock:
+        _row_cache.clear()
+
+
+# ---------------------------------------------------------------------------
+
 
 def get_sheets_client(credentials_json_content):
     """Initializes the gspread client using Service Account JSON key string."""
@@ -55,14 +97,28 @@ def ensure_worksheets_exist(spreadsheet_url, credentials_json_content):
             logger.info(f"Created worksheet '{name}' and wrote headers.")
             time.sleep(1)
 
+    _cache_invalidate_all()
+
 
 def read_rows(spreadsheet_url, credentials_json_content, worksheet_name):
-    """Reads all rows from a worksheet and returns them as a list of dictionaries mapped by headers."""
+    """Reads all rows from a worksheet and returns them as a list of dictionaries mapped by headers.
+    
+    Results are cached in-memory for up to 60 seconds to prevent hitting the Google Sheets
+    API read quota limit (60 reads/min/user), which causes HTTP 429 errors.
+    """
+    # Return cached result if fresh
+    cached = _cache_get(worksheet_name)
+    if cached is not None:
+        logger.debug(f"Cache hit for worksheet '{worksheet_name}' ({len(cached)} rows)")
+        return cached
+
     client = get_sheets_client(credentials_json_content)
     try:
         sh = client.open_by_url(spreadsheet_url)
         ws = sh.worksheet(worksheet_name)
         data = ws.get_all_records()
+        _cache_set(worksheet_name, data)
+        logger.debug(f"Fetched {len(data)} rows from Google Sheets '{worksheet_name}' and cached.")
         return data
     except Exception as e:
         logger.error(f"Error reading Google Sheets worksheet '{worksheet_name}': {e}")
@@ -99,8 +155,13 @@ def write_rows(spreadsheet_url, credentials_json_content, worksheet_name, data_d
             
         # Overwrite all data: clear sheet and write
         ws.clear()
-        ws.update(range_name=f"A1", values=rows_to_write)
+        ws.update(range_name="A1", values=rows_to_write)
         logger.info(f"Overwrote {len(data_dicts)} rows in Google Sheets worksheet '{worksheet_name}'")
+        
+        # Invalidate cache so next read returns fresh data
+        _cache_invalidate(worksheet_name)
+        # Also update cache with the data we just wrote (avoids an immediate re-fetch)
+        _cache_set(worksheet_name, data_dicts)
     except Exception as e:
         logger.error(f"Error writing to Google Sheets worksheet '{worksheet_name}': {e}")
         raise e
@@ -131,6 +192,9 @@ def append_row(spreadsheet_url, credentials_json_content, worksheet_name, data_d
             
         ws.append_row(row_values)
         logger.info(f"Appended 1 row to Google Sheets worksheet '{worksheet_name}'")
+        
+        # Invalidate cache for this worksheet so next read picks up the new row
+        _cache_invalidate(worksheet_name)
     except Exception as e:
         logger.error(f"Error appending to Google Sheets worksheet '{worksheet_name}': {e}")
         raise e

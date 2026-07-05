@@ -349,8 +349,11 @@ def outreach_stats():
 
 @app.route('/api/data/job_tracker')
 def job_tracker_data():
-    from core.storage.database import init_scraper_store
-    init_scraper_store()
+    from core.storage.database import get_sheets_config, init_scraper_store
+    # Only initialise local file when not using Google Sheets (avoids creating
+    # unnecessary xlsx files and hitting the Sheets API on startup)
+    if not get_sheets_config():
+        init_scraper_store()
     return jsonify(get_excel_data(get_job_tracker_file()))
 
 @app.route('/api/data/job_leads')
@@ -1098,9 +1101,12 @@ def edit_table_row():
 
 @app.route('/api/data/referrals')
 def referrals_data():
-    from core.storage.database import init_referrals_store, load_all_referrals
-    init_referrals_store()
-    return jsonify(load_all_referrals(get_referrals_file()))
+    from core.storage.database import get_sheets_config, init_referrals_store, load_all_referrals
+    # Only initialise local file when not using Google Sheets
+    if not get_sheets_config():
+        init_referrals_store()
+    # Do NOT pass path= here — load_all_referrals() detects Sheets mode automatically
+    return jsonify(load_all_referrals())
 
 
 @app.route('/api/data/update_referral_status', methods=['POST'])
