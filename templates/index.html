@@ -1053,20 +1053,9 @@
 
             <!-- TAB 5: SETTINGS -->
             <section id="tab-settings" class="tab-pane">
-                <header class="section-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 25px; width: 100%;">
-                    <div style="flex: 1; min-width: 250px;">
-                        <h1>Configuration Settings</h1>
-                        <p>Redesigned user-specific config manager for personal info, scraping, connect scripts, and credentials.</p>
-                    </div>
-                    <div class="storage-sync-badge-container" style="display: flex; align-items: center; gap: 12px;">
-                        <span id="settings-storage-badge" class="badge" style="font-size: 0.85rem; padding: 6px 12px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; cursor: default; background-color: rgba(156, 163, 175, 0.1); color: var(--text-secondary); border: 1px solid rgba(156, 163, 175, 0.2);">
-                            <i id="settings-storage-icon" class="fa-solid fa-file-excel"></i>
-                            <span id="settings-storage-text">Local Storage Active</span>
-                        </span>
-                        <button type="button" id="settings-sync-btn" onclick="syncSettingsFromGoogleSheets()" class="btn btn-secondary" style="display: none; padding: 6px 12px; font-size: 0.85rem; border-radius: 6px; align-items: center; gap: 6px; height: auto;">
-                            <i class="fa-solid fa-rotate"></i> Sync from Sheet
-                        </button>
-                    </div>
+                <header class="section-header">
+                    <h1>Configuration Settings</h1>
+                    <p>Manage your personal info, scraping preferences, outreach templates, and credentials. Changes sync automatically.</p>
                 </header>
 
                 <div class="settings-wrapper">

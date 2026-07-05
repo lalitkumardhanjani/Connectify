@@ -1801,11 +1801,19 @@ async function loadSettings() {
         
         const setVal = (id, val) => {
             const el = document.getElementById(id);
-            if (el) el.value = val || '';
+            if (el) el.value = (val !== null && val !== undefined) ? String(val) : '';
         };
         const setChecked = (id, checked) => {
             const el = document.getElementById(id);
-            if (el) el.checked = checked;
+            if (!el) return;
+            // Handle JS boolean, string "True"/"False", and "1"/"0"
+            if (typeof checked === 'boolean') {
+                el.checked = checked;
+            } else if (typeof checked === 'string') {
+                el.checked = checked.toLowerCase() === 'true' || checked === '1';
+            } else {
+                el.checked = Boolean(checked);
+            }
         };
 
         // 1. User Profile fields
@@ -1861,7 +1869,7 @@ async function loadSettings() {
         
         // 2. Email Scraper fields
         setVal('scraper-interval', scraper.interval || '60');
-        setChecked('scraper-review-mode', scraper.review_mode === true);
+        setChecked('scraper-review-mode', scraper.review_mode);
         setVal('scraper-max-emails', scraper.max_emails_per_run || '5');
         setVal('scraper-email-template', scraper.email_template);
         setVal('scraper-email-subject', scraper.email_subject || '');
@@ -1875,7 +1883,7 @@ async function loadSettings() {
         
         // 3. LinkedIn Connect fields
         setVal('connect-interval', connect.interval || '60');
-        setChecked('connect-review-mode', connect.review_mode === true);
+        setChecked('connect-review-mode', connect.review_mode);
         setVal('connect-max-connections', connect.max_connections_per_company || connect.max_connections_per_run || '5');
         setVal('connect-message-template', connect.message_template);
         setVal('referral-message-template', referralOutreach.message_template || '');
@@ -1890,7 +1898,7 @@ async function loadSettings() {
         // 4. Recruiter Outreach fields
         setVal('recruiter-interval', recruiter.interval || '120');
         setVal('recruiter-target-count', recruiter.target_count || '2');
-        setChecked('recruiter-review-mode', recruiter.review_mode !== false);
+        setChecked('recruiter-review-mode', recruiter.review_mode);
         setVal('recruiter-message-template', recruiter.message_template);
         setVal('recruiter-direct-message-template', recruiter.direct_message_template || '');
 
@@ -1914,7 +1922,7 @@ async function loadSettings() {
         setVal('setting-linkedin-password', globalSettings.linkedin_password);
         setVal('setting-search-location', globalSettings.search_location);
         setVal('setting-search-time', globalSettings.search_time_range);
-        setChecked('setting-dry-run', globalSettings.dry_run === '1');
+        setChecked('setting-dry-run', globalSettings.dry_run);
         setVal('setting-smtp-password', globalSettings.smtp_password);
         
         // Google Sheets Database configuration
@@ -3301,101 +3309,18 @@ async function testSheetsConnection() {
 
 function updateActiveStorageIndicator(dbType) {
     const indicator = document.getElementById('active-storage-indicator');
-    const settingsBadge = document.getElementById('settings-storage-badge');
-    const syncBtn = document.getElementById('settings-sync-btn');
-    
     if (indicator) {
         const span = indicator.querySelector('span');
         const icon = indicator.querySelector('i');
         if (dbType === 'google_sheets') {
             indicator.className = 'active-storage-badge badge-sheets';
             if (span) span.innerText = 'Active Storage: Google Sheets';
-            if (icon) {
-                icon.className = 'fa-solid fa-cloud';
-            }
+            if (icon) icon.className = 'fa-solid fa-cloud';
         } else {
             indicator.className = 'active-storage-badge badge-local';
             if (span) span.innerText = 'Active Storage: Local Database';
-            if (icon) {
-                icon.className = 'fa-solid fa-database';
-            }
+            if (icon) icon.className = 'fa-solid fa-database';
         }
-    }
-    
-    // Update settings tab badge and sync button
-    if (settingsBadge) {
-        const textSpan = settingsBadge.querySelector('#settings-storage-text') || settingsBadge;
-        const iconEl = settingsBadge.querySelector('#settings-storage-icon');
-        if (dbType === 'google_sheets') {
-            settingsBadge.style.backgroundColor = 'rgba(34, 197, 94, 0.1)';
-            settingsBadge.style.color = '#22c55e';
-            settingsBadge.style.border = '1px solid rgba(34, 197, 94, 0.2)';
-            if (textSpan) textSpan.innerText = 'Google Sheets Active';
-            if (iconEl) iconEl.className = 'fa-solid fa-cloud';
-            if (syncBtn) {
-                syncBtn.style.display = 'inline-flex';
-            }
-        } else {
-            settingsBadge.style.backgroundColor = 'rgba(156, 163, 175, 0.1)';
-            settingsBadge.style.color = '#9ca3af';
-            settingsBadge.style.border = '1px solid rgba(156, 163, 175, 0.2)';
-            if (textSpan) textSpan.innerText = 'Local Storage Active';
-            if (iconEl) iconEl.className = 'fa-solid fa-file-excel';
-            if (syncBtn) {
-                syncBtn.style.display = 'none';
-            }
-        }
-    }
-}
-
-async function syncSettingsFromGoogleSheets() {
-    const syncBtn = document.getElementById('settings-sync-btn');
-    if (!syncBtn) return;
-    
-    const icon = syncBtn.querySelector('i');
-    
-    // Set loading state
-    syncBtn.disabled = true;
-    if (icon) icon.className = 'fa-solid fa-rotate fa-spin';
-    syncBtn.innerHTML = `<i class="fa-solid fa-rotate fa-spin"></i> Syncing...`;
-    
-    try {
-        const response = await fetch('/api/users/config?fresh=true');
-        if (!response.ok) {
-            throw new Error(`Server returned HTTP ${response.status}`);
-        }
-        
-        // Reload all UI settings fields with the new data
-        await loadSettings();
-        
-        showSettingsNotification('success', 'Configuration settings successfully synced from Google Sheets!');
-    } catch (e) {
-        console.error("Failed to sync settings from Google Sheets:", e);
-        showSettingsNotification('error', `Failed to sync settings: ${e.message}`);
-    } finally {
-        syncBtn.disabled = false;
-        syncBtn.innerHTML = `<i class="fa-solid fa-rotate"></i> Sync from Sheet`;
-    }
-}
-
-function showSettingsNotification(type, message) {
-    // Find any visible save-status element in the settings wrapper
-    const activePane = document.querySelector('.settings-tab-pane.active');
-    const statusEl = activePane ? activePane.querySelector('.save-status') : null;
-    const profileSaveStatus = document.getElementById('profile-save-status');
-    
-    // Fallback if not found
-    const targetEl = statusEl || profileSaveStatus;
-    if (targetEl) {
-        targetEl.innerText = (type === 'success' ? '✓ ' : '✕ ') + message;
-        targetEl.className = 'save-status ' + type;
-        setTimeout(() => {
-            if (targetEl.innerText === (type === 'success' ? '✓ ' : '✕ ') + message) {
-                targetEl.innerText = '';
-            }
-        }, 5000);
-    } else {
-        alert(message);
     }
 }
 

@@ -84,13 +84,27 @@ def unflatten_dict(d):
         for p in parts[:-1]:
             current = current.setdefault(p, {})
         
-        # Auto-deserialize lists and nested JSON-like structures
+        # Auto-deserialize lists, nested JSON-like structures, booleans and numbers
         val = v
         if isinstance(v, str):
             v_stripped = v.strip()
-            if (v_stripped.startswith("[") and v_stripped.endswith("]")) or (v_stripped.startswith("{") and v_stripped.endswith("}")):
+            # Boolean coercion (handles Google Sheets True/False strings)
+            if v_stripped.lower() == "true":
+                val = True
+            elif v_stripped.lower() == "false":
+                val = False
+            # JSON list/dict coercion
+            elif (v_stripped.startswith("[") and v_stripped.endswith("]")) or (v_stripped.startswith("{") and v_stripped.endswith("}")):
                 try:
                     val = json.loads(v_stripped)
+                except Exception:
+                    pass
+            # Numeric coercion for pure integer/float strings (only for known numeric keys)
+            elif parts[-1] in ("interval", "max_emails_per_run", "max_connections_per_company",
+                                "max_connections_per_run", "target_count", "smtp_port",
+                                "max_apply", "max_run_duration_seconds") and v_stripped.lstrip("-").replace(".", "", 1).isdigit():
+                try:
+                    val = int(v_stripped) if "." not in v_stripped else float(v_stripped)
                 except Exception:
                     pass
         current[parts[-1]] = val
