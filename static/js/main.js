@@ -1314,12 +1314,26 @@ async function selectUser(username) {
         const data = await response.json();
         if (data.status === 'success') {
             document.getElementById('user-select-dropdown').classList.add('hidden');
+            // Force a fully fresh reload (bypass_cache=true) so we get the switched user's data
+            cachedConfig = null;
             await loadUsers();
-            // Automatically navigate to the dashboard tab
+            await loadSettings();
+            // Navigate to dashboard
             const dashboardTab = document.querySelector('.nav-menu .nav-item[data-tab="dashboard"]');
-            if (dashboardTab) {
-                dashboardTab.click();
-            }
+            if (dashboardTab) dashboardTab.click();
+            // Show brief switch confirmation toast
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed; bottom: 30px; right: 30px; z-index: 9999;
+                background: linear-gradient(135deg, #6366f1, #4f46e5);
+                color: white; padding: 14px 20px; border-radius: 10px;
+                font-size: 0.9rem; font-weight: 600; box-shadow: 0 8px 32px rgba(99,102,241,0.3);
+                display: flex; align-items: center; gap: 10px;
+                animation: slideInRight 0.3s ease;
+            `;
+            toast.innerHTML = `<i class="fa-solid fa-user-check"></i> Switched to <strong>${username}</strong>`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
         } else {
             alert(`Error selecting profile: ${data.message}`);
         }
@@ -1355,12 +1369,21 @@ async function confirmCreateUser() {
         const data = await response.json();
         if (data.status === 'success') {
             hideCreateUserModal();
+            // Refresh user list in the dropdown without switching active user
             await loadUsers();
-            // Automatically navigate to the dashboard tab
-            const dashboardTab = document.querySelector('.nav-menu .nav-item[data-tab="dashboard"]');
-            if (dashboardTab) {
-                dashboardTab.click();
-            }
+            // Show a brief toast/notification instead of switching profile
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed; bottom: 30px; right: 30px; z-index: 9999;
+                background: linear-gradient(135deg, #22c55e, #16a34a);
+                color: white; padding: 14px 20px; border-radius: 10px;
+                font-size: 0.9rem; font-weight: 600; box-shadow: 0 8px 32px rgba(34,197,94,0.3);
+                display: flex; align-items: center; gap: 10px;
+                animation: slideInRight 0.3s ease;
+            `;
+            toast.innerHTML = `<i class="fa-solid fa-user-plus"></i> Profile "<strong>${username}</strong>" created! Switch to it from the profile menu.`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
         } else {
             alert(`Error creating profile: ${data.message}`);
         }

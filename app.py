@@ -573,12 +573,28 @@ def get_users_list():
 def select_active_user():
     body = request.get_json() or {}
     user = body.get("user")
-    config = load_all_configs()
-    if not user or user not in config.get("users", {}):
+    
+    # Validate user exists by checking the filesystem (fast, no Sheets calls)
+    users_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "users")
+    if not user or not os.path.isdir(os.path.join(users_dir, user)):
         return jsonify({"status": "error", "message": "User not found"}), 404
-    config["selected_user"] = user
-    save_all_configs(config)
-    return jsonify({"status": "success"})
+    
+    # Write ONLY the active_user.json file — fast, no full config re-save
+    active_user_file = os.path.join(users_dir, "active_user.json")
+    try:
+        with open(active_user_file, "w") as f:
+            json.dump({"selected_user": user}, f, indent=2)
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    
+    # Invalidate the in-memory config cache for the newly selected user
+    try:
+        from core.storage.engine import _invalidate_cached_config
+        _invalidate_cached_config(user)
+    except Exception:
+        pass
+    
+    return jsonify({"status": "success", "selected_user": user})
 
 
 @app.route('/api/users/create', methods=['POST'])
@@ -644,9 +660,9 @@ def create_user_profile():
             "review_mode": True
         }
     }
-    config["selected_user"] = username
+    # Do NOT auto-switch to the new user — preserve the current active user session
     save_all_configs(config)
-    return jsonify({"status": "success", "selected_user": username})
+    return jsonify({"status": "success", "username": username, "selected_user": config.get("selected_user", username)})
 
 
 @app.route('/api/config/sheets/test', methods=['POST'])
