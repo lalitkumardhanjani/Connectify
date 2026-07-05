@@ -1889,6 +1889,7 @@ async function loadSettings() {
         setVal('setting-google-sheet-url', globalSettings.google_sheet_url || '');
         setVal('setting-google-credentials-json', globalSettings.google_credentials_json || '');
         if (typeof toggleGoogleSheetsFields === 'function') toggleGoogleSheetsFields();
+        if (typeof updateActiveStorageIndicator === 'function') updateActiveStorageIndicator(globalSettings.database_type || 'local');
         
         // Reset unsaved indicators
         updateTabUnsavedState('scraper', false);
@@ -2417,12 +2418,21 @@ async function saveConfiguration(module) {
                 showSaveError(statusEl, '✕ Google Sheet URL is required.');
                 return;
             }
+            const sheetUrlRegex = /^https:\/\/docs\.google\.com\/spreadsheets\/d\/[a-zA-Z0-9-_]+\/?.*/;
+            if (!sheetUrlRegex.test(sheetUrl)) {
+                showSaveError(statusEl, '✕ Google Sheet URL is invalid. It must look like: https://docs.google.com/spreadsheets/d/spreadsheetId/edit');
+                return;
+            }
             if (!credsJson) {
-                showSaveError(statusEl, '✕ Credentials JSON is required.');
+                showSaveError(statusEl, '✕ Google Service Account Credentials JSON is required.');
                 return;
             }
             try {
-                JSON.parse(credsJson);
+                const parsed = JSON.parse(credsJson);
+                if (parsed.type !== 'service_account' || !parsed.client_email || !parsed.private_key) {
+                    showSaveError(statusEl, '✕ Google Credentials JSON is missing key service account fields (type, client_email, or private_key).');
+                    return;
+                }
             } catch (e) {
                 showSaveError(statusEl, '✕ Google Credentials must be a valid JSON format string.');
                 return;
@@ -3080,6 +3090,26 @@ async function testSheetsConnection() {
     } catch (e) {
         testStatus.innerText = `❌ Error: ${e.message}`;
         testStatus.style.color = '#ef4444';
+    }
+}
+
+function updateActiveStorageIndicator(dbType) {
+    const indicator = document.getElementById('active-storage-indicator');
+    if (!indicator) return;
+    const span = indicator.querySelector('span');
+    const icon = indicator.querySelector('i');
+    if (dbType === 'google_sheets') {
+        indicator.className = 'active-storage-badge badge-sheets';
+        if (span) span.innerText = 'Active Storage: Google Sheets';
+        if (icon) {
+            icon.className = 'fa-solid fa-cloud';
+        }
+    } else {
+        indicator.className = 'active-storage-badge badge-local';
+        if (span) span.innerText = 'Active Storage: Local Database';
+        if (icon) {
+            icon.className = 'fa-solid fa-database';
+        }
     }
 }
 

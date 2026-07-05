@@ -424,6 +424,67 @@ Tracks contacts discovered at target companies and the outcomes of referral outr
 | `Sent_Time` | DateTime | Timestamp when the outreach message was sent. |
 | `Error_Reason` | String | Error details if sending failed or logs skipped. |
 
+## 🗄️ Database Storage: Local vs. Google Sheets
+
+Connectify supports two data storage backends, allowing you to choose between standard offline local workbooks and a synchronized cloud database:
+
+1. **Local Excel Storage (Default)**:
+   - All records are saved in `.xlsx` workbooks located under `users/<username>/data/`.
+   - Setup: None! Works completely out-of-the-box when you clone the repository.
+   - Recommended for solo use on a single computer.
+
+2. **Google Sheets Storage (Optional)**:
+   - All records are stored in a centralized Google Sheet in the cloud.
+   - Allows multiple computers, friends, or instances to share, sync, and update the same data.
+   - Synchronizes in real-time between your dashboard UI, crawler scripts, and scraper logs.
+
+---
+
+### ⚙️ Google Sheets Onboarding & Setup
+
+Setting up Google Sheets is simple and can be completed in a few steps.
+
+#### Step 1: Create a Google Sheet
+1. Open [Google Sheets](https://sheets.google.com) and create a **blank spreadsheet**.
+2. Name it (e.g., `Connectify Database - Lalit`).
+3. Copy its full browser URL (e.g. `https://docs.google.com/spreadsheets/d/1TCslZxnqxxWhzBtOov3bzyXIpgV-Q595CUlE6onjlDo/edit`).
+
+#### Step 2: Create a Service Account JSON Key
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
+2. Create a project and enable both the **Google Sheets API** and **Google Drive API** under the API Library.
+3. Go to **APIs & Services** > **Credentials**, click **Create Credentials**, and choose **Service Account**.
+4. Once created, click on the Service Account row, navigate to the **Keys** tab, click **Add Key** > **Create New Key**, select **JSON**, and download the file.
+
+#### Step 3: Share the Spreadsheet
+1. Open the Google Sheet you created in Step 1.
+2. Click the **Share** button in the top right.
+3. Add the Service Account email address (found in the downloaded JSON file as `client_email`, usually ending in `.gserviceaccount.com`) as an **Editor**.
+4. Click **Share**.
+
+#### Step 4: Configure Settings
+1. Launch the Connectify application (`python app.py`) and log in.
+2. Go to **Settings** > **Database Storage** tab.
+3. Select **Centralized Google Sheets** as the Database Storage Type.
+4. Paste the **Google Sheet URL** and the full content of the downloaded **Credentials JSON** file into their respective input fields.
+5. Click **Test Cloud Connection** to verify your setup, then click **Save Database Configuration**.
+
+---
+
+### 🔄 Migrating Existing Local Excel Data
+
+If you have already collected data in your local Excel files, you can migrate it to your new Google Sheet cleanly without creating duplicates:
+
+1. Ensure your active profile is configured with the Google Sheet URL and Credentials JSON (via Settings as described above).
+2. Run the migration script in your terminal:
+   ```bash
+   python migrate_to_google_sheets.py
+   ```
+3. The script will:
+   - Connect to your Google Sheet.
+   - Initialize the worksheets (`Job Leads`, `Scraped Emails`, and `Referrals & Connections`).
+   - Deduplicate rows against current cloud worksheets (ensuring it is safe to run multiple times).
+   - Apply professional visual formatting (styling dark headers, freezing the top row, adding basic filters, and auto-resizing columns).
+
 ---
 
 ## 🌐 Flask API Endpoint Reference

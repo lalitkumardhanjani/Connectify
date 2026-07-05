@@ -3458,3 +3458,30 @@ body {
     100% { opacity: 0.4; }
 }
 
+/* Active Storage Badge Status Indicator */
+.active-storage-badge {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    transition: all 0.3s ease;
+    user-select: none;
+}
+.active-storage-badge.badge-local {
+    background: rgba(56, 189, 248, 0.15); /* Sky blue tint */
+    color: #38bdf8;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.1);
+}
+.active-storage-badge.badge-sheets {
+    background: rgba(34, 197, 94, 0.15); /* Emerald green tint */
+    color: #22c55e;
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.1);
+}
+.active-storage-badge i {
+    font-size: 0.85rem;
+}
