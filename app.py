@@ -1170,6 +1170,81 @@ def switch_storage_type():
 
 
 
+@app.route('/api/system/update/check', methods=['GET'])
+def check_system_updates():
+    try:
+        import subprocess
+        repo_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        # 1. Run git fetch origin
+        fetch_res = subprocess.run(["git", "fetch", "origin"], cwd=repo_dir, capture_output=True, text=True, timeout=15)
+        if fetch_res.returncode != 0:
+            return jsonify({
+                "status": "error",
+                "message": f"Git fetch failed: {fetch_res.stderr.strip()}"
+            }), 500
+            
+        # 2. Get local commit hash and description
+        local_hash = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=repo_dir, capture_output=True, text=True).stdout.strip()
+        local_desc = subprocess.run(["git", "log", "-1", "--format=%s (%cd)", "--date=short", "HEAD"], cwd=repo_dir, capture_output=True, text=True).stdout.strip()
+        
+        # 3. Get remote tracking commit hash
+        remote_hash = subprocess.run(["git", "rev-parse", "--short", "origin/main"], cwd=repo_dir, capture_output=True, text=True).stdout.strip()
+        
+        # 4. Check commits behind
+        behind_log = subprocess.run(["git", "log", "HEAD..origin/main", "--oneline"], cwd=repo_dir, capture_output=True, text=True).stdout.strip()
+        
+        commits_behind = []
+        if behind_log:
+            commits_behind = [c.strip() for c in behind_log.split("\n") if c.strip()]
+            
+        updates_available = len(commits_behind) > 0
+        
+        return jsonify({
+            "status": "success",
+            "updates_available": updates_available,
+            "current_commit": local_hash,
+            "current_desc": local_desc,
+            "latest_commit": remote_hash,
+            "behind_by_commits": len(commits_behind),
+            "commits_list": commits_behind
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": f"Unexpected error checking updates: {str(e)}"
+        }), 500
+
+
+@app.route('/api/system/update/pull', methods=['POST'])
+def pull_system_updates():
+    try:
+        import subprocess
+        repo_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        # Run git pull origin main
+        pull_res = subprocess.run(["git", "pull", "origin", "main"], cwd=repo_dir, capture_output=True, text=True, timeout=30)
+        
+        if pull_res.returncode != 0:
+            return jsonify({
+                "status": "error",
+                "message": f"Git pull failed: {pull_res.stderr.strip()}",
+                "log": pull_res.stdout.strip() + "\n" + pull_res.stderr.strip()
+            }), 500
+            
+        return jsonify({
+            "status": "success",
+            "log": pull_res.stdout.strip()
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": f"Unexpected error pulling updates: {str(e)}"
+        }), 500
+
+
+
+
 @app.route('/api/users/config', methods=['GET'])
 def get_user_configuration():
     fresh = request.args.get('fresh', 'true') == 'true'

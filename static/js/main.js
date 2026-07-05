@@ -3441,3 +3441,113 @@ function updateActiveStorageIndicator(dbType) {
     }
 }
 
+
+// =========================================================================
+//  System Updates
+// =========================================================================
+async function checkSystemUpdates() {
+    const statusText = document.getElementById('update-status-text');
+    const commitDetails = document.getElementById('update-commit-details');
+    const pullBtn = document.getElementById('btn-pull-updates');
+    const spinner = document.getElementById('update-spinner');
+    const spinnerLabel = document.getElementById('update-spinner-label');
+    const logBox = document.getElementById('update-console-log-box');
+    const logText = document.getElementById('update-console-text');
+    
+    // Reset view state
+    statusText.textContent = "Checking...";
+    statusText.style.color = "var(--text-secondary)";
+    commitDetails.textContent = "";
+    pullBtn.classList.add('hidden');
+    spinner.classList.remove('hidden');
+    spinnerLabel.textContent = "Fetching remote repository status...";
+    logBox.classList.add('hidden');
+    logText.textContent = "";
+
+    try {
+        const res = await fetch('/api/system/update/check');
+        const data = await res.json();
+        spinner.classList.add('hidden');
+
+        if (data.status === 'success') {
+            const current = data.current_commit;
+            const currentDesc = data.current_desc;
+            const remote = data.latest_commit;
+            const behind = data.behind_by_commits;
+
+            if (data.updates_available) {
+                statusText.textContent = "Updates Available!";
+                statusText.style.color = "var(--accent-yellow)";
+                commitDetails.innerHTML = `Your repository is behind <strong>origin/main</strong> by <strong>${behind}</strong> commit(s).<br>` +
+                                           `Current local commit: <code>${current}</code> (${currentDesc})<br>` +
+                                           `Latest origin/main commit: <code>${remote}</code>`;
+                
+                // Render list of new commits in console
+                if (data.commits_list && data.commits_list.length > 0) {
+                    logBox.classList.remove('hidden');
+                    logText.textContent = "Available updates:\n" + data.commits_list.join("\n");
+                }
+                pullBtn.classList.remove('hidden');
+            } else {
+                statusText.textContent = "Up to Date";
+                statusText.style.color = "var(--accent-green)";
+                commitDetails.innerHTML = `Your application is fully up to date with <strong>origin/main</strong>.<br>` +
+                                           `Current local commit: <code>${current}</code> (${currentDesc})`;
+            }
+        } else {
+            statusText.textContent = "Check Failed";
+            statusText.style.color = "var(--accent-red)";
+            commitDetails.textContent = data.message || "An error occurred during git check.";
+        }
+    } catch (e) {
+        spinner.classList.add('hidden');
+        statusText.textContent = "Check Failed";
+        statusText.style.color = "var(--accent-red)";
+        commitDetails.textContent = "Error contacting update API endpoint. Make sure the backend server is running.";
+        console.error(e);
+    }
+}
+
+async function pullLatestUpdates() {
+    const statusText = document.getElementById('update-status-text');
+    const commitDetails = document.getElementById('update-commit-details');
+    const pullBtn = document.getElementById('btn-pull-updates');
+    const spinner = document.getElementById('update-spinner');
+    const spinnerLabel = document.getElementById('update-spinner-label');
+    const logBox = document.getElementById('update-console-log-box');
+    const logText = document.getElementById('update-console-text');
+
+    statusText.textContent = "Updating...";
+    statusText.style.color = "var(--text-secondary)";
+    pullBtn.classList.add('hidden');
+    spinner.classList.remove('hidden');
+    spinnerLabel.textContent = "Pulling latest changes from origin/main...";
+    logBox.classList.remove('hidden');
+    logText.textContent = "";
+
+    try {
+        const res = await fetch('/api/system/update/pull', { method: 'POST' });
+        const data = await res.json();
+        spinner.classList.add('hidden');
+
+        if (data.status === 'success') {
+            statusText.textContent = "Update Complete!";
+            statusText.style.color = "var(--accent-green)";
+            commitDetails.innerHTML = "Latest changes pulled successfully! <strong>Please restart the Connectify server</strong> to apply the code changes.";
+            logText.textContent = data.log || "Git pull executed successfully.";
+        } else {
+            statusText.textContent = "Update Failed";
+            statusText.style.color = "var(--accent-red)";
+            commitDetails.innerHTML = `Git pull returned an error. Click 'Check for Updates' to re-verify status.`;
+            logText.textContent = data.log || data.message || "Unknown update error.";
+        }
+    } catch (e) {
+        spinner.classList.add('hidden');
+        statusText.textContent = "Update Failed";
+        statusText.style.color = "var(--accent-red)";
+        commitDetails.textContent = "Connection to update service failed.";
+        console.error(e);
+    }
+}
+
+
