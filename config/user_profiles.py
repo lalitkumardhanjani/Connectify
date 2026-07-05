@@ -176,7 +176,7 @@ def save_all_configs(config):
         pass
         
     # 2. Save individual user configs via storage provider
-    from core.storage.engine import save_user_config
+    from core.storage.engine import save_user_config, get_user_config
     for username, user_data in config.get("users", {}).items():
         # Ensure user folder exists (to store bootstrap files and local excel cache)
         user_dir = os.path.join(users_dir, username)
