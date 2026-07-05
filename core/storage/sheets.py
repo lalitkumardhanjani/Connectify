@@ -69,6 +69,26 @@ def get_sheets_client(credentials_json_content):
         logger.error(f"Google Sheets Authorization failed: {e}")
         raise ValueError(f"Google authorization failed: {e}")
 
+_spreadsheet_cache = {}
+_spreadsheet_cache_lock = threading.Lock()
+_SPREADSHEET_CACHE_TTL = 30
+
+def get_open_spreadsheet(spreadsheet_url, credentials_json_content):
+    """Retrieve an opened spreadsheet, using a thread-safe TTL cache to prevent duplicate open_by_url requests."""
+    with _spreadsheet_cache_lock:
+        entry = _spreadsheet_cache.get(spreadsheet_url)
+        if entry:
+            ts, sh = entry
+            if time.monotonic() - ts < _SPREADSHEET_CACHE_TTL:
+                return sh
+                
+    client = get_sheets_client(credentials_json_content)
+    sh = client.open_by_url(spreadsheet_url)
+    with _spreadsheet_cache_lock:
+        _spreadsheet_cache[spreadsheet_url] = (time.monotonic(), sh)
+    return sh
+
+
 
 def format_worksheet(ws, headers):
     """Applies header style, freezes first row, and auto-resizes columns."""
@@ -105,12 +125,12 @@ def ensure_worksheets_exist(spreadsheet_url, credentials_json_content):
 
 def ensure_worksheets_exist(spreadsheet_url, credentials_json_content):
     """Checks and creates all required worksheets in the Google Sheet, setting up their table headers."""
-    client = get_sheets_client(credentials_json_content)
     try:
-        sh = client.open_by_url(spreadsheet_url)
+        sh = get_open_spreadsheet(spreadsheet_url, credentials_json_content)
     except Exception as e:
-        logger.error(f"Failed to open Google Sheet by URL: {e}")
+        logger.error(f"Failed to open Google Sheet: {e}")
         raise ValueError(f"Failed to open Google Sheet. Please check the URL and confirm the sheet is shared with the service account email. Error: {e}")
+
 
     # Fetch all worksheet objects in a single call to save read API quota
     try:
@@ -280,10 +300,10 @@ def read_rows(spreadsheet_url, credentials_json_content, worksheet_name):
         logger.debug(f"Cache hit for worksheet '{worksheet_name}' ({len(cached)} rows)")
         return cached
 
-    client = get_sheets_client(credentials_json_content)
     try:
-        sh = client.open_by_url(spreadsheet_url)
+        sh = get_open_spreadsheet(spreadsheet_url, credentials_json_content)
         ws = sh.worksheet(worksheet_name)
+
         data = ws.get_all_records()
         _cache_set(worksheet_name, data)
         logger.debug(f"Fetched {len(data)} rows from Google Sheets '{worksheet_name}' and cached.")
@@ -295,10 +315,10 @@ def read_rows(spreadsheet_url, credentials_json_content, worksheet_name):
 
 def write_rows(spreadsheet_url, credentials_json_content, worksheet_name, data_dicts):
     """Bulk writes/overwrites data to a worksheet, retaining the header row."""
-    client = get_sheets_client(credentials_json_content)
     try:
-        sh = client.open_by_url(spreadsheet_url)
+        sh = get_open_spreadsheet(spreadsheet_url, credentials_json_content)
         ws = sh.worksheet(worksheet_name)
+
         
         # Get headers from constants
         headers = None
@@ -340,10 +360,10 @@ def write_rows(spreadsheet_url, credentials_json_content, worksheet_name, data_d
 
 def append_row(spreadsheet_url, credentials_json_content, worksheet_name, data_dict):
     """Appends a single dictionary row to the worksheet matching column headers."""
-    client = get_sheets_client(credentials_json_content)
     try:
-        sh = client.open_by_url(spreadsheet_url)
+        sh = get_open_spreadsheet(spreadsheet_url, credentials_json_content)
         ws = sh.worksheet(worksheet_name)
+
         
         headers = None
         for key, info in GOOGLE_SHEET_WORKSHEETS.items():
