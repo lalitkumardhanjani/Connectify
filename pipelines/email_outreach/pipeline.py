@@ -49,31 +49,53 @@ def run_phase_one(scraper):
 
 def run_phase_two(scraper, review_mode=None):
     """Executes composing and sending emails via Selenium browser to discovered addresses."""
-    if not os.path.exists(JOB_TRACKER_FILE):
-        logger.warning(f"Excel database '{JOB_TRACKER_FILE}' not found – nothing to send. Please run Phase 1 (Fetch Emails) first to scrape contact leads.")
-        return
-        
-    wb = openpyxl.load_workbook(JOB_TRACKER_FILE)
-    ws = wb.active
-    col_map = {cell.value: idx+1 for idx, cell in enumerate(ws[1])}
-    email_col = col_map.get('Email')
-    status_col = col_map.get('Status')
-    post_url_col = col_map.get('PostURL')
+    from core.storage.database import get_sheets_config
+    sheets_conf = get_sheets_config()
     
-    if not email_col or not status_col:
-        logger.error("Excel schema missing required columns.")
-        return
-        
     pending_rows = []
-    for row in range(2, ws.max_row + 1):
-        status = (ws.cell(row=row, column=status_col).value or '').strip().lower()
-        if status in ('sent', 'skipped'):
-            continue
-        email = ws.cell(row=row, column=email_col).value
-        if not email:
-            continue
-        post_url = ws.cell(row=row, column=post_url_col).value if post_url_col else ''
-        pending_rows.append((row, email, post_url or ''))
+    
+    if sheets_conf:
+        url, creds = sheets_conf
+        from core.storage.sheets import read_rows
+        try:
+            rows = read_rows(url, creds, "Scraped Emails")
+            for idx, r in enumerate(rows, start=2):
+                status = (r.get('Status') or '').strip().lower()
+                if status in ('sent', 'skipped'):
+                    continue
+                email = r.get('Email')
+                if not email:
+                    continue
+                post_url = r.get('PostURL') or ''
+                pending_rows.append((idx, email, post_url))
+        except Exception as e:
+            logger.error(f"Error loading scraped emails from Google Sheets: {e}")
+            return
+    else:
+        if not os.path.exists(JOB_TRACKER_FILE):
+            logger.warning(f"Excel database '{JOB_TRACKER_FILE}' not found – nothing to send. Please run Phase 1 (Fetch Emails) first to scrape contact leads.")
+            return
+            
+        wb = openpyxl.load_workbook(JOB_TRACKER_FILE)
+        ws = wb.active
+        col_map = {cell.value: idx+1 for idx, cell in enumerate(ws[1])}
+        email_col = col_map.get('Email')
+        status_col = col_map.get('Status')
+        post_url_col = col_map.get('PostURL')
+        
+        if not email_col or not status_col:
+            logger.error("Excel schema missing required columns.")
+            return
+            
+        for row in range(2, ws.max_row + 1):
+            status = (ws.cell(row=row, column=status_col).value or '').strip().lower()
+            if status in ('sent', 'skipped'):
+                continue
+            email = ws.cell(row=row, column=email_col).value
+            if not email:
+                continue
+            post_url = ws.cell(row=row, column=post_url_col).value if post_url_col else ''
+            pending_rows.append((row, email, post_url or ''))
         
     user_conf = get_selected_user_config()
     email_scraper_conf = user_conf.get("email_scraper", {})

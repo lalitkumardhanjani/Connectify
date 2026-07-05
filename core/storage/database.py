@@ -1551,6 +1551,73 @@ def get_completed_referral_count(company_name, job_url=None, job_id=None, path=N
 
 def sync_job_lead_referral_statuses(path=None):
     """Automatically updates job tracker status to 'Referral Outreach Completed' if targets are met."""
+    sheets_conf = get_sheets_config()
+    if sheets_conf:
+        url, creds = sheets_conf
+        from core.storage.sheets import read_rows, write_rows
+        try:
+            from config.user_profiles import get_selected_user_config
+            user_conf = get_selected_user_config()
+            connect_conf = user_conf.get("linkedin_connect", {})
+            target = int(connect_conf.get("max_connections_per_company") or connect_conf.get("max_connections_per_run") or 5)
+            
+            referrals = load_all_referrals()
+            company_data = {}
+            for ref in referrals:
+                c_name = str(ref.get("CompanyName") or "").strip().lower()
+                c_url = clean_company_url(ref.get("Company_URL") or "")
+                job_id_val = str(ref.get("JobID") or "").strip()
+                ref_source = str(ref.get("Referral_Source") or "").strip().lower()
+                ref_status = str(ref.get("Referral_Status") or "").strip().lower()
+                is_employee = ref_source in ("existing employee", "sent employee connection")
+                is_valid_status = ref_status in ("sent", "replied", "referral received")
+                
+                key = (c_name, c_url, job_id_val)
+                if key not in company_data:
+                    company_data[key] = 0
+                if is_employee and is_valid_status:
+                    company_data[key] += 1
+
+            rows = read_rows(url, creds, "Job Leads")
+            updated = False
+            for r in rows:
+                company_name = str(r.get("CompanyName") or "").strip()
+                c_name_lower = company_name.lower()
+                row_job_id = str(r.get("JobID") or "").strip()
+                
+                company_url = clean_company_url(r.get("LinkedIn_Company_URL") or "")
+                if not company_url:
+                    for (cn, cu, jid) in company_data.keys():
+                        if cn == c_name_lower and cu:
+                            company_url = cu
+                            break
+                if not company_url:
+                    slug = company_name.lower().replace(" ", "-").replace(".", "").replace(",", "")
+                    company_url = f"https://www.linkedin.com/company/{slug}/"
+                    
+                completed_count = 0
+                for (cn, cu, jid), count in company_data.items():
+                    if cn == c_name_lower and jid == row_job_id:
+                        if not company_url or not cu or company_url == cu:
+                            completed_count += count
+                            
+                if completed_count >= target:
+                    current_status = str(r.get("Status") or "").strip()
+                    if current_status != 'Referral Outreach Completed' and current_status.lower() != 'done':
+                        r['Status'] = 'Referral Outreach Completed'
+                        updated = True
+                        
+                current_linkedin_url = r.get("LinkedIn_Company_URL")
+                if not current_linkedin_url:
+                    r["LinkedIn_Company_URL"] = company_url
+                    updated = True
+                    
+            if updated:
+                write_rows(url, creds, "Job Leads", rows)
+        except Exception as e:
+            logger.error(f"Error syncing Google Sheets job tracker referral statuses: {e}")
+        return
+
     if path is None:
         path = get_job_leads_file()
     if not os.path.exists(path):

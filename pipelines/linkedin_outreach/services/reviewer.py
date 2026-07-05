@@ -7,6 +7,20 @@ from core.logging.config import logger
 
 def load_job_data_excel(filename):
     """Load job data from the Excel tracker and return rows, workbook, sheet, headers."""
+    from core.storage.database import get_sheets_config
+    sheets_conf = get_sheets_config()
+    if sheets_conf:
+        url, creds = sheets_conf
+        from core.storage.sheets import read_rows
+        try:
+            rows = read_rows(url, creds, "Job Leads")
+            from config.constants import GOOGLE_SHEET_WORKSHEETS
+            headers = GOOGLE_SHEET_WORKSHEETS["job_leads"]["headers"]
+            return rows, None, None, headers
+        except Exception as e:
+            logger.error(f"Error loading job leads from Google Sheets: {e}")
+            return [], None, None, []
+
     if not os.path.exists(filename):
         logger.error(f"Excel file '{filename}' not found!")
         return [], None, None, []
@@ -24,6 +38,18 @@ def load_job_data_excel(filename):
 
 def save_job_data_excel(wb, ws, headers, rows, filename):
     """Write rows back to the Excel worksheet and save the workbook."""
+    from core.storage.database import get_sheets_config
+    sheets_conf = get_sheets_config()
+    if sheets_conf:
+        url, creds = sheets_conf
+        from core.storage.sheets import write_rows
+        try:
+            write_rows(url, creds, "Job Leads", rows)
+            logger.info("Saved progress to Google Sheets.")
+        except Exception as e:
+            logger.error(f"Error saving job leads to Google Sheets: {e}")
+        return
+
     ws.delete_rows(2, ws.max_row)
     for row_dict in rows:
         ws.append([row_dict.get(h, "") for h in headers])
