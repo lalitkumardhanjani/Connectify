@@ -1,4 +1,4 @@
-﻿:root {
+:root {
     --bg-primary: #0a0813;
     --bg-secondary: #120e24;
     --glass-bg: rgba(20, 16, 38, 0.55);
@@ -3606,4 +3606,103 @@ body {
 @keyframes slideOutRight {
     from { transform: translateX(0);    opacity: 1; }
     to   { transform: translateX(120%); opacity: 0; }
+}
+
+/* =========================================================================
+   Candidate Match Filters Premium Custom Styling
+   ========================================================================= */
+.exp-chip-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.exp-chip-label {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    user-select: none;
+    flex: 1 1 calc(50% - 10px);
+    min-width: 130px;
+    box-sizing: border-box;
+}
+
+.exp-chip-label:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(0, 191, 255, 0.3);
+    color: var(--text-primary);
+    transform: translateY(-1px);
+}
+
+.exp-chip-label input[type="checkbox"] {
+    display: none; /* Hide default ugly checkboxes */
+}
+
+/* Custom glow circle indicator */
+.exp-chip-label::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    transition: all 0.25s ease;
+}
+
+/* Selected state */
+.exp-chip-label:has(input[type="checkbox"]:checked) {
+    background: linear-gradient(135deg, rgba(0, 191, 255, 0.12), rgba(0, 230, 118, 0.06));
+    border-color: rgba(0, 191, 255, 0.6);
+    color: var(--text-primary);
+    box-shadow: 0 0 14px rgba(0, 191, 255, 0.15);
+    font-weight: 600;
+}
+
+.exp-chip-label:has(input[type="checkbox"]:checked)::before {
+    background: #00bfff;
+    box-shadow: 0 0 8px #00bfff;
+    transform: scale(1.2);
+}
+
+/* Custom tags container for locations */
+.tags-input-container.tags-input-location {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    transition: all 0.25s ease;
+}
+
+.tags-input-container.tags-input-location:focus-within {
+    border-color: rgba(0, 191, 255, 0.5);
+    box-shadow: 0 0 12px rgba(0, 191, 255, 0.15);
+    background: rgba(0, 0, 0, 0.4);
+}
+
+.tags-input-container.tags-input-location .tag-badge {
+    background: rgba(0, 191, 255, 0.1);
+    border: 1px solid rgba(0, 191, 255, 0.25);
+    color: #e0f7ff;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.tags-input-container.tags-input-location .tag-badge:hover {
+    border-color: rgba(0, 191, 255, 0.5);
+    background: rgba(0, 191, 255, 0.2);
+    box-shadow: 0 0 8px rgba(0, 191, 255, 0.15);
 }

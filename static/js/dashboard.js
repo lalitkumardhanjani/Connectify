@@ -97,7 +97,7 @@ function progressBar(value, max) {
 //  Module tab switching
 // ─────────────────────────────────────────────────────────
 function switchDashModule(module) {
-    ['email', 'company', 'outreach'].forEach(m => {
+    ['email', 'company'].forEach(m => {
         const panel = document.getElementById(`dash-panel-${m}`);
         const tab = document.getElementById(`dash-module-${m}`);
         if (panel) panel.classList.remove('active');
@@ -113,8 +113,6 @@ function switchDashModule(module) {
         loadEmailDashboard();
     } else if (module === 'company') {
         loadCompanyDashboard();
-    } else if (module === 'outreach') {
-        loadOutreachDashboard();
     }
 }
 
@@ -636,7 +634,7 @@ async function loadOutreachDashboard() {
 //  Bootstrap — run when dashboard tab is active
 // ─────────────────────────────────────────────────────────
 async function loadDashboardAnalytics() {
-    await Promise.all([loadEmailDashboard(), loadCompanyDashboard(), loadOutreachDashboard()]);
+    await Promise.all([loadEmailDashboard(), loadCompanyDashboard()]);
 }
 
 // Hook into main.js tab click (the `loadStats` call in main.js already
