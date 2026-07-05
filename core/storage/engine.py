@@ -382,6 +382,17 @@ class GoogleSheetsStorageProvider(BaseStorageProvider):
             ensure_worksheets_exist(url, creds_content)
 
             profile_rows = read_rows(url, creds_content, profile_ws)
+            if not profile_rows:
+                logger.warning(f"Google Sheets User Profile is empty for user {username}. Falling back to Local Storage configs and auto-uploading to sync.")
+                local_config = LocalStorageProvider().get_config(username, bypass_cache=bypass_cache)
+                if local_config:
+                    try:
+                        self.save_config(username, local_config)
+                    except Exception as upload_err:
+                        logger.error(f"Failed to auto-populate empty Google Sheet settings: {upload_err}")
+                _set_cached_config(username, local_config)
+                return local_config
+
             templates_rows = read_rows(url, creds_content, templates_ws)
             keywords_rows = read_rows(url, creds_content, keywords_ws)
             settings_rows = read_rows(url, creds_content, settings_ws)

@@ -112,19 +112,21 @@ def ensure_worksheets_exist(spreadsheet_url, credentials_json_content):
         logger.error(f"Failed to open Google Sheet by URL: {e}")
         raise ValueError(f"Failed to open Google Sheet. Please check the URL and confirm the sheet is shared with the service account email. Error: {e}")
 
+    # Fetch all worksheet objects in a single call to save read API quota
+    try:
+        worksheets = sh.worksheets()
+        worksheets_by_title = {ws.title: ws for ws in worksheets}
+    except Exception as e:
+        logger.error(f"Failed to fetch worksheets metadata: {e}")
+        raise e
+
     # --- Self-Healing Migration: Old config sheet -> New 4-sheet layout ---
     old_config_ws_name = "Profile & Settings"
-    has_old_config = False
-    try:
-        old_ws = sh.worksheet(old_config_ws_name)
-        has_old_config = True
-    except Exception:
-        pass
-
-    if has_old_config:
+    if old_config_ws_name in worksheets_by_title:
         logger.info("Upgrading old single 'Profile & Settings' worksheet to 4 separate worksheets layout...")
         try:
             from core.storage.engine import unflatten_dict, get_setting_meta
+            old_ws = worksheets_by_title[old_config_ws_name]
             old_records = old_ws.get_all_records()
             
             flat_dict = {}
@@ -138,10 +140,10 @@ def ensure_worksheets_exist(spreadsheet_url, credentials_json_content):
             
             # Helper to check/create worksheet
             def get_or_create_ws(title, headers_list):
-                try:
-                    w = sh.worksheet(title)
-                except Exception:
-                    w = sh.add_worksheet(title=title, rows="500", cols=str(len(headers_list)))
+                if title in worksheets_by_title:
+                    return worksheets_by_title[title]
+                w = sh.add_worksheet(title=title, rows="500", cols=str(len(headers_list)))
+                worksheets_by_title[title] = w
                 return w
 
             # A. Profile sheet
@@ -229,34 +231,41 @@ def ensure_worksheets_exist(spreadsheet_url, credentials_json_content):
             
             # Delete the old worksheet
             sh.del_worksheet(old_ws)
+            worksheets_by_title.pop(old_config_ws_name, None)
             logger.info("Migration to new 4-sheet settings worksheets successful!")
         except Exception as migration_error:
             logger.error(f"Failed self-healing migration of settings sheets: {migration_error}")
 
-    # --- End of self-healing migration ---
+    # Check if all worksheets exist
+    all_exist = True
+    for key, info in GOOGLE_SHEET_WORKSHEETS.items():
+        if info["name"] not in worksheets_by_title:
+            all_exist = False
+            break
 
+    if all_exist:
+        logger.debug("All required worksheets exist. Skipping check & formatting.")
+        return
+
+    # If any sheet is missing, build them
     for key, info in GOOGLE_SHEET_WORKSHEETS.items():
         name = info["name"]
         headers = info["headers"]
         
-        try:
-            ws = sh.worksheet(name)
-            first_row = ws.row_values(1)
-            if not first_row:
-                ws.append_row(headers)
-                logger.info(f"Initialized headers for existing worksheet: '{name}'")
+        if name in worksheets_by_title:
+            continue
             
-            # Apply formatting
-            format_worksheet(ws, headers)
-        except Exception:
-            # Worksheet does not exist, create it and write headers
+        try:
             ws = sh.add_worksheet(title=name, rows="1000", cols=str(len(headers)))
             ws.append_row(headers)
             logger.info(f"Created worksheet '{name}' and wrote headers.")
             format_worksheet(ws, headers)
-            time.sleep(1)
+            time.sleep(0.5)
+        except Exception as ws_err:
+            logger.error(f"Failed to create worksheet '{name}': {ws_err}")
 
     _cache_invalidate_all()
+
 
 
 def read_rows(spreadsheet_url, credentials_json_content, worksheet_name):
