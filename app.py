@@ -633,7 +633,11 @@ def create_user_profile():
             "sender_email": "",
             "interval": "60",
             "review_mode": True,
-            "max_emails_per_run": "5"
+            "max_emails_per_run": "5",
+            "filter_experience_enabled": False,
+            "filter_experience_ranges": [],
+            "filter_location_enabled": False,
+            "filter_locations": [],
         },
         "linkedin_connect": {
             "message_template": DEFAULT_CONNECTION_TEMPLATE,

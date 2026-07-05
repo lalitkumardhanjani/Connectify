@@ -1224,6 +1224,7 @@ let connectSearchKeywords = [];
 let connectTitleKeywords = [];
 let scraperExcludedKeywords = [];
 let connectExcludedKeywords = [];
+let scraperFilterLocations = [];
 let cachedConfig = {};
 
 // Helper to get 1 or 2 initials from a username
@@ -1557,6 +1558,7 @@ function renderKeywords(type) {
     else if (type === 'connect-title') keywordsList = connectTitleKeywords;
     else if (type === 'scraper-excluded') keywordsList = scraperExcludedKeywords;
     else if (type === 'connect-excluded') keywordsList = connectExcludedKeywords;
+    else if (type === 'scraper-filter-loc') keywordsList = scraperFilterLocations;
     else return;
     
     // Clear old tags
@@ -1598,6 +1600,7 @@ function addKeyword(type) {
     else if (type === 'connect-title') keywordsList = connectTitleKeywords;
     else if (type === 'scraper-excluded') keywordsList = scraperExcludedKeywords;
     else if (type === 'connect-excluded') keywordsList = connectExcludedKeywords;
+    else if (type === 'scraper-filter-loc') keywordsList = scraperFilterLocations;
     else return;
 
     if (!keywordsList.includes(value)) {
@@ -1616,6 +1619,7 @@ function removeKeyword(type, index) {
     else if (type === 'connect-title') keywordsList = connectTitleKeywords;
     else if (type === 'scraper-excluded') keywordsList = scraperExcludedKeywords;
     else if (type === 'connect-excluded') keywordsList = connectExcludedKeywords;
+    else if (type === 'scraper-filter-loc') keywordsList = scraperFilterLocations;
     else return;
 
     keywordsList.splice(index, 1);
@@ -1964,6 +1968,20 @@ async function loadSettings() {
         renderKeywords('scraper-title');
         scraperExcludedKeywords = scraper.excluded_keywords || [];
         renderKeywords('scraper-excluded');
+        
+        // Load custom filters
+        setChecked('scraper-filter-exp-enabled', scraper.filter_experience_enabled || false);
+        setChecked('scraper-filter-loc-enabled', scraper.filter_location_enabled || false);
+        
+        const allowedRanges = scraper.filter_experience_ranges || [];
+        document.querySelectorAll('.scraper-exp-range-checkbox').forEach(cb => {
+            cb.checked = allowedRanges.includes(cb.value);
+            cb.addEventListener('change', () => updateTabUnsavedState('scraper', true));
+        });
+        
+        scraperFilterLocations = scraper.filter_locations || [];
+        renderKeywords('scraper-filter-loc');
+        toggleFilterInputs();
         
         // 3. LinkedIn Connect fields
         setVal('connect-interval', connect.interval || '60');
@@ -2367,6 +2385,44 @@ if (connectExcludedTagInput) {
     connectExcludedTagInput.addEventListener('blur', () => addKeyword('connect-excluded'));
 }
 
+const scraperFilterLocTagInput = document.getElementById('scraper-filter-loc-tag-input');
+if (scraperFilterLocTagInput) {
+    scraperFilterLocTagInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addKeyword('scraper-filter-loc');
+        }
+    });
+    scraperFilterLocTagInput.addEventListener('blur', () => addKeyword('scraper-filter-loc'));
+}
+
+function toggleFilterInputs() {
+    const expEnabled = document.getElementById('scraper-filter-exp-enabled').checked;
+    const locEnabled = document.getElementById('scraper-filter-loc-enabled').checked;
+    
+    document.querySelectorAll('.scraper-exp-range-checkbox').forEach(cb => {
+        cb.disabled = !expEnabled;
+        cb.closest('label').style.opacity = expEnabled ? 1 : 0.5;
+    });
+    
+    const locInput = document.getElementById('scraper-filter-loc-tag-input');
+    if (locInput) {
+        locInput.disabled = !locEnabled;
+        locInput.placeholder = locEnabled ? "Add target location (press Enter)..." : "Enable location filtering to add";
+    }
+    const locContainer = document.getElementById('scraper-filter-loc-keywords-container');
+    if (locContainer) {
+        locContainer.style.opacity = locEnabled ? 1 : 0.5;
+    }
+}
+
+// Watch experience & location filter enabled switches for unsaved changes
+const expSwitch = document.getElementById('scraper-filter-exp-enabled');
+if (expSwitch) expSwitch.addEventListener('change', () => updateTabUnsavedState('scraper', true));
+const locSwitch = document.getElementById('scraper-filter-loc-enabled');
+if (locSwitch) locSwitch.addEventListener('change', () => updateTabUnsavedState('scraper', true));
+
+
 // Dropdown click handlers
 const dropdownTrigger = document.getElementById('user-select-trigger');
 if (dropdownTrigger) {
@@ -2482,7 +2538,11 @@ async function saveConfiguration(module) {
             "keywords": scraperSearchKeywords,
             "excluded_keywords": scraperExcludedKeywords,
             "email_subject": getVal('scraper-email-subject'),
-            "email_template": getVal('scraper-email-template')
+            "email_template": getVal('scraper-email-template'),
+            "filter_experience_enabled": getChecked('scraper-filter-exp-enabled'),
+            "filter_experience_ranges": Array.from(document.querySelectorAll('.scraper-exp-range-checkbox')).filter(cb => cb.checked).map(cb => cb.value),
+            "filter_location_enabled": getChecked('scraper-filter-loc-enabled'),
+            "filter_locations": scraperFilterLocations
         };
     } else if (module === 'connect') {
         const maxConnsVal = parseInt(getVal('connect-max-connections'), 10);

@@ -142,6 +142,10 @@ SETTING_METADATA = {
     "email_scraper.excluded_keywords": ("Email Scraper", "Excluded Keywords"),
     "email_scraper.email_subject": ("Email Scraper", "Outreach Email Subject"),
     "email_scraper.email_template": ("Email Scraper", "Outreach Email Template"),
+    "email_scraper.filter_experience_enabled": ("Email Scraper", "Filter Experience Enabled (True/False)"),
+    "email_scraper.filter_experience_ranges": ("Email Scraper", "Acceptable Experience Ranges"),
+    "email_scraper.filter_location_enabled": ("Email Scraper", "Filter Location Enabled (True/False)"),
+    "email_scraper.filter_locations": ("Email Scraper", "Preferred Locations List"),
 
     # LinkedIn Connect
     "linkedin_connect.interval": ("LinkedIn Connections", "Run Interval (minutes)"),

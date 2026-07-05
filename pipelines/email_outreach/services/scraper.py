@@ -578,53 +578,107 @@ class LinkedInScraper:
                                 company_name = extracted.get('company_name', '')
                                 experience = extracted.get('experience', '')
                                 location = extracted.get('location', '')
+                                
+                                # Candidate Match Custom Filters
+                                scraper_conf = user_conf.get("email_scraper", {})
+                                
+                                def parse_experience_years(exp_str):
+                                    """Extract first numeric year value from experience string."""
+                                    if not exp_str:
+                                        return None
+                                    s = exp_str.lower().strip()
+                                    # Fresher/entry-level keywords → 0 years (word-boundary checks)
+                                    fresher_words = ["fresher", "entry level", "entry-level", "intern", "graduate", "junior", "trainee", "no experience"]
+                                    if any(x in s for x in fresher_words):
+                                        return 0
+                                    # Check for explicit 0 years (not inside a bigger number like 10)
+                                    if re.search(r'\b0\s*(?:year|yr)', s):
+                                        return 0
+                                    # Extract first number from string
+                                    nums = re.findall(r'\d+', s)
+                                    if nums:
+                                        return int(nums[0])
+                                    # Senior-level fallback → 5+ years
+                                    if any(x in s for x in ["senior", "lead", "staff", "principal", "manager", "head", "director"]):
+                                        return 5
+                                    return None
 
-                                # Validate location match against candidate's preferred locations
-                                profile = user_conf.get("profile", {})
-                                pref_location_str = profile.get("preferred_locations", "")
-                                preferred_locs = [loc.strip().lower() for loc in pref_location_str.split(",") if loc.strip()]
+                                keep_post = True
+                                skip_reason = ""
 
-                                # Expand common synonyms/variations
-                                synonyms = {
-                                    "bangalore": ["bangalore", "bengaluru", "blr"],
-                                    "bengaluru": ["bangalore", "bengaluru", "blr"],
-                                    "chennai": ["chennai", "madras"],
-                                    "mumbai": ["mumbai", "bombay"],
-                                    "pune": ["pune", "poona"],
-                                    "delhi": ["delhi", "ncr", "gurgaon", "noida", "ghaziabad", "gurugram"],
-                                    "noida": ["noida", "delhi", "ncr"],
-                                    "gurgaon": ["gurgaon", "gurugram", "delhi", "ncr"],
-                                    "gurugram": ["gurgaon", "gurugram", "delhi", "ncr"],
-                                    "hyderabad": ["hyderabad", "secunderabad"]
-                                }
-                                expanded_preferred = set(preferred_locs)
-                                for loc in preferred_locs:
-                                    if loc in synonyms:
-                                        expanded_preferred.update(synonyms[loc])
+                                # ── Experience Filter ──────────────────────────────────────────────────
+                                # Only applied when filter is enabled AND specific ranges are selected.
+                                # If experience is not extractable from the post, the post passes through.
+                                if keep_post and scraper_conf.get("filter_experience_enabled", False):
+                                    allowed_ranges = scraper_conf.get("filter_experience_ranges") or []
+                                    if allowed_ranges and experience:
+                                        val = parse_experience_years(experience)
+                                        if val is not None:
+                                            matched_exp = False
+                                            if "fresher" in allowed_ranges and val == 0:
+                                                matched_exp = True
+                                            if "0-1" in allowed_ranges and val <= 1:
+                                                matched_exp = True
+                                            if "1-3" in allowed_ranges and 1 <= val <= 3:
+                                                matched_exp = True
+                                            if "3-5" in allowed_ranges and 3 <= val <= 5:
+                                                matched_exp = True
+                                            if "5+" in allowed_ranges and val >= 5:
+                                                matched_exp = True
+                                            if not matched_exp:
+                                                keep_post = False
+                                                skip_reason = f"Experience '{experience}' (parsed={val}yr) not in selected ranges {allowed_ranges}"
 
-                                location_matched = False
-                                if not expanded_preferred:
-                                    location_matched = True
-                                else:
-                                    loc_lower = location.lower() if location else ""
-                                    if loc_lower:
-                                        # Location was extracted cleanly — match ONLY against it,
-                                        # NOT the full post body to avoid false positives
-                                        # (e.g. a Chennai post body that mentions "Bangalore" elsewhere)
-                                        for pref in expanded_preferred:
+                                # ── Location Filter ────────────────────────────────────────────────────
+                                # Only applied when filter is enabled AND target locations are set.
+                                # If location cannot be extracted from the post, the post passes through.
+                                if keep_post and scraper_conf.get("filter_location_enabled", False):
+                                    target_locations = scraper_conf.get("filter_locations") or []
+                                    if target_locations and location:
+                                        loc_list = [l.strip().lower() for l in target_locations if l.strip()]
+                                        synonyms = {
+                                            "bangalore": ["bangalore", "bengaluru", "blr"],
+                                            "bengaluru": ["bangalore", "bengaluru", "blr"],
+                                            "chennai": ["chennai", "madras"],
+                                            "mumbai": ["mumbai", "bombay"],
+                                            "pune": ["pune", "poona"],
+                                            "delhi": ["delhi", "ncr", "gurgaon", "noida", "ghaziabad", "gurugram"],
+                                            "noida": ["noida", "delhi", "ncr", "ghaziabad"],
+                                            "gurgaon": ["gurgaon", "gurugram", "delhi", "ncr"],
+                                            "gurugram": ["gurgaon", "gurugram", "delhi", "ncr"],
+                                            "hyderabad": ["hyderabad", "secunderabad", "hyd"],
+                                            "kolkata": ["kolkata", "calcutta"],
+                                            "ahmedabad": ["ahmedabad", "ahmedabad"],
+                                            "jaipur": ["jaipur"],
+                                            "remote": ["remote", "wfh", "work from home", "anywhere"]
+                                        }
+                                        expanded_locs = set(loc_list)
+                                        for l in loc_list:
+                                            if l in synonyms:
+                                                expanded_locs.update(synonyms[l])
+
+                                        loc_matched = False
+                                        loc_lower = location.lower()
+                                        # Primary match: extracted location field
+                                        for pref in expanded_locs:
                                             if pref in loc_lower:
-                                                location_matched = True
+                                                loc_matched = True
                                                 break
-                                    else:
-                                        # No location extracted — fall back to full post content search
-                                        content_lower = content.lower()
-                                        for pref in expanded_preferred:
-                                            if pref in content_lower:
-                                                location_matched = True
-                                                break
+                                        # Fallback: search the post content body
+                                        if not loc_matched:
+                                            content_lower = content.lower()
+                                            for pref in expanded_locs:
+                                                if pref in content_lower:
+                                                    loc_matched = True
+                                                    break
+                                        if not loc_matched:
+                                            keep_post = False
+                                            skip_reason = f"Location '{location}' not in target locations {target_locations}"
 
-                                if not location_matched:
-                                    logger.debug(f"Post location does not match preferred locations {preferred_locs}. Bypassing skip check.")
+                                if not keep_post:
+                                    logger.info(f"Post filtered out: {skip_reason}")
+                                    continue
+
 
                                 if company_name:
                                     logger.debug(f"Extracted company: {company_name}")

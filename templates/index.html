@@ -1082,11 +1082,13 @@
                     <form id="settings-form" onsubmit="saveSettingsForm(event)">
                         <!-- SUB-TAB 2: EMAIL SCRAPER (OUTREACH ENGINE) -->
                         <div class="settings-tab-pane active" id="subtab-email-scraper">
+                            <!-- Same settings-grid as LinkedIn Automator for consistent proportions -->
                             <div class="settings-grid">
+
+                                <!-- ROW 1, COL 1: Automation Control (1 natural column — same as LinkedIn Automator's Connection Automation Control) -->
                                 <div class="settings-card card-glass">
                                     <h3><i class="fa-solid fa-gears glow-icon-blue"></i> Outreach Automation Control</h3>
                                     <p class="card-subtitle">Configure search intervals and pipeline gates</p>
-
                                     <div class="form-group">
                                         <label for="scraper-interval">Search Execution Frequency</label>
                                         <select id="scraper-interval">
@@ -1115,6 +1117,7 @@
                                     </div>
                                 </div>
 
+                                <!-- ROW 1, COL 2–3: LinkedIn Search Keywords (grid-span-2 — same as LinkedIn Automator) -->
                                 <div class="settings-card card-glass grid-span-2">
                                     <h3><i class="fa-solid fa-magnifying-glass glow-icon-blue"></i> LinkedIn Search Keywords</h3>
                                     <p class="card-subtitle">Manage terms used to search for hiring posts on LinkedIn</p>
@@ -1140,7 +1143,8 @@
                                     </div>
                                 </div>
 
-                                <div class="settings-card card-glass grid-span-2">
+                                <!-- ROW 2: Job Title Match Keywords — full width -->
+                                <div class="settings-card card-glass grid-span-3">
                                     <h3><i class="fa-solid fa-square-check glow-icon-blue"></i> Job Title Match Keywords</h3>
                                     <p class="card-subtitle">Manage terms required to match in the hiring post content</p>
                                     <div class="form-group">
@@ -1165,7 +1169,8 @@
                                     </div>
                                 </div>
 
-                                <div class="settings-card card-glass grid-span-3 exclusion-keywords-card">
+                                <!-- ROW 3, COL 1: Exclusion Filters -->
+                                <div class="settings-card card-glass exclusion-keywords-card">
                                     <h3><i class="fa-solid fa-ban glow-icon-red"></i> Exclusion Filters</h3>
                                     <p class="card-subtitle">Posts matching any exclusion keyword will be skipped entirely — not scraped or saved</p>
                                     <div class="form-group">
@@ -1189,7 +1194,69 @@
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+
+                                <!-- ROW 3, COL 2-3: Candidate Match Filters -->
+                                <div class="settings-card card-glass grid-span-2">
+                                    <h3><i class="fa-solid fa-filter glow-icon-blue"></i> Candidate Match Filters <span style="font-size: 0.75rem; font-weight: 400; color: var(--text-secondary); margin-left: 6px;">(Optional)</span></h3>
+                                    <p class="card-subtitle">Restrict outreach based on experience range or target locations</p>
+
+                                    <!-- Experience | Location — 2 equal columns -->
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 4px;">
+
+                                        <!-- Experience Filter column -->
+                                        <div>
+                                            <div class="form-group toggle-group" style="margin-bottom: 12px;">
+                                                <label for="scraper-filter-exp-enabled" style="font-weight: 600; font-size: 0.9rem; margin-bottom: 0;">Filter by Experience</label>
+                                                <label class="switch">
+                                                    <input type="checkbox" id="scraper-filter-exp-enabled" onchange="toggleFilterInputs()">
+                                                    <span class="slider"></span>
+                                                </label>
+                                            </div>
+                                            <div id="scraper-exp-options-container">
+                                                <label style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 10px; display: block;">Acceptable experience ranges:</label>
+                                                <div style="display: flex; flex-direction: column; gap: 8px;">
+                                                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.88rem;">
+                                                        <input type="checkbox" class="scraper-exp-range-checkbox" value="fresher"> Fresher / Entry Level
+                                                    </label>
+                                                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.88rem;">
+                                                        <input type="checkbox" class="scraper-exp-range-checkbox" value="0-1"> 0–1 Years
+                                                    </label>
+                                                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.88rem;">
+                                                        <input type="checkbox" class="scraper-exp-range-checkbox" value="1-3"> 1–3 Years
+                                                    </label>
+                                                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.88rem;">
+                                                        <input type="checkbox" class="scraper-exp-range-checkbox" value="3-5"> 3–5 Years
+                                                    </label>
+                                                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.88rem;">
+                                                        <input type="checkbox" class="scraper-exp-range-checkbox" value="5+"> 5+ Years
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Location Filter column -->
+                                        <div>
+                                            <div class="form-group toggle-group" style="margin-bottom: 12px;">
+                                                <label for="scraper-filter-loc-enabled" style="font-weight: 600; font-size: 0.9rem; margin-bottom: 0;">Filter by Location</label>
+                                                <label class="switch">
+                                                    <input type="checkbox" id="scraper-filter-loc-enabled" onchange="toggleFilterInputs()">
+                                                    <span class="slider"></span>
+                                                </label>
+                                            </div>
+                                            <div id="scraper-loc-options-container">
+                                                <label style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px; display: block;">Target locations:</label>
+                                                <div class="tags-input-container" id="scraper-filter-loc-keywords-container" style="min-height: 110px;">
+                                                    <!-- Location filter tags rendered dynamically by JS -->
+                                                    <input type="text" class="tag-input-field" id="scraper-filter-loc-tag-input" placeholder="Add target location (press Enter)...">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+
+                            </div><!-- end settings-grid -->
+
 
                             <div style="margin-top: 20px;">
                                 <div class="form-group">
@@ -1330,7 +1397,7 @@
                                     </div>
                                 </div>
 
-                                <div class="settings-card card-glass grid-span-2">
+                                <div class="settings-card card-glass grid-span-3">
                                     <h3><i class="fa-solid fa-square-check glow-icon-teal"></i> Job Title Match Keywords</h3>
                                     <p class="card-subtitle">Manage terms matched against job titles to verify suitability</p>
                                     <div class="form-group">
