@@ -3446,21 +3446,33 @@ function updateActiveStorageIndicator(dbType) {
 //  System Updates
 // =========================================================================
 async function checkSystemUpdates() {
-    const statusText = document.getElementById('update-status-text');
+    const heading = document.getElementById('update-status-heading');
+    const subheading = document.getElementById('update-status-subheading');
     const commitDetails = document.getElementById('update-commit-details');
     const pullBtn = document.getElementById('btn-pull-updates');
     const spinner = document.getElementById('update-spinner');
     const spinnerLabel = document.getElementById('update-spinner-label');
     const logBox = document.getElementById('update-console-log-box');
     const logText = document.getElementById('update-console-text');
+    const dropdown = document.getElementById('update-details-dropdown');
+    const iconContainer = document.getElementById('update-status-icon-container');
+    const iconEl = document.getElementById('update-status-icon');
     
     // Reset view state
-    statusText.textContent = "Checking...";
-    statusText.style.color = "var(--text-secondary)";
-    commitDetails.textContent = "";
+    heading.textContent = "Checking for Updates...";
+    subheading.textContent = "Connecting to remote update server...";
+    
+    // Reset icon to default spinning state
+    iconEl.className = "fa-solid fa-spinner fa-spin";
+    iconContainer.style.borderColor = "rgba(255,255,255,0.1)";
+    iconContainer.style.boxShadow = "none";
+    iconContainer.style.background = "rgba(255, 255, 255, 0.04)";
+    iconContainer.style.color = "var(--text-secondary)";
+    
     pullBtn.classList.add('hidden');
     spinner.classList.remove('hidden');
-    spinnerLabel.textContent = "Fetching remote repository status...";
+    spinnerLabel.textContent = "Fetching status from origin/main branch...";
+    dropdown.classList.add('hidden');
     logBox.classList.add('hidden');
     logText.textContent = "";
 
@@ -3475,53 +3487,98 @@ async function checkSystemUpdates() {
             const remote = data.latest_commit;
             const behind = data.behind_by_commits;
 
+            dropdown.classList.remove('hidden');
+
             if (data.updates_available) {
-                statusText.textContent = "Updates Available!";
-                statusText.style.color = "var(--accent-yellow)";
-                commitDetails.innerHTML = `Your repository is behind <strong>origin/main</strong> by <strong>${behind}</strong> commit(s).<br>` +
-                                           `Current local commit: <code>${current}</code> (${currentDesc})<br>` +
-                                           `Latest origin/main commit: <code>${remote}</code>`;
+                heading.textContent = "Updates Available!";
+                subheading.textContent = "A new update of Connectify is available. Click 'Update Now' below to upgrade.";
                 
-                // Render list of new commits in console
+                // Style icon yellow (updates available)
+                iconEl.className = "fa-solid fa-bell fa-bounce";
+                iconContainer.style.borderColor = "rgba(255, 179, 0, 0.4)";
+                iconContainer.style.boxShadow = "0 0 15px rgba(255, 179, 0, 0.2)";
+                iconContainer.style.background = "rgba(255, 179, 0, 0.05)";
+                iconContainer.style.color = "#ffb300";
+
+                commitDetails.innerHTML = `Your repository is behind by <strong>${behind}</strong> commits.<br>` +
+                                           `Current local version: <code>${current}</code> (${currentDesc})<br>` +
+                                           `Remote version: <code>${remote}</code>`;
+                
                 if (data.commits_list && data.commits_list.length > 0) {
                     logBox.classList.remove('hidden');
-                    logText.textContent = "Available updates:\n" + data.commits_list.join("\n");
+                    logText.textContent = "Changes included in this update:\n" + data.commits_list.join("\n");
                 }
                 pullBtn.classList.remove('hidden');
             } else {
-                statusText.textContent = "Up to Date";
-                statusText.style.color = "var(--accent-green)";
-                commitDetails.innerHTML = `Your application is fully up to date with <strong>origin/main</strong>.<br>` +
-                                           `Current local commit: <code>${current}</code> (${currentDesc})`;
+                heading.textContent = "You're Up to Date!";
+                subheading.textContent = "Connectify is running the latest version. No updates are required.";
+                
+                // Style icon green (up to date)
+                iconEl.className = "fa-solid fa-circle-check";
+                iconContainer.style.borderColor = "rgba(0, 230, 118, 0.4)";
+                iconContainer.style.boxShadow = "0 0 15px rgba(0, 230, 118, 0.2)";
+                iconContainer.style.background = "rgba(0, 230, 118, 0.05)";
+                iconContainer.style.color = "#00e676";
+
+                commitDetails.innerHTML = `Current version: <code>${current}</code> (${currentDesc})<br>` +
+                                           `Remote version: <code>${remote}</code>`;
             }
         } else {
-            statusText.textContent = "Check Failed";
-            statusText.style.color = "var(--accent-red)";
-            commitDetails.textContent = data.message || "An error occurred during git check.";
+            heading.textContent = "Check Failed";
+            subheading.textContent = "Could not check remote repository status.";
+            
+            // Style icon red (error)
+            iconEl.className = "fa-solid fa-circle-exclamation";
+            iconContainer.style.borderColor = "rgba(239, 68, 68, 0.4)";
+            iconContainer.style.boxShadow = "0 0 15px rgba(239, 68, 68, 0.2)";
+            iconContainer.style.background = "rgba(239, 68, 68, 0.05)";
+            iconContainer.style.color = "#ef4444";
+
+            dropdown.classList.remove('hidden');
+            commitDetails.textContent = data.message || "An error occurred during git fetch.";
         }
     } catch (e) {
         spinner.classList.add('hidden');
-        statusText.textContent = "Check Failed";
-        statusText.style.color = "var(--accent-red)";
-        commitDetails.textContent = "Error contacting update API endpoint. Make sure the backend server is running.";
+        heading.textContent = "Connection Failed";
+        subheading.textContent = "Could not connect to update API endpoint.";
+        
+        // Style icon red (error)
+        iconEl.className = "fa-solid fa-circle-exclamation";
+        iconContainer.style.borderColor = "rgba(239, 68, 68, 0.4)";
+        iconContainer.style.boxShadow = "0 0 15px rgba(239, 68, 68, 0.2)";
+        iconContainer.style.background = "rgba(239, 68, 68, 0.05)";
+        iconContainer.style.color = "#ef4444";
+
+        dropdown.classList.remove('hidden');
+        commitDetails.textContent = "Error contacting update service. Confirm the server is active.";
         console.error(e);
     }
 }
 
 async function pullLatestUpdates() {
-    const statusText = document.getElementById('update-status-text');
+    const heading = document.getElementById('update-status-heading');
+    const subheading = document.getElementById('update-status-subheading');
     const commitDetails = document.getElementById('update-commit-details');
     const pullBtn = document.getElementById('btn-pull-updates');
     const spinner = document.getElementById('update-spinner');
     const spinnerLabel = document.getElementById('update-spinner-label');
     const logBox = document.getElementById('update-console-log-box');
     const logText = document.getElementById('update-console-text');
+    const iconContainer = document.getElementById('update-status-icon-container');
+    const iconEl = document.getElementById('update-status-icon');
 
-    statusText.textContent = "Updating...";
-    statusText.style.color = "var(--text-secondary)";
+    heading.textContent = "Updating System...";
+    subheading.textContent = "Downloading and merging latest branch changes...";
+    
+    iconEl.className = "fa-solid fa-spinner fa-spin";
+    iconContainer.style.borderColor = "rgba(255,255,255,0.1)";
+    iconContainer.style.boxShadow = "none";
+    iconContainer.style.background = "rgba(255, 255, 255, 0.04)";
+    iconContainer.style.color = "var(--text-secondary)";
+    
     pullBtn.classList.add('hidden');
     spinner.classList.remove('hidden');
-    spinnerLabel.textContent = "Pulling latest changes from origin/main...";
+    spinnerLabel.textContent = "Running git pull command...";
     logBox.classList.remove('hidden');
     logText.textContent = "";
 
@@ -3531,21 +3588,45 @@ async function pullLatestUpdates() {
         spinner.classList.add('hidden');
 
         if (data.status === 'success') {
-            statusText.textContent = "Update Complete!";
-            statusText.style.color = "var(--accent-green)";
-            commitDetails.innerHTML = "Latest changes pulled successfully! <strong>Please restart the Connectify server</strong> to apply the code changes.";
+            heading.textContent = "Update Successful!";
+            subheading.textContent = "All changes pulled successfully. Please restart the Connectify server to run the new version.";
+            
+            // Style icon green
+            iconEl.className = "fa-solid fa-circle-check";
+            iconContainer.style.borderColor = "rgba(0, 230, 118, 0.4)";
+            iconContainer.style.boxShadow = "0 0 15px rgba(0, 230, 118, 0.2)";
+            iconContainer.style.background = "rgba(0, 230, 118, 0.05)";
+            iconContainer.style.color = "#00e676";
+
+            commitDetails.innerHTML = "Connectify was updated successfully.<br><strong>Gunicorn/Waitress must be restarted</strong> to reload changes from disk.";
             logText.textContent = data.log || "Git pull executed successfully.";
         } else {
-            statusText.textContent = "Update Failed";
-            statusText.style.color = "var(--accent-red)";
-            commitDetails.innerHTML = `Git pull returned an error. Click 'Check for Updates' to re-verify status.`;
-            logText.textContent = data.log || data.message || "Unknown update error.";
+            heading.textContent = "Update Failed";
+            subheading.textContent = "Could not pull updates from remote origin.";
+            
+            // Style icon red
+            iconEl.className = "fa-solid fa-circle-exclamation";
+            iconContainer.style.borderColor = "rgba(239, 68, 68, 0.4)";
+            iconContainer.style.boxShadow = "0 0 15px rgba(239, 68, 68, 0.2)";
+            iconContainer.style.background = "rgba(239, 68, 68, 0.05)";
+            iconContainer.style.color = "#ef4444";
+
+            commitDetails.textContent = "An error occurred executing git pull.";
+            logText.textContent = data.log || data.message || "Git pull returned an exit code.";
         }
     } catch (e) {
         spinner.classList.add('hidden');
-        statusText.textContent = "Update Failed";
-        statusText.style.color = "var(--accent-red)";
-        commitDetails.textContent = "Connection to update service failed.";
+        heading.textContent = "Update Failed";
+        subheading.textContent = "An unexpected connection error occurred.";
+        
+        // Style icon red
+        iconEl.className = "fa-solid fa-circle-exclamation";
+        iconContainer.style.borderColor = "rgba(239, 68, 68, 0.4)";
+        iconContainer.style.boxShadow = "0 0 15px rgba(239, 68, 68, 0.2)";
+        iconContainer.style.background = "rgba(239, 68, 68, 0.05)";
+        iconContainer.style.color = "#ef4444";
+
+        commitDetails.textContent = "Error contacting update service.";
         console.error(e);
     }
 }

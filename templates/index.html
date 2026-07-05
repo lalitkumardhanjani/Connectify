@@ -1749,47 +1749,60 @@
                         <!-- SUB-TAB 5: SYSTEM SYSTEM UPDATES -->
                         <div class="settings-tab-pane" id="subtab-system-updates">
                             <div class="settings-grid">
-                                <div class="settings-card card-glass grid-span-3">
-                                    <h3><i class="fa-solid fa-code-branch glow-icon-purple" style="color: var(--accent-purple);"></i> Connectify System Updates</h3>
-                                    <p class="card-subtitle">Check for new features, bug fixes, or performance enhancements and pull the latest updates directly from GitHub.</p>
-                                    
-                                    <div class="update-interface-container" style="margin-top: 15px; padding: 22px; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); border-radius: 10px;">
-                                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
-                                            <div>
-                                                <h4 style="margin: 0 0 5px 0; color: var(--text-primary); font-size: 1.05rem;">
-                                                    Status: <span id="update-status-text" style="color: var(--text-secondary); font-weight: normal;">Not checked yet</span>
-                                                </h4>
-                                                <p style="margin: 0; font-size: 0.85rem; color: var(--text-secondary);" id="update-commit-details">
-                                                    Click 'Check for Updates' to query the remote GitHub repository status.
-                                                </p>
-                                            </div>
-                                            <div style="display: flex; gap: 12px;">
-                                                <button type="button" class="btn btn-secondary" id="btn-check-updates" onclick="checkSystemUpdates()">
-                                                    <i class="fa-solid fa-magnifying-glass"></i> Check for Updates
-                                                </button>
-                                                <button type="button" class="btn btn-primary btn-glow-primary hidden" id="btn-pull-updates" onclick="pullLatestUpdates()">
-                                                    <i class="fa-solid fa-download"></i> Update Connectify
-                                                </button>
-                                            </div>
-                                        </div>
+                                <div class="settings-card card-glass grid-span-3" style="padding: 30px;">
+                                    <div style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 20px;">
                                         
+                                        <!-- Animated status icon indicator -->
+                                        <div id="update-status-icon-container" style="display: flex; align-items: center; justify-content: center; width: 80px; height: 80px; border-radius: 50%; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--glass-border); font-size: 2.2rem; transition: all 0.3s ease;">
+                                            <i id="update-status-icon" class="fa-solid fa-cloud-arrow-down" style="color: var(--text-secondary); transition: all 0.3s ease;"></i>
+                                        </div>
+
+                                        <div>
+                                            <h3 style="margin: 0; font-size: 1.5rem; font-weight: 700; font-family: 'Space Grotesk', sans-serif;" id="update-status-heading">
+                                                System Updates
+                                            </h3>
+                                            <p style="margin: 8px 0 0 0; font-size: 0.95rem; color: var(--text-secondary); max-width: 500px; line-height: 1.5;" id="update-status-subheading">
+                                                Keep your Connectify Automation Hub up to date with the latest features and bug fixes.
+                                            </p>
+                                        </div>
+
+                                        <div style="display: flex; gap: 14px; margin-top: 8px;">
+                                            <button type="button" class="btn btn-secondary" id="btn-check-updates" onclick="checkSystemUpdates()" style="padding: 11px 22px; font-weight: 600; border-radius: 8px;">
+                                                <i class="fa-solid fa-magnifying-glass"></i> Check for Updates
+                                            </button>
+                                            <button type="button" class="btn btn-primary btn-glow-primary hidden" id="btn-pull-updates" onclick="pullLatestUpdates()" style="padding: 11px 22px; font-weight: 600; border-radius: 8px; background: linear-gradient(135deg, #00bfff, #00e676); border: none;">
+                                                <i class="fa-solid fa-download"></i> Update Now
+                                            </button>
+                                        </div>
+
                                         <!-- Inline loader/spinner -->
-                                        <div id="update-spinner" class="hidden" style="margin-top: 20px; text-align: center;">
-                                            <div class="spinner-container" style="display: inline-flex; align-items: center; gap: 10px; color: #00bfff;">
+                                        <div id="update-spinner" class="hidden" style="margin-top: 10px;">
+                                            <div style="display: flex; align-items: center; gap: 10px; color: #00bfff; font-weight: 500; font-size: 0.9rem;">
                                                 <i class="fa-solid fa-spinner fa-spin" style="font-size: 1.2rem;"></i>
-                                                <span style="font-size: 0.9rem; font-weight: 500;" id="update-spinner-label">Checking repository status...</span>
+                                                <span id="update-spinner-label">Checking for updates...</span>
                                             </div>
                                         </div>
 
-                                        <!-- Log/Console output area -->
-                                        <div id="update-console-log-box" class="hidden" style="margin-top: 20px;">
-                                            <label style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 5px; display: block;">Console Log Output:</label>
-                                            <pre id="update-console-text" style="margin: 0; background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 12px; font-family: monospace; font-size: 0.8rem; color: #a6e22e; overflow-x: auto; white-space: pre-wrap; word-break: break-all; max-height: 200px;"></pre>
-                                        </div>
+                                        <!-- Collapsible Advanced Technical Details (Hidden by default to avoid cluttering the UI) -->
+                                        <details id="update-details-dropdown" class="hidden" style="width: 100%; max-width: 600px; margin-top: 20px; text-align: left; background: rgba(0,0,0,0.15); border: 1px solid var(--glass-border); border-radius: 8px; padding: 12px; box-sizing: border-box;">
+                                            <summary style="font-size: 0.82rem; color: var(--text-secondary); cursor: pointer; user-select: none; font-weight: 600; outline: none;">
+                                                Show Advanced Details
+                                            </summary>
+                                            <div style="margin-top: 12px; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;" id="update-commit-details">
+                                                <!-- Populated by JS -->
+                                            </div>
+                                            <!-- Log/Console output area -->
+                                            <div id="update-console-log-box" class="hidden" style="margin-top: 15px;">
+                                                <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 6px;">Update Log Console:</span>
+                                                <pre id="update-console-text" style="margin: 0; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 10px; font-family: monospace; font-size: 0.78rem; color: #a6e22e; overflow-x: auto; white-space: pre-wrap; word-break: break-all; max-height: 150px;"></pre>
+                                            </div>
+                                        </details>
+
                                     </div>
                                 </div>
                             </div>
                         </div>
+
                     </form>
 
                 </div>
