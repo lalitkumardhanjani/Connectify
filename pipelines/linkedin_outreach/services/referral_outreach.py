@@ -1086,24 +1086,8 @@ def extract_active_roles(driver):
                     });
                 }
                 
-                // Fallbacks (Headline, top card, etc.)
+                // Fallbacks (top card, etc.)
                 // Always append them to activeRoles to ensure maximum backwards compatibility/safety
-                const headlineEl = document.querySelector('.text-body-medium') || 
-                                   document.querySelector('[data-field=\"headline\"]') || 
-                                   document.querySelector('.pv-text-details__left-panel h2') ||
-                                   document.querySelector('div[class*=\"headline\"]') ||
-                                   document.querySelector('.pv-top-card-layout__headline');
-                if (headlineEl) {
-                    const headlineText = normalize(headlineEl.innerText || headlineEl.textContent);
-                    if (headlineText) {
-                        activeRoles.push({
-                            company: headlineText,
-                            title: headlineText,
-                            date_range: 'Present',
-                            source: 'headline'
-                        });
-                    }
-                }
 
                 const rightPanelItems = document.querySelectorAll('.pv-text-details__right-panel-item, li.pv-text-details__right-panel-item');
                 rightPanelItems.forEach(el => {

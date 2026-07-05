@@ -47,6 +47,72 @@ def save_debug_info(driver, step_name):
         logger.warning(f"Could not save debug info: {str(e)}")
 
 
+def get_company_id_from_page(driver, company_url):
+    """Navigates to company page URL and extracts the numeric company ID from page metadata or script tags."""
+    logger.info(f"Navigating to company URL: {company_url} to extract Company ID")
+    try:
+        driver.get(company_url)
+        time.sleep(4)
+        
+        # Check if Page not found
+        if "page not found" in str(driver.title).lower() or "404" in str(driver.title).lower() or len(driver.find_elements(By.CSS_SELECTOR, ".error-container")) > 0:
+            logger.warning(f"Company page for '{company_url}' not found.")
+            return None
+            
+        company_id = driver.execute_script(r"""
+            const getCompanyId = () => {
+                // 1. Try meta tags
+                const metaSelectors = [
+                    'meta[property="al:android:url"]',
+                    'meta[name="twitter:app:url:iphone"]',
+                    'meta[name="twitter:app:url:ipad"]',
+                    'meta[name="twitter:app:url:googleplay"]'
+                ];
+                for (const sel of metaSelectors) {
+                    const el = document.querySelector(sel);
+                    if (el) {
+                        const content = el.getAttribute('content') || '';
+                        const match = content.match(/company\/(\d+)/) || content.match(/urn:li:company:(\d+)/);
+                        if (match) return match[1];
+                    }
+                }
+                
+                // 2. Try page source script tags
+                const scripts = document.querySelectorAll('script');
+                for (const script of scripts) {
+                    const text = script.textContent || '';
+                    const match = text.match(/"objectUrn"\s*:\s*"urn:li:company:(\d+)"/) || text.match(/"urn:li:company:(\d+)"/);
+                    if (match) return match[1];
+                }
+                
+                // 3. Try finding employee search link inside main top card
+                const mainSection = document.querySelector('.org-top-card, section.artdeco-card, main');
+                if (mainSection) {
+                    const link = mainSection.querySelector('a[href*="/search/results/people/"]');
+                    if (link) {
+                        const href = link.getAttribute('href') || '';
+                        const match = href.match(/currentCompany=%5B%22(\d+)%22%5D/) || href.match(/currentCompany=(\d+)/);
+                        if (match) return match[1];
+                    }
+                }
+                
+                // 4. Try any link with currentCompany
+                const links = Array.from(document.querySelectorAll('a[href*="/search/results/people/"]'));
+                for (const link of links) {
+                    const href = link.getAttribute('href') || '';
+                    const match = href.match(/currentCompany=%5B%22(\d+)%22%5D/) || href.match(/currentCompany=(\d+)/);
+                    if (match) return match[1];
+                }
+                return null;
+            };
+            return getCompanyId();
+        """)
+        return company_id
+    except Exception as e:
+        logger.warning(f"Error extracting Company ID from page: {e}")
+        return None
+
+
 # ============== MESSAGING ==============
 
 def get_connect_review_mode():
@@ -952,12 +1018,43 @@ def run_connector():
             logger.info("=" * 60)
 
             navigation_success = False
-            if linkedin_id:
-                logger.info(f"Using direct navigation with linkedin_id: {linkedin_id}")
-                navigation_success = navigate_to_company_direct(driver, linkedin_id)
-
+            company_id = None
+            
+            # Step 1: Try to resolve Company ID using LinkedIn_Company_URL
+            if linkedin_company_url:
+                company_id = get_company_id_from_page(driver, linkedin_company_url)
+                
+            # Step 2: If no Company ID, try to search for the company to get its page and ID
+            if not company_id:
+                logger.info(f"Company ID not resolved directly. Searching for company page on LinkedIn for: {company}")
+                search_url = f"https://www.linkedin.com/search/results/companies/?keywords={company.replace(' ', '%20')}"
+                try:
+                    driver.get(search_url)
+                    time.sleep(4)
+                    first_result = WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, ".entity-result__title-text a"))
+                    )
+                    found_company_url = first_result.get_attribute("href")
+                    logger.info(f"Found company page via search: {found_company_url}")
+                    company_id = get_company_id_from_page(driver, found_company_url)
+                except Exception as e:
+                    logger.warning(f"Failed to find company page for {company} via search: {e}")
+            
+            # Step 3: If we have a Company ID, navigate to search results filtered strictly by currentCompany
+            if company_id:
+                # Filter to 2nd and 3rd+ degree connections who CURRENTLY work at the company
+                people_search_url = f"https://www.linkedin.com/search/results/people/?currentCompany=%5B%22{company_id}%22%5D&network=%5B%22S%22%2C%22O%22%5D"
+                logger.info(f"Navigating to current employees search results: {people_search_url}")
+                try:
+                    driver.get(people_search_url)
+                    time.sleep(4)
+                    navigation_success = True
+                except Exception as e:
+                    logger.error(f"Failed to navigate to company search page: {e}")
+            
+            # Step 4: Fallback to global keyword search if everything else fails
             if not navigation_success:
-                logger.info(f"Using search method for {company}")
+                logger.info(f"Fallback to global keyword search for {company}")
                 if not search_company(driver, company):
                     logger.error(f"Failed to search for {company}. Skipping...")
                     continue
