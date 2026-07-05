@@ -747,6 +747,24 @@ def switch_storage_type():
                     yield from emit("error", f"Authentication failed: {e}")
                     return
 
+                # Bootstrap settings locally so engine can access sheets
+                yield from emit("log", "Bootstrapping Google Sheets credentials locally...")
+                config = load_all_configs()
+                if "global_settings" not in config:
+                    config["global_settings"] = {}
+                config["global_settings"].update(global_settings_payload)
+                save_all_configs(config)
+
+                # Check if User Profile sheet exists and has data (indicating pre-existing cloud settings)
+                has_existing_cloud_data = False
+                profile_ws_name = GOOGLE_SHEET_WORKSHEETS["profile"]["name"]
+                try:
+                    pws = sh.worksheet(profile_ws_name)
+                    if pws.row_values(2):
+                        has_existing_cloud_data = True
+                except Exception:
+                    pass
+
                 local_paths = {
                     "Job Leads": get_job_leads_file(),
                     "Scraped Emails": get_job_tracker_file(),
@@ -758,71 +776,199 @@ def switch_storage_type():
                     "Referrals & Connections": "ReferralID"
                 }
 
-                import openpyxl as _xl
-
-                yield from emit("log", "Step 2: Migrating local Excel data to Google Sheets...")
-                for key, info in GOOGLE_SHEET_WORKSHEETS.items():
-                    if key == "config":
-                        continue
-                    ws_name = info["name"]
-                    headers = info["headers"]
-                    local_file = local_paths[ws_name]
-                    id_col = id_cols[ws_name]
-
-                    yield from emit("log", f"  Processing '{ws_name}'...")
-                    _time.sleep(1.5)  # throttle to avoid 429
-
-                    # Read cloud IDs
+                if has_existing_cloud_data:
+                    yield from emit("log", "Google Sheet contains pre-existing profile settings. Performing PULL migration...")
+                    
+                    # 1. Pull settings from Google Sheets
                     try:
-                        ws = sh.worksheet(ws_name)
-                        cloud_rows = ws.get_all_records()
+                        from core.storage.engine import GoogleSheetsStorageProvider
+                        cloud_config = GoogleSheetsStorageProvider().get_config(username, bypass_cache=True)
+                        if cloud_config:
+                            # Update local config with cloud settings
+                            config = load_all_configs()
+                            if "users" not in config:
+                                config["users"] = {}
+                            
+                            # Merge cloud settings
+                            user_config = cloud_config.get("users", {}).get(username, cloud_config)
+                            config["users"][username] = user_config
+                            # Retain sheet settings
+                            config["global_settings"].update(cloud_config.get("global_settings", {}))
+                            save_all_configs(config)
+                            yield from emit("log", "  Successfully downloaded user profile settings from Google Sheets.")
                     except Exception as e:
-                        yield from emit("log", f"  Warning: Could not read worksheet '{ws_name}': {e}")
-                        cloud_rows = []
+                        yield from emit("log", f"  Warning: Could not pull cloud settings: {e}")
 
-                    cloud_ids = {str(r.get(id_col, "") or "").rstrip(".0") for r in cloud_rows}
+                    # 2. Pull database rows from Google Sheets (bidirectional sync)
+                    import openpyxl as _xl
+                    yield from emit("log", "Step 2: Syncing database rows bidirectionally...")
+                    for key, info in GOOGLE_SHEET_WORKSHEETS.items():
+                        if key not in ("jobs", "emails", "referrals"):
+                            continue
+                        ws_name = info["name"]
+                        headers = info["headers"]
+                        local_file = local_paths[ws_name]
+                        id_col = id_cols[ws_name]
 
-                    if not os.path.exists(local_file):
-                        yield from emit("log", f"  No local file found for '{ws_name}'. Skipping.")
-                        continue
+                        yield from emit("log", f"  Processing '{ws_name}'...")
+                        _time.sleep(1.0)
 
-                    try:
-                        wb = _xl.load_workbook(local_file)
-                        lws = wb.active
-                        col_map = {cell.value: idx for idx, cell in enumerate(lws[1], start=1)}
-                        id_idx = col_map.get(id_col)
-                        new_rows = []
-                        for row in range(2, lws.max_row + 1):
-                            row_id = str(lws.cell(row=row, column=id_idx).value or "").rstrip(".0") if id_idx else ""
-                            if row_id and row_id not in cloud_ids:
-                                row_data = {}
-                                for h, ci in col_map.items():
-                                    row_data[h] = lws.cell(row=row, column=ci).value or ""
-                                new_rows.append(row_data)
-                    except Exception as e:
-                        yield from emit("log", f"  Warning: Could not read local file for '{ws_name}': {e}")
-                        continue
-
-                    yield from emit("log", f"  Local rows: {lws.max_row - 1}  |  Cloud rows: {len(cloud_rows)}  |  New to upload: {len(new_rows)}")
-
-                    if new_rows:
                         try:
-                            for r in new_rows:
-                                row_vals = [str(r.get(h, "") or "") for h in headers]
-                                ws.append_row(row_vals)
-                                _time.sleep(0.3)
-                            yield from emit("log", f"  Uploaded {len(new_rows)} new rows to '{ws_name}'.")
+                            ws = sh.worksheet(ws_name)
+                            cloud_rows = ws.get_all_records()
                         except Exception as e:
-                            yield from emit("log", f"  Warning: Upload error for '{ws_name}': {e}")
-                    else:
-                        yield from emit("log", f"  '{ws_name}' already up to date.")
+                            yield from emit("log", f"  Warning: Could not read cloud sheet '{ws_name}': {e}")
+                            continue
 
-                    # Invalidate sheets cache so next UI load fetches fresh data
+                        local_rows = []
+                        local_ids = set()
+                        if os.path.exists(local_file):
+                            try:
+                                wb = _xl.load_workbook(local_file)
+                                lws = wb.active
+                                col_map = {cell.value: idx for idx, cell in enumerate(lws[1], start=1)}
+                                id_idx = col_map.get(id_col)
+                                for row in range(2, lws.max_row + 1):
+                                    row_id = str(lws.cell(row=row, column=id_idx).value or "").rstrip(".0") if id_idx else ""
+                                    if row_id:
+                                        local_ids.add(row_id)
+                                        row_data = {}
+                                        for h, ci in col_map.items():
+                                            row_data[h] = lws.cell(row=row, column=ci).value or ""
+                                        local_rows.append(row_data)
+                            except Exception as e:
+                                yield from emit("log", f"  Warning: Could not read local file for '{ws_name}': {e}")
+
+                        # Pull missing rows from Cloud to Local
+                        new_local_count = 0
+                        try:
+                            if not os.path.exists(local_file):
+                                wb = _xl.Workbook()
+                                lws = wb.active
+                                lws.title = ws_name.replace(" & ", " ")
+                                lws.append(headers)
+                            else:
+                                wb = _xl.load_workbook(local_file)
+                                lws = wb.active
+
+                            for r in cloud_rows:
+                                r_id = str(r.get(id_col, "") or "").rstrip(".0")
+                                if r_id and r_id not in local_ids:
+                                    lws.append([str(r.get(h, "") or "") for h in headers])
+                                    local_ids.add(r_id)
+                                    new_local_count += 1
+                            if new_local_count > 0:
+                                wb.save(local_file)
+                                yield from emit("log", f"    Downloaded {new_local_count} rows from Google Sheets to local.")
+                        except Exception as e:
+                            yield from emit("log", f"    Warning: Failed to save pulled rows locally: {e}")
+
+                        # Push missing rows from Local to Cloud
+                        new_cloud_rows = []
+                        for r in local_rows:
+                            r_id = str(r.get(id_col, "") or "").rstrip(".0")
+                            cloud_ids = {str(cr.get(id_col, "") or "").rstrip(".0") for cr in cloud_rows}
+                            if r_id and r_id not in cloud_ids:
+                                new_cloud_rows.append(r)
+
+                        if new_cloud_rows:
+                            try:
+                                for r in new_cloud_rows:
+                                    row_vals = [str(r.get(h, "") or "") for h in headers]
+                                    ws.append_row(row_vals)
+                                    _time.sleep(0.3)
+                                yield from emit("log", f"    Uploaded {len(new_cloud_rows)} local rows to Google Sheets.")
+                            except Exception as e:
+                                yield from emit("log", f"    Warning: Upload error for '{ws_name}': {e}")
+
+                        try:
+                            from core.storage.sheets import _cache_invalidate
+                            _cache_invalidate(ws_name)
+                        except Exception:
+                            pass
+
+                else:
+                    yield from emit("log", "Google Sheet is empty. Performing PUSH migration (local -> cloud)...")
+                    import openpyxl as _xl
+                    yield from emit("log", "Step 2: Migrating local Excel data to Google Sheets...")
+
                     try:
-                        from core.storage.sheets import _cache_invalidate
-                        _cache_invalidate(ws_name)
-                    except Exception:
-                        pass
+                        from core.storage.sheets import ensure_worksheets_exist
+                        ensure_worksheets_exist(sheet_url, creds_content)
+                    except Exception as e:
+                        yield from emit("log", f"  Warning: Sheets initialization failed: {e}")
+
+                    for key, info in GOOGLE_SHEET_WORKSHEETS.items():
+                        if key not in ("jobs", "emails", "referrals"):
+                            continue
+                        ws_name = info["name"]
+                        headers = info["headers"]
+                        local_file = local_paths[ws_name]
+                        id_col = id_cols[ws_name]
+
+                        yield from emit("log", f"  Processing '{ws_name}'...")
+                        _time.sleep(1.5)
+
+                        try:
+                            ws = sh.worksheet(ws_name)
+                            cloud_rows = ws.get_all_records()
+                        except Exception as e:
+                            yield from emit("log", f"  Warning: Could not read worksheet '{ws_name}': {e}")
+                            cloud_rows = []
+
+                        cloud_ids = {str(r.get(id_col, "") or "").rstrip(".0") for r in cloud_rows}
+
+                        if not os.path.exists(local_file):
+                            yield from emit("log", f"  No local file found for '{ws_name}'. Skipping.")
+                            continue
+
+                        try:
+                            wb = _xl.load_workbook(local_file)
+                            lws = wb.active
+                            col_map = {cell.value: idx for idx, cell in enumerate(lws[1], start=1)}
+                            id_idx = col_map.get(id_col)
+                            new_rows = []
+                            for row in range(2, lws.max_row + 1):
+                                row_id = str(lws.cell(row=row, column=id_idx).value or "").rstrip(".0") if id_idx else ""
+                                if row_id and row_id not in cloud_ids:
+                                    row_data = {}
+                                    for h, ci in col_map.items():
+                                        row_data[h] = lws.cell(row=row, column=ci).value or ""
+                                    new_rows.append(row_data)
+                        except Exception as e:
+                            yield from emit("log", f"  Warning: Could not read local file for '{ws_name}': {e}")
+                            continue
+
+                        yield from emit("log", f"  Local rows: {lws.max_row - 1}  |  Cloud rows: {len(cloud_rows)}  |  New to upload: {len(new_rows)}")
+
+                        if new_rows:
+                            try:
+                                for r in new_rows:
+                                    row_vals = [str(r.get(h, "") or "") for h in headers]
+                                    ws.append_row(row_vals)
+                                    _time.sleep(0.3)
+                                yield from emit("log", f"  Uploaded {len(new_rows)} new rows to '{ws_name}'.")
+                            except Exception as e:
+                                yield from emit("log", f"  Warning: Upload error for '{ws_name}': {e}")
+                        else:
+                            yield from emit("log", f"  '{ws_name}' already up to date.")
+
+                        try:
+                            from core.storage.sheets import _cache_invalidate
+                            _cache_invalidate(ws_name)
+                        except Exception:
+                            pass
+
+                    # Push configuration to Google Sheets
+                    yield from emit("log", "Step 3: Uploading local configuration settings to Google Sheets...")
+                    try:
+                        from core.storage.engine import GoogleSheetsStorageProvider
+                        config_to_save = load_all_configs()
+                        user_config_dict = config_to_save.get("users", {}).get(username, config_to_save)
+                        GoogleSheetsStorageProvider().save_config(username, user_config_dict)
+                        yield from emit("log", "  Successfully uploaded local configuration to Google Sheets.")
+                    except Exception as e:
+                        yield from emit("log", f"  Warning: Could not save config to Google Sheets: {e}")
 
             # ---------------------------------------------------------------
             # GOOGLE SHEETS  →  LOCAL
@@ -869,7 +1015,7 @@ def switch_storage_type():
 
                     yield from emit("log", "Step 2: Pulling Google Sheets data into local Excel files...")
                     for key, info in GOOGLE_SHEET_WORKSHEETS.items():
-                        if key == "config":
+                        if key not in ("jobs", "emails", "referrals"):
                             continue
                         ws_name = info["name"]
                         headers = info["headers"]
@@ -959,7 +1105,8 @@ def switch_storage_type():
 
 @app.route('/api/users/config', methods=['GET'])
 def get_user_configuration():
-    config = load_all_configs()
+    fresh = request.args.get('fresh', 'true') == 'true'
+    config = load_all_configs(bypass_cache=fresh)
     username = get_selected_user_name()
     user_data = config.get("users", {}).get(username, {})
     global_settings = get_global_settings()

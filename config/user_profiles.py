@@ -92,7 +92,7 @@ def migrate_old_monolithic_config():
         except Exception:
             pass
 
-def load_all_configs():
+def load_all_configs(bypass_cache: bool = False):
     """
     Loads user profiles dynamically from the active storage provider
     and reconstructs the unified configuration format.
@@ -118,7 +118,7 @@ def load_all_configs():
             for d in os.listdir(users_dir):
                 if d == "default" or not os.path.isdir(os.path.join(users_dir, d)):
                     continue
-                users[d] = get_user_config(d)
+                users[d] = get_user_config(d, bypass_cache=bypass_cache)
         except Exception as e:
             logger.error(f"Error loading configs via storage provider: {e}")
             

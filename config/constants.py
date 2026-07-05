@@ -31,8 +31,27 @@ GOOGLE_SHEET_WORKSHEETS = {
         "name": "Referrals & Connections",
         "headers": REFERRAL_HEADERS
     },
-    "config": {
-        "name": "Profile & Settings",
-        "headers": ["Key", "Value"]
+    "profile": {
+        "name": "User Profile",
+        "headers": [
+            "First Name", "Last Name", "Email Address", "Phone Number", "LinkedIn URL", 
+            "Resume Filename", "Resume Short URL", "Years of Experience", "Current Location", 
+            "Preferred Locations", "Current CTC", "Expected CTC", "Notice Period", "Last Working Day"
+        ]
+    },
+    "templates": {
+        "name": "Message Templates",
+        "headers": ["Template Name", "Subject", "Body", "Key"]
+    },
+    "keywords": {
+        "name": "Keyword Lists",
+        "headers": [
+            "Scraper Search Keywords", "Scraper Title Keywords", "Scraper Excluded Keywords",
+            "Connect Search Keywords", "Connect Title Keywords", "Connect Excluded Keywords"
+        ]
+    },
+    "settings": {
+        "name": "Application Settings",
+        "headers": ["Category", "Setting Name", "Value", "Key"]
     }
 }

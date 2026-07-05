@@ -98,10 +98,97 @@ def unflatten_dict(d):
 
 
 # ---------------------------------------------------------------------------
+# Setting Metadata & Groups mapping for visual Google Sheets layout
+# ---------------------------------------------------------------------------
+SETTING_METADATA = {
+    # Profile
+    "profile.first_name": ("User Profile", "First Name"),
+    "profile.last_name": ("User Profile", "Last Name"),
+    "profile.email": ("User Profile", "Email Address"),
+    "profile.phone": ("User Profile", "Phone Number"),
+    "profile.linkedin_url": ("User Profile", "LinkedIn Profile URL"),
+    "profile.resume_name": ("User Profile", "Resume Filename"),
+    "profile.resume_url": ("User Profile", "Resume Short URL"),
+    "profile.experience": ("User Profile", "Years of Experience"),
+    "profile.current_location": ("User Profile", "Current Location"),
+    "profile.preferred_locations": ("User Profile", "Preferred Locations"),
+    "profile.current_ctc": ("User Profile", "Current CTC (LPA)"),
+    "profile.expected_ctc": ("User Profile", "Expected CTC (LPA)"),
+    "profile.notice_period": ("User Profile", "Notice Period"),
+    "profile.last_working_day": ("User Profile", "Last Working Day"),
+
+    # Email Scraper
+    "email_scraper.interval": ("Email Scraper", "Scraper Run Interval (minutes)"),
+    "email_scraper.max_emails_per_run": ("Email Scraper", "Max Emails per Run"),
+    "email_scraper.review_mode": ("Email Scraper", "Review Mode Enabled (True/False)"),
+    "email_scraper.sender_email": ("Email Scraper", "Custom Sender Email"),
+    "email_scraper.search_keywords": ("Email Scraper", "Search Keywords"),
+    "email_scraper.title_keywords": ("Email Scraper", "Title Keywords"),
+    "email_scraper.keywords": ("Email Scraper", "General Keywords"),
+    "email_scraper.excluded_keywords": ("Email Scraper", "Excluded Keywords"),
+    "email_scraper.email_subject": ("Email Scraper", "Outreach Email Subject"),
+    "email_scraper.email_template": ("Email Scraper", "Outreach Email Template"),
+
+    # LinkedIn Connect
+    "linkedin_connect.interval": ("LinkedIn Connections", "Run Interval (minutes)"),
+    "linkedin_connect.review_mode": ("LinkedIn Connections", "Review Mode Enabled (True/False)"),
+    "linkedin_connect.max_connections_per_company": ("LinkedIn Connections", "Max Connections per Company"),
+    "linkedin_connect.max_connections_per_run": ("LinkedIn Connections", "Max Connections per Run"),
+    "linkedin_connect.search_keywords": ("LinkedIn Connections", "Search Keywords"),
+    "linkedin_connect.title_keywords": ("LinkedIn Connections", "Title Keywords"),
+    "linkedin_connect.keywords": ("LinkedIn Connections", "General Keywords"),
+    "linkedin_connect.excluded_keywords": ("LinkedIn Connections", "Excluded Keywords"),
+    "linkedin_connect.message_template": ("LinkedIn Connections", "Connection Note Template"),
+
+    # Recruiter Outreach
+    "recruiter_outreach.interval": ("Recruiter Outreach", "Run Interval (minutes)"),
+    "recruiter_outreach.target_count": ("Recruiter Outreach", "Target Count"),
+    "recruiter_outreach.review_mode": ("Recruiter Outreach", "Review Mode Enabled (True/False)"),
+    "recruiter_outreach.message_template": ("Recruiter Outreach", "Recruiter Message Template"),
+    "recruiter_outreach.direct_message_template": ("Recruiter Outreach", "Direct Message Template"),
+
+    # Referral Outreach
+    "referral_outreach.message_template": ("Referral Outreach", "Referral Request Template"),
+
+    # Global Settings
+    "global_settings.database_type": ("Global Settings", "Database Storage Type"),
+    "global_settings.google_sheet_url": ("Global Settings", "Google Sheet URL"),
+    "global_settings.google_credentials_json": ("Global Settings", "Google Service Account Credentials (JSON)"),
+    "global_settings.linkedin_email": ("Global Settings", "LinkedIn Login Email"),
+    "global_settings.linkedin_password": ("Global Settings", "LinkedIn Login Password"),
+    "global_settings.smtp_email": ("Global Settings", "SMTP Server Email"),
+    "global_settings.smtp_password": ("Global Settings", "SMTP Server Password"),
+    "global_settings.smtp_server": ("Global Settings", "SMTP Server Host"),
+    "global_settings.smtp_port": ("Global Settings", "SMTP Server Port"),
+    "global_settings.search_location": ("Global Settings", "LinkedIn Search Location Target"),
+    "global_settings.search_time_range": ("Global Settings", "LinkedIn Search Time Code"),
+    "global_settings.dry_run": ("Global Settings", "Dry Run Mode (1 for Yes, 0 for No)"),
+    "global_settings.max_apply": ("Global Settings", "Max Auto-Applications per Job"),
+    "global_settings.max_run_duration_seconds": ("Global Settings", "Max Pipeline Run Time (seconds)"),
+}
+
+def get_setting_meta(key: str):
+    """Returns a tuple of (Category, Setting Name) for a given technical key."""
+    if key in SETTING_METADATA:
+        return SETTING_METADATA[key]
+    
+    # Dynamic fallback for any future added settings
+    parts = key.split(".", 1)
+    if len(parts) == 2:
+        cat_raw, name_raw = parts
+        cat = cat_raw.replace("_", " ").title()
+        name = name_raw.replace("_", " ").title()
+    else:
+        cat = "Other Settings"
+        name = key.replace("_", " ").title()
+    return cat, name
+
+
+# ---------------------------------------------------------------------------
 # Base Storage Provider Interface
 # ---------------------------------------------------------------------------
 class BaseStorageProvider:
-    def get_config(self, username: str) -> dict:
+    def get_config(self, username: str, bypass_cache: bool = False) -> dict:
         raise NotImplementedError()
 
     def save_config(self, username: str, config: dict):
@@ -124,7 +211,7 @@ class LocalStorageProvider(BaseStorageProvider):
     def get_config_path(self, username: str) -> str:
         return os.path.join(BASE_DIR, "users", username, "config.json")
 
-    def get_config(self, username: str) -> dict:
+    def get_config(self, username: str, bypass_cache: bool = False) -> dict:
         path = self.get_config_path(username)
         if os.path.exists(path):
             try:
@@ -246,49 +333,113 @@ class GoogleSheetsStorageProvider(BaseStorageProvider):
                 pass
         return None
 
-    def get_config(self, username: str) -> dict:
+    def get_config(self, username: str, bypass_cache: bool = False) -> dict:
         # 1. Check in-memory cache
-        cached = _get_cached_config(username)
-        if cached is not None:
-            return cached
+        if not bypass_cache:
+            cached = _get_cached_config(username)
+            if cached is not None:
+                return cached
 
         # 2. Retrieve Sheets Credentials
         sheets_conf = self.get_sheets_config(username)
         if not sheets_conf:
-            # Fall back to local settings if Sheets are not yet configured
             logger.warning(f"Google Sheets not configured for user {username}. Falling back to Local Storage configs.")
-            return LocalStorageProvider().get_config(username)
+            return LocalStorageProvider().get_config(username, bypass_cache=bypass_cache)
 
         url, creds_content = sheets_conf
-        ws_name = GOOGLE_SHEET_WORKSHEETS["config"]["name"]
+        
+        profile_ws = GOOGLE_SHEET_WORKSHEETS["profile"]["name"]
+        templates_ws = GOOGLE_SHEET_WORKSHEETS["templates"]["name"]
+        keywords_ws = GOOGLE_SHEET_WORKSHEETS["keywords"]["name"]
+        settings_ws = GOOGLE_SHEET_WORKSHEETS["settings"]["name"]
+
+        # Cache invalidation for all worksheets if cache is bypassed
+        if bypass_cache:
+            try:
+                from core.storage.sheets import _cache_invalidate
+                for ws_name in (profile_ws, templates_ws, keywords_ws, settings_ws):
+                    _cache_invalidate(ws_name)
+            except Exception:
+                pass
 
         try:
-            from core.storage.sheets import read_rows
-            flat_rows = read_rows(url, creds_content, ws_name)
-            
-            # Map flat Key-Value rows to dictionary format
+            from core.storage.sheets import read_rows, ensure_worksheets_exist
+            # Ensure all new sheets exist and visual formatting is applied
+            ensure_worksheets_exist(url, creds_content)
+
+            profile_rows = read_rows(url, creds_content, profile_ws)
+            templates_rows = read_rows(url, creds_content, templates_ws)
+            keywords_rows = read_rows(url, creds_content, keywords_ws)
+            settings_rows = read_rows(url, creds_content, settings_ws)
+
+            # Reconstruct flat config dict from modular sheets
             flat_dict = {}
-            for row in flat_rows:
-                key = row.get("Key")
-                val = row.get("Value")
+
+            # A. Profile
+            profile_row = profile_rows[0] if profile_rows else {}
+            profile_field_mapping = {
+                "First Name": "profile.first_name", "Last Name": "profile.last_name", "Email Address": "profile.email",
+                "Phone Number": "profile.phone", "LinkedIn URL": "profile.linkedin_url", "Resume Filename": "profile.resume_name",
+                "Resume Short URL": "profile.resume_url", "Years of Experience": "profile.experience",
+                "Current Location": "profile.current_location", "Preferred Locations": "profile.preferred_locations",
+                "Current CTC": "profile.current_ctc", "Expected CTC": "profile.expected_ctc",
+                "Notice Period": "profile.notice_period", "Last Working Day": "profile.last_working_day"
+            }
+            for header, flat_key in profile_field_mapping.items():
+                val = profile_row.get(header)
+                if val is not None:
+                    flat_dict[flat_key] = val
+
+            # B. Message Templates
+            for r in templates_rows:
+                key = r.get("Key")
+                subj = r.get("Subject")
+                body = r.get("Body")
+                if key:
+                    flat_dict[key] = body if body is not None else ""
+                    if key == "email_scraper.email_template" and subj:
+                        flat_dict["email_scraper.email_subject"] = subj
+
+            # C. Keyword Lists
+            keyword_mapping = {
+                "Scraper Search Keywords": "email_scraper.search_keywords",
+                "Scraper Title Keywords": "email_scraper.title_keywords",
+                "Scraper Excluded Keywords": "email_scraper.excluded_keywords",
+                "Connect Search Keywords": "linkedin_connect.search_keywords",
+                "Connect Title Keywords": "linkedin_connect.title_keywords",
+                "Connect Excluded Keywords": "linkedin_connect.excluded_keywords"
+            }
+            temp_kw_lists = {flat_key: [] for flat_key in keyword_mapping.values()}
+            for row in keywords_rows:
+                for header, flat_key in keyword_mapping.items():
+                    val = row.get(header)
+                    if val is not None and str(val).strip():
+                        temp_kw_lists[flat_key].append(str(val).strip())
+            for flat_key, lst in temp_kw_lists.items():
+                flat_dict[flat_key] = lst
+
+            # D. Application Settings
+            for r in settings_rows:
+                key = r.get("Key")
+                val = r.get("Value")
                 if key:
                     flat_dict[key] = val if val is not None else ""
-            
+
+            # Unflatten dictionary to nested config format
             config_dict = unflatten_dict(flat_dict)
-            
-            # Merge with local config bootstrap (so we retain local credentials and DB state)
-            local_config = LocalStorageProvider().get_config(username)
+
+            # Merge with local bootstrap configuration
+            local_config = LocalStorageProvider().get_config(username, bypass_cache=bypass_cache)
             if "global_settings" in local_config:
                 if "global_settings" not in config_dict:
                     config_dict["global_settings"] = {}
-                # Ensure local sheets credentials override anything fetched from sheets
                 config_dict["global_settings"].update(local_config["global_settings"])
 
             _set_cached_config(username, config_dict)
             return config_dict
         except Exception as e:
             logger.error(f"Error loading config from Google Sheet for user {username}: {e}. Falling back to Local.")
-            fallback_conf = LocalStorageProvider().get_config(username)
+            fallback_conf = LocalStorageProvider().get_config(username, bypass_cache=bypass_cache)
             _set_cached_config(username, fallback_conf)
             return fallback_conf
 
@@ -302,31 +453,101 @@ class GoogleSheetsStorageProvider(BaseStorageProvider):
             return
 
         url, creds_content = sheets_conf
-        ws_name = GOOGLE_SHEET_WORKSHEETS["config"]["name"]
-
-        # Flatten nested config dict
         flat_dict = flatten_dict(config)
-        
-        # Format key-value dictionary for Sheets batch update
-        data_dicts = []
+
+        # A. Profile data
+        profile_headers = GOOGLE_SHEET_WORKSHEETS["profile"]["headers"]
+        profile_field_mapping = {
+            "First Name": "profile.first_name", "Last Name": "profile.last_name", "Email Address": "profile.email",
+            "Phone Number": "profile.phone", "LinkedIn URL": "profile.linkedin_url", "Resume Filename": "profile.resume_name",
+            "Resume Short URL": "profile.resume_url", "Years of Experience": "profile.experience",
+            "Current Location": "profile.current_location", "Preferred Locations": "profile.preferred_locations",
+            "Current CTC": "profile.current_ctc", "Expected CTC": "profile.expected_ctc",
+            "Notice Period": "profile.notice_period", "Last Working Day": "profile.last_working_day"
+        }
+        profile_row = {}
+        for header, flat_key in profile_field_mapping.items():
+            profile_row[header] = str(flat_dict.get(flat_key, ""))
+        profile_data_dicts = [profile_row]
+
+        # B. Templates data
+        templates_data_dicts = [
+            {"Template Name": "Outreach Email", "Subject": str(flat_dict.get("email_scraper.email_subject", "")), "Body": str(flat_dict.get("email_scraper.email_template", "")), "Key": "email_scraper.email_template"},
+            {"Template Name": "LinkedIn Connection Note", "Subject": "", "Body": str(flat_dict.get("linkedin_connect.message_template", "")), "Key": "linkedin_connect.message_template"},
+            {"Template Name": "Recruiter Message", "Subject": "", "Body": str(flat_dict.get("recruiter_outreach.message_template", "")), "Key": "recruiter_outreach.message_template"},
+            {"Template Name": "Recruiter Direct Message", "Subject": "", "Body": str(flat_dict.get("recruiter_outreach.direct_message_template", "")), "Key": "recruiter_outreach.direct_message_template"},
+            {"Template Name": "Referral Request", "Subject": "", "Body": str(flat_dict.get("referral_outreach.message_template", "")), "Key": "referral_outreach.message_template"}
+        ]
+
+        # C. Keyword Lists data
+        keyword_mapping = {
+            "Scraper Search Keywords": "email_scraper.search_keywords",
+            "Scraper Title Keywords": "email_scraper.title_keywords",
+            "Scraper Excluded Keywords": "email_scraper.excluded_keywords",
+            "Connect Search Keywords": "linkedin_connect.search_keywords",
+            "Connect Title Keywords": "linkedin_connect.title_keywords",
+            "Connect Excluded Keywords": "linkedin_connect.excluded_keywords"
+        }
+        kw_lists = []
+        for header in [
+            "Scraper Search Keywords", "Scraper Title Keywords", "Scraper Excluded Keywords",
+            "Connect Search Keywords", "Connect Title Keywords", "Connect Excluded Keywords"
+        ]:
+            flat_key = keyword_mapping[header]
+            val = flat_dict.get(flat_key, [])
+            if isinstance(val, str):
+                try:
+                    lst = json.loads(val)
+                except Exception:
+                    lst = [x.strip() for x in val.split(",") if x.strip()]
+            elif isinstance(val, list):
+                lst = val
+            else:
+                lst = []
+            kw_lists.append(lst)
+
+        max_len = max(len(lst) for lst in kw_lists) if kw_lists else 0
+        keywords_data_dicts = []
+        for i in range(max_len):
+            row = {}
+            cols = [
+                "Scraper Search Keywords", "Scraper Title Keywords", "Scraper Excluded Keywords",
+                "Connect Search Keywords", "Connect Title Keywords", "Connect Excluded Keywords"
+            ]
+            for idx, col in enumerate(cols):
+                row[col] = kw_lists[idx][i] if i < len(kw_lists[idx]) else ""
+            keywords_data_dicts.append(row)
+
+        # D. Settings data
+        settings_data_dicts = []
         for k, v in flat_dict.items():
-            # Don't upload massive sensitive credentials json string to the public sheet rows for privacy
-            if k == "global_settings.google_credentials_json":
+            if (k.startswith("profile.") or 
+                k.endswith("_template") or 
+                k.endswith("_keywords") or 
+                k == "email_scraper.email_subject" or
+                k == "recruiter_outreach.direct_message_template" or
+                k == "global_settings.google_credentials_json"):
                 continue
-            
-            # Convert arrays or objects to JSON string values
+
             val_str = json.dumps(v) if isinstance(v, (list, dict)) else str(v)
-            data_dicts.append({"Key": k, "Value": val_str})
+            cat, name = get_setting_meta(k)
+            settings_data_dicts.append({
+                "Category": cat,
+                "Setting Name": name,
+                "Value": val_str,
+                "Key": k
+            })
+        settings_data_dicts.sort(key=lambda x: (x["Category"], x["Setting Name"]))
 
         try:
             from core.storage.sheets import write_rows, ensure_worksheets_exist
-            # Ensure config worksheet exists
             ensure_worksheets_exist(url, creds_content)
-            
-            # Write to Google Sheet
-            write_rows(url, creds_content, ws_name, data_dicts)
-            
-            # Invalidate in-memory cache
+
+            write_rows(url, creds_content, GOOGLE_SHEET_WORKSHEETS["profile"]["name"], profile_data_dicts)
+            write_rows(url, creds_content, GOOGLE_SHEET_WORKSHEETS["templates"]["name"], templates_data_dicts)
+            write_rows(url, creds_content, GOOGLE_SHEET_WORKSHEETS["keywords"]["name"], keywords_data_dicts)
+            write_rows(url, creds_content, GOOGLE_SHEET_WORKSHEETS["settings"]["name"], settings_data_dicts)
+
             _invalidate_cached_config(username)
             _set_cached_config(username, config)
         except Exception as e:
@@ -460,10 +681,10 @@ def get_active_storage_provider() -> BaseStorageProvider:
     return StorageManager().get_provider(username)
 
 
-def get_user_config(username: str = None) -> dict:
+def get_user_config(username: str = None, bypass_cache: bool = False) -> dict:
     if not username:
         username = get_active_username()
-    return StorageManager().get_provider(username).get_config(username)
+    return StorageManager().get_provider(username).get_config(username, bypass_cache=bypass_cache)
 
 
 def save_user_config(config: dict, username: str = None):

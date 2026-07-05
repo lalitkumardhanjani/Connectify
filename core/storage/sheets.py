@@ -70,6 +70,30 @@ def get_sheets_client(credentials_json_content):
         raise ValueError(f"Google authorization failed: {e}")
 
 
+def format_worksheet(ws, headers):
+    """Applies header style, freezes first row, and auto-resizes columns."""
+    try:
+        num_cols = len(headers)
+        end_col_letter = chr(64 + num_cols)
+        header_range = f"A1:{end_col_letter}1"
+        
+        # Format header row: dark navy blue background (#1f2937), white bold text, centered
+        ws.format(header_range, {
+            "textFormat": {
+                "bold": True,
+                "foregroundColor": {"red": 1.0, "green": 1.0, "blue": 1.0}
+            },
+            "backgroundColor": {
+                "red": 31/255.0, "green": 41/255.0, "blue": 55/255.0
+            },
+            "horizontalAlignment": "CENTER"
+        })
+        ws.freeze(rows=1)
+        ws.columns_auto_resize(0, num_cols)
+    except Exception as e:
+        logger.warning(f"Failed to apply professional formatting to worksheet '{ws.title}': {e}")
+
+
 def ensure_worksheets_exist(spreadsheet_url, credentials_json_content):
     """Checks and creates all required worksheets in the Google Sheet, setting up their table headers."""
     client = get_sheets_client(credentials_json_content)
@@ -79,22 +103,157 @@ def ensure_worksheets_exist(spreadsheet_url, credentials_json_content):
         logger.error(f"Failed to open Google Sheet by URL: {e}")
         raise ValueError(f"Failed to open Google Sheet. Please check the URL and confirm the sheet is shared with the service account email. Error: {e}")
 
+def ensure_worksheets_exist(spreadsheet_url, credentials_json_content):
+    """Checks and creates all required worksheets in the Google Sheet, setting up their table headers."""
+    client = get_sheets_client(credentials_json_content)
+    try:
+        sh = client.open_by_url(spreadsheet_url)
+    except Exception as e:
+        logger.error(f"Failed to open Google Sheet by URL: {e}")
+        raise ValueError(f"Failed to open Google Sheet. Please check the URL and confirm the sheet is shared with the service account email. Error: {e}")
+
+    # --- Self-Healing Migration: Old config sheet -> New 4-sheet layout ---
+    old_config_ws_name = "Profile & Settings"
+    has_old_config = False
+    try:
+        old_ws = sh.worksheet(old_config_ws_name)
+        has_old_config = True
+    except Exception:
+        pass
+
+    if has_old_config:
+        logger.info("Upgrading old single 'Profile & Settings' worksheet to 4 separate worksheets layout...")
+        try:
+            from core.storage.engine import unflatten_dict, get_setting_meta
+            old_records = old_ws.get_all_records()
+            
+            flat_dict = {}
+            for rec in old_records:
+                k = rec.get("Key")
+                v = rec.get("Value")
+                if k:
+                    flat_dict[k] = v if v is not None else ""
+                    
+            config = unflatten_dict(flat_dict)
+            
+            # Helper to check/create worksheet
+            def get_or_create_ws(title, headers_list):
+                try:
+                    w = sh.worksheet(title)
+                except Exception:
+                    w = sh.add_worksheet(title=title, rows="500", cols=str(len(headers_list)))
+                return w
+
+            # A. Profile sheet
+            profile_headers = GOOGLE_SHEET_WORKSHEETS["profile"]["headers"]
+            profile_ws = get_or_create_ws(GOOGLE_SHEET_WORKSHEETS["profile"]["name"], profile_headers)
+            profile_data = config.get("profile", {})
+            profile_field_mapping = {
+                "First Name": "first_name", "Last Name": "last_name", "Email Address": "email",
+                "Phone Number": "phone", "LinkedIn URL": "linkedin_url", "Resume Filename": "resume_name",
+                "Resume Short URL": "resume_url", "Years of Experience": "experience",
+                "Current Location": "current_location", "Preferred Locations": "preferred_locations",
+                "Current CTC": "current_ctc", "Expected CTC": "expected_ctc",
+                "Notice Period": "notice_period", "Last Working Day": "last_working_day"
+            }
+            row_vals = [str(profile_data.get(profile_field_mapping[h], "")) for h in profile_headers]
+            profile_ws.clear()
+            profile_ws.update(range_name="A1", values=[profile_headers, row_vals])
+            format_worksheet(profile_ws, profile_headers)
+            
+            # B. Templates sheet
+            templates_headers = GOOGLE_SHEET_WORKSHEETS["templates"]["headers"]
+            templates_ws = get_or_create_ws(GOOGLE_SHEET_WORKSHEETS["templates"]["name"], templates_headers)
+            template_rows = [
+                ["Outreach Email", flat_dict.get("email_scraper.email_subject", ""), flat_dict.get("email_scraper.email_template", ""), "email_scraper.email_template"],
+                ["LinkedIn Connection Note", "", flat_dict.get("linkedin_connect.message_template", ""), "linkedin_connect.message_template"],
+                ["Recruiter Message", "", flat_dict.get("recruiter_outreach.message_template", ""), "recruiter_outreach.message_template"],
+                ["Recruiter Direct Message", "", flat_dict.get("recruiter_outreach.direct_message_template", ""), "recruiter_outreach.direct_message_template"],
+                ["Referral Request", "", flat_dict.get("referral_outreach.message_template", ""), "referral_outreach.message_template"]
+            ]
+            templates_ws.clear()
+            templates_ws.update(range_name="A1", values=[templates_headers] + template_rows)
+            format_worksheet(templates_ws, templates_headers)
+            
+            # C. Keywords sheet
+            keywords_headers = GOOGLE_SHEET_WORKSHEETS["keywords"]["headers"]
+            keywords_ws = get_or_create_ws(GOOGLE_SHEET_WORKSHEETS["keywords"]["name"], keywords_headers)
+            
+            def get_kw_list(key):
+                val = flat_dict.get(key, "[]")
+                if isinstance(val, list):
+                    return val
+                if isinstance(val, str):
+                    try:
+                        return json.loads(val)
+                    except Exception:
+                        return [x.strip() for x in val.split(",") if x.strip()]
+                return []
+            
+            kw_lists = [
+                get_kw_list("email_scraper.search_keywords"),
+                get_kw_list("email_scraper.title_keywords"),
+                get_kw_list("email_scraper.excluded_keywords"),
+                get_kw_list("linkedin_connect.search_keywords"),
+                get_kw_list("linkedin_connect.title_keywords"),
+                get_kw_list("linkedin_connect.excluded_keywords")
+            ]
+            max_len = max(len(lst) for lst in kw_lists) if kw_lists else 0
+            kw_rows = []
+            for i in range(max_len):
+                kw_rows.append([
+                    (kw_lists[j][i] if i < len(kw_lists[j]) else "") for j in range(6)
+                ])
+            keywords_ws.clear()
+            keywords_ws.update(range_name="A1", values=[keywords_headers] + kw_rows)
+            format_worksheet(keywords_ws, keywords_headers)
+            
+            # D. Settings sheet
+            settings_headers = GOOGLE_SHEET_WORKSHEETS["settings"]["headers"]
+            settings_ws = get_or_create_ws(GOOGLE_SHEET_WORKSHEETS["settings"]["name"], settings_headers)
+            settings_rows = []
+            for key, val in flat_dict.items():
+                if (key.startswith("profile.") or 
+                    key.endswith("_template") or 
+                    key.endswith("_keywords") or 
+                    key == "email_scraper.email_subject" or
+                    key == "recruiter_outreach.direct_message_template"):
+                    continue
+                cat, name = get_setting_meta(key)
+                settings_rows.append([cat, name, val, key])
+            
+            settings_rows.sort(key=lambda x: (x[0], x[1]))
+            settings_ws.clear()
+            settings_ws.update(range_name="A1", values=[settings_headers] + settings_rows)
+            format_worksheet(settings_ws, settings_headers)
+            
+            # Delete the old worksheet
+            sh.del_worksheet(old_ws)
+            logger.info("Migration to new 4-sheet settings worksheets successful!")
+        except Exception as migration_error:
+            logger.error(f"Failed self-healing migration of settings sheets: {migration_error}")
+
+    # --- End of self-healing migration ---
+
     for key, info in GOOGLE_SHEET_WORKSHEETS.items():
         name = info["name"]
         headers = info["headers"]
         
         try:
             ws = sh.worksheet(name)
-            # Verify if headers are set, if sheet is empty set headers
             first_row = ws.row_values(1)
             if not first_row:
                 ws.append_row(headers)
                 logger.info(f"Initialized headers for existing worksheet: '{name}'")
+            
+            # Apply formatting
+            format_worksheet(ws, headers)
         except Exception:
             # Worksheet does not exist, create it and write headers
             ws = sh.add_worksheet(title=name, rows="1000", cols=str(len(headers)))
             ws.append_row(headers)
             logger.info(f"Created worksheet '{name}' and wrote headers.")
+            format_worksheet(ws, headers)
             time.sleep(1)
 
     _cache_invalidate_all()
@@ -157,6 +316,9 @@ def write_rows(spreadsheet_url, credentials_json_content, worksheet_name, data_d
         ws.clear()
         ws.update(range_name="A1", values=rows_to_write)
         logger.info(f"Overwrote {len(data_dicts)} rows in Google Sheets worksheet '{worksheet_name}'")
+        
+        # Style sheet and adjust auto-widths
+        format_worksheet(ws, headers)
         
         # Invalidate cache so next read returns fresh data
         _cache_invalidate(worksheet_name)

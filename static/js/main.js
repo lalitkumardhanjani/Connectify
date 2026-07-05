@@ -3301,21 +3301,101 @@ async function testSheetsConnection() {
 
 function updateActiveStorageIndicator(dbType) {
     const indicator = document.getElementById('active-storage-indicator');
-    if (!indicator) return;
-    const span = indicator.querySelector('span');
-    const icon = indicator.querySelector('i');
-    if (dbType === 'google_sheets') {
-        indicator.className = 'active-storage-badge badge-sheets';
-        if (span) span.innerText = 'Active Storage: Google Sheets';
-        if (icon) {
-            icon.className = 'fa-solid fa-cloud';
+    const settingsBadge = document.getElementById('settings-storage-badge');
+    const syncBtn = document.getElementById('settings-sync-btn');
+    
+    if (indicator) {
+        const span = indicator.querySelector('span');
+        const icon = indicator.querySelector('i');
+        if (dbType === 'google_sheets') {
+            indicator.className = 'active-storage-badge badge-sheets';
+            if (span) span.innerText = 'Active Storage: Google Sheets';
+            if (icon) {
+                icon.className = 'fa-solid fa-cloud';
+            }
+        } else {
+            indicator.className = 'active-storage-badge badge-local';
+            if (span) span.innerText = 'Active Storage: Local Database';
+            if (icon) {
+                icon.className = 'fa-solid fa-database';
+            }
         }
+    }
+    
+    // Update settings tab badge and sync button
+    if (settingsBadge) {
+        const textSpan = settingsBadge.querySelector('#settings-storage-text') || settingsBadge;
+        const iconEl = settingsBadge.querySelector('#settings-storage-icon');
+        if (dbType === 'google_sheets') {
+            settingsBadge.style.backgroundColor = 'rgba(34, 197, 94, 0.1)';
+            settingsBadge.style.color = '#22c55e';
+            settingsBadge.style.border = '1px solid rgba(34, 197, 94, 0.2)';
+            if (textSpan) textSpan.innerText = 'Google Sheets Active';
+            if (iconEl) iconEl.className = 'fa-solid fa-cloud';
+            if (syncBtn) {
+                syncBtn.style.display = 'inline-flex';
+            }
+        } else {
+            settingsBadge.style.backgroundColor = 'rgba(156, 163, 175, 0.1)';
+            settingsBadge.style.color = '#9ca3af';
+            settingsBadge.style.border = '1px solid rgba(156, 163, 175, 0.2)';
+            if (textSpan) textSpan.innerText = 'Local Storage Active';
+            if (iconEl) iconEl.className = 'fa-solid fa-file-excel';
+            if (syncBtn) {
+                syncBtn.style.display = 'none';
+            }
+        }
+    }
+}
+
+async function syncSettingsFromGoogleSheets() {
+    const syncBtn = document.getElementById('settings-sync-btn');
+    if (!syncBtn) return;
+    
+    const icon = syncBtn.querySelector('i');
+    
+    // Set loading state
+    syncBtn.disabled = true;
+    if (icon) icon.className = 'fa-solid fa-rotate fa-spin';
+    syncBtn.innerHTML = `<i class="fa-solid fa-rotate fa-spin"></i> Syncing...`;
+    
+    try {
+        const response = await fetch('/api/users/config?fresh=true');
+        if (!response.ok) {
+            throw new Error(`Server returned HTTP ${response.status}`);
+        }
+        
+        // Reload all UI settings fields with the new data
+        await loadSettings();
+        
+        showSettingsNotification('success', 'Configuration settings successfully synced from Google Sheets!');
+    } catch (e) {
+        console.error("Failed to sync settings from Google Sheets:", e);
+        showSettingsNotification('error', `Failed to sync settings: ${e.message}`);
+    } finally {
+        syncBtn.disabled = false;
+        syncBtn.innerHTML = `<i class="fa-solid fa-rotate"></i> Sync from Sheet`;
+    }
+}
+
+function showSettingsNotification(type, message) {
+    // Find any visible save-status element in the settings wrapper
+    const activePane = document.querySelector('.settings-tab-pane.active');
+    const statusEl = activePane ? activePane.querySelector('.save-status') : null;
+    const profileSaveStatus = document.getElementById('profile-save-status');
+    
+    // Fallback if not found
+    const targetEl = statusEl || profileSaveStatus;
+    if (targetEl) {
+        targetEl.innerText = (type === 'success' ? '✓ ' : '✕ ') + message;
+        targetEl.className = 'save-status ' + type;
+        setTimeout(() => {
+            if (targetEl.innerText === (type === 'success' ? '✓ ' : '✕ ') + message) {
+                targetEl.innerText = '';
+            }
+        }, 5000);
     } else {
-        indicator.className = 'active-storage-badge badge-local';
-        if (span) span.innerText = 'Active Storage: Local Database';
-        if (icon) {
-            icon.className = 'fa-solid fa-database';
-        }
+        alert(message);
     }
 }
 

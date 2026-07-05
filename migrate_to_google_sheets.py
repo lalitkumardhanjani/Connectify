@@ -86,7 +86,7 @@ def main():
     import time
     
     for key, info in GOOGLE_SHEET_WORKSHEETS.items():
-        if key == "config":
+        if key not in ("jobs", "emails", "referrals"):
             continue
         ws_name = info["name"]
         headers = info["headers"]
