@@ -102,13 +102,14 @@ def load_all_configs():
     users_dir = os.path.join(BASE_DIR, "users")
     active_user_file = get_active_user_file()
     
-    selected_user = None
-    if os.path.exists(active_user_file):
-        try:
-            with open(active_user_file, "r") as f:
-                selected_user = json.load(f).get("selected_user")
-        except Exception:
-            pass
+    selected_user = os.getenv("CONNECTIFY_USER")
+    if not selected_user:
+        if os.path.exists(active_user_file):
+            try:
+                with open(active_user_file, "r") as f:
+                    selected_user = json.load(f).get("selected_user")
+            except Exception:
+                pass
             
     users = {}
     if os.path.exists(users_dir):
@@ -212,6 +213,9 @@ def save_all_configs(config):
             pass
 
 def get_selected_user_name():
+    env_user = os.getenv("CONNECTIFY_USER")
+    if env_user:
+        return env_user
     config = load_all_configs()
     return config.get("selected_user", "")
 

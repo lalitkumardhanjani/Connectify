@@ -50,8 +50,9 @@ active_tasks = {}
 task_lock = threading.Lock()
 
 class SubprocessRunner:
-    def __init__(self, task_id, commands):
+    def __init__(self, task_id, commands, username):
         self.task_id = task_id
+        self.username = username          # The user profile this pipeline is pinned to
         self.commands = commands # List of (script_name, list_of_args)
         self.logs = []
         self.status = "queued"
@@ -77,9 +78,11 @@ class SubprocessRunner:
                 pass
             elif script == "run_recruiter_outreach.py":
                 try:
-                    from config.user_profiles import get_selected_user_config
+                    from config.user_profiles import load_all_configs
                     from core.storage.database import load_all_referrals
-                    user_conf = get_selected_user_config()
+                    # Read config for the pinned user (not the currently selected UI user)
+                    all_cfg = load_all_configs()
+                    user_conf = all_cfg.get("users", {}).get(self.username, {})
                     recruiter_conf = user_conf.get("recruiter_outreach", {})
                     target_count = int(recruiter_conf.get("target_count") or 2)
                     
@@ -121,14 +124,23 @@ class SubprocessRunner:
                             k, v = line.split("=", 1)
                             env_copy[k.strip()] = v.strip()
 
-            # Enable isolated and parallel execution of Chrome instances
+            # Enable isolated and parallel execution of Chrome instances.
+            # CONNECTIFY_USER pins this subprocess to the exact user profile — all calls to
+            # get_active_user(), get_selected_user_config(), get_data_dir() etc. inside the
+            # subprocess will use this user's isolated directories and config, regardless of
+            # which user is currently selected in the UI.
+            env_copy["CONNECTIFY_USER"] = self.username
             env_copy["CONNECTIFY_PARALLEL"] = "true"
-            if self.task_id == "scraper_pipeline":
-                env_copy["CHROME_PROFILE_DIR"] = os.path.join(get_user_dir(), "chrome-profile-scraper")
-            elif self.task_id == "referral_pipeline":
-                env_copy["CHROME_PROFILE_DIR"] = os.path.join(get_user_dir(), "chrome-profile-referral")
-            elif self.task_id == "recruiter_pipeline":
-                env_copy["CHROME_PROFILE_DIR"] = os.path.join(get_user_dir(), "chrome-profile-recruiter")
+            
+            # Derive per-user, per-pipeline Chrome profile directories
+            user_dir_for_runner = os.path.join(BASE_DIR, "users", self.username)
+            pipeline_type = self.task_id.split("::")[-1]  # e.g. "scraper_pipeline"
+            if pipeline_type == "scraper_pipeline":
+                env_copy["CHROME_PROFILE_DIR"] = os.path.join(user_dir_for_runner, "chrome-profile-scraper")
+            elif pipeline_type == "referral_pipeline":
+                env_copy["CHROME_PROFILE_DIR"] = os.path.join(user_dir_for_runner, "chrome-profile-referral")
+            elif pipeline_type == "recruiter_pipeline":
+                env_copy["CHROME_PROFILE_DIR"] = os.path.join(user_dir_for_runner, "chrome-profile-recruiter")
             
             try:
                 self.process = subprocess.Popen(
@@ -221,9 +233,10 @@ class SubprocessRunner:
                 self.log(f"Recruiter Connection Requests Sent : {rec_connections_sent}")
                 self.log(f"Total Outreach Actions Sent Today : {total_sent}")
                 
-                # Load selected config targets
-                from config.user_profiles import get_selected_user_config
-                user_conf = get_selected_user_config()
+                # Load selected config targets for the pinned user
+                from config.user_profiles import load_all_configs
+                all_cfg = load_all_configs()
+                user_conf = all_cfg.get("users", {}).get(self.username, {})
                 connect_conf = user_conf.get("linkedin_connect", {})
                 max_connections = int(connect_conf.get("max_connections_per_run") or 5)
                 
@@ -365,11 +378,14 @@ def job_leads_data():
 @app.route('/api/run/scraper', methods=['POST'])
 def start_scraper():
     with task_lock:
-        task_id = "scraper_pipeline"
+        body = request.get_json(silent=True) or {}
+        # Use username from request body, or fall back to the currently selected user
+        username = body.get("username") or get_selected_user_name()
+        task_id = f"{username}::scraper_pipeline"
+        
         if task_id in active_tasks and active_tasks[task_id].status in ("running", "queued"):
             return jsonify({"status": "error", "message": "Pipeline is already running or queued."}), 400
         
-        body = request.get_json(silent=True) or {}
         phase = body.get("phase", "full")
         
         # Route each phase to its dedicated runner script for clean separation of concerns.
@@ -381,7 +397,7 @@ def start_scraper():
         else:
             commands = [("run_email_outreach.py", [])]
         
-        runner = SubprocessRunner(task_id, commands)
+        runner = SubprocessRunner(task_id, commands, username)
         active_tasks[task_id] = runner
         runner.start()
         
@@ -391,11 +407,13 @@ def start_scraper():
 @app.route('/api/run/referral', methods=['POST'])
 def start_referral():
     with task_lock:
-        task_id = "referral_pipeline"
+        body = request.get_json() or {}
+        username = body.get("username") or get_selected_user_name()
+        task_id = f"{username}::referral_pipeline"
+        
         if task_id in active_tasks and active_tasks[task_id].status in ("running", "queued"):
             return jsonify({"status": "error", "message": "Pipeline is already running or queued."}), 400
         
-        body = request.get_json() or {}
         step = body.get("step")
         
         all_commands = [
@@ -418,7 +436,7 @@ def start_referral():
         else:
             commands = all_commands
         
-        runner = SubprocessRunner(task_id, commands)
+        runner = SubprocessRunner(task_id, commands, username)
         active_tasks[task_id] = runner
         runner.start()
         
@@ -428,11 +446,13 @@ def start_referral():
 @app.route('/api/run/recruiter', methods=['POST'])
 def start_recruiter():
     with task_lock:
-        task_id = "recruiter_pipeline"
+        body = request.get_json() or {}
+        username = body.get("username") or get_selected_user_name()
+        task_id = f"{username}::recruiter_pipeline"
+        
         if task_id in active_tasks and active_tasks[task_id].status in ("running", "queued"):
             return jsonify({"status": "error", "message": "Pipeline is already running or queued."}), 400
         
-        body = request.get_json() or {}
         step = body.get("step")
         
         all_commands = [
@@ -452,7 +472,7 @@ def start_recruiter():
         else:
             commands = all_commands
         
-        runner = SubprocessRunner(task_id, commands)
+        runner = SubprocessRunner(task_id, commands, username)
         active_tasks[task_id] = runner
         runner.start()
         
@@ -460,13 +480,13 @@ def start_recruiter():
 
 
 @app.route('/api/tasks')
-
 def get_all_tasks():
     with task_lock:
         result = {}
         for tid, runner in active_tasks.items():
             result[tid] = {
                 "status": runner.status,
+                "username": runner.username,
                 "waiting_for_input": runner.waiting_for_input,
                 "current_step": runner.current_step,
                 "total_steps": len(runner.commands)

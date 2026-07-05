@@ -194,15 +194,18 @@ async function pollLogs() {
         }
 
         // Highlight step numbers in sequence
-        if (activeTaskId === 'referral_pipeline') {
+        const activeTaskType = activeTaskId.split('::').pop(); // e.g. "referral_pipeline"
+        if (activeTaskType === 'referral_pipeline') {
             updateReferralPipelineSteps(data);
-        } else if (activeTaskId === 'scraper_pipeline') {
+        } else if (activeTaskType === 'scraper_pipeline') {
             updateScraperPipelineSteps(data);
-        } else if (activeTaskId === 'recruiter_pipeline') {
+        } else if (activeTaskType === 'recruiter_pipeline') {
             updateRecruiterPipelineSteps(data);
         }
 
-        const pipelinePrefix = activeTaskId.replace('_pipeline', '').replace(/_/g, '-');
+        // Extract the pipeline type suffix (e.g. "referral" from "Lalit::referral_pipeline")
+        const pipelineType = activeTaskId.split('::').pop();  // e.g. "scraper_pipeline"
+        const pipelinePrefix = pipelineType.replace('_pipeline', '').replace(/_/g, '-');
 
         // Update badges
         const badge = document.getElementById(`badge-${pipelinePrefix}`);
@@ -231,13 +234,14 @@ async function pollLogs() {
             loadTableData('referrals');
             
             // Clear active steps, but keep completed steps visible
-            if (activeTaskId === 'scraper_pipeline') {
+            const finishedType = activeTaskId.split('::').pop();
+            if (finishedType === 'scraper_pipeline') {
                 const steps = document.querySelectorAll('#card-scraper .p-step-seq');
                 steps.forEach(el => el.classList.remove('active'));
-            } else if (activeTaskId === 'referral_pipeline') {
+            } else if (finishedType === 'referral_pipeline') {
                 const steps = document.querySelectorAll('#card-referral .p-step-seq');
                 steps.forEach(el => el.classList.remove('active'));
-            } else if (activeTaskId === 'recruiter_pipeline') {
+            } else if (finishedType === 'recruiter_pipeline') {
                 const steps = document.querySelectorAll('#card-recruiter .p-step-seq');
                 steps.forEach(el => el.classList.remove('active'));
             }
@@ -253,8 +257,8 @@ async function pollLogs() {
             const isConnector = (data.current_step_name && data.current_step_name.includes("linkedin_connect")) ||
                                 (data.current_step_name && data.current_step_name.includes("recruiter_outreach")) ||
                                 (data.current_step_name && data.current_step_name.includes("run_referral_outreach_send")) ||
-                                activeTaskId === 'recruiter_pipeline';
-            if (activeTaskId === 'scraper_pipeline' || isConnector) {
+                                activeTaskId.split('::').pop() === 'recruiter_pipeline';
+            if (activeTaskId.split('::').pop() === 'scraper_pipeline' || isConnector) {
                 if (refButtons) refButtons.classList.add('hidden');
                 if (outButtons) outButtons.classList.remove('hidden');
                 if (activeTaskId === 'scraper_pipeline') {
@@ -327,9 +331,17 @@ async function updatePipelineLocks() {
         
         const pipelines = ['scraper', 'referral', 'recruiter'];
         
+        // Find task entry for current user + pipeline type from the namespaced task map.
+        // Tasks are keyed as "{username}::scraper_pipeline" etc.
+        // We match by username (activeUser) and pipeline type suffix.
         pipelines.forEach(p => {
-            const taskId = `${p}_pipeline`;
-            const isRunning = tasks[taskId] && (tasks[taskId].status === 'running' || tasks[taskId].status === 'queued');
+            const pipelineKey = `${p}_pipeline`;
+            // Look for a task belonging to the active user for this pipeline type
+            const taskEntry = Object.entries(tasks).find(
+                ([tid, t]) => t.username === activeUser && tid.endsWith(`::${pipelineKey}`)
+            );
+            const isRunning = taskEntry && (taskEntry[1].status === 'running' || taskEntry[1].status === 'queued');
+            const taskId = taskEntry ? taskEntry[0] : `${activeUser}::${pipelineKey}`;
             
             // 1. Run Complete Pipeline button
             const runBtn = document.getElementById(`btn-run-${p}`);
@@ -353,6 +365,8 @@ async function updatePipelineLocks() {
                 if (isRunning) {
                     killBtn.classList.remove('hidden');
                     if (runBtn) runBtn.classList.add('hidden');
+                    // Store the actual namespaced task ID on the button for kill use
+                    killBtn.dataset.taskId = taskId;
                 } else {
                     killBtn.classList.add('hidden');
                     if (runBtn) runBtn.classList.remove('hidden');
@@ -361,9 +375,9 @@ async function updatePipelineLocks() {
             
             // 4. Update status badges
             const badge = document.getElementById(`badge-${p}`);
-            if (badge && tasks[taskId]) {
-                badge.innerText = tasks[taskId].status;
-                badge.className = `status-badge status-${tasks[taskId].status}`;
+            if (badge && taskEntry) {
+                badge.innerText = taskEntry[1].status;
+                badge.className = `status-badge status-${taskEntry[1].status}`;
             }
         });
     } catch (e) {
@@ -396,21 +410,25 @@ function stopPolling() {
     }
 }
 
-// Start Pipelines triggers
+// Start Pipelines triggers — always for the active user profile
 async function runPipeline(type) {
     try {
         const checkRes = await fetch('/api/tasks');
         const tasks = await checkRes.json();
-        const taskId = `${type}_pipeline`;
-        if (tasks[taskId] && (tasks[taskId].status === 'running' || tasks[taskId].status === 'queued')) {
-            alert(`The ${type.charAt(0).toUpperCase() + type.slice(1)} pipeline is already running. Please stop it or wait for it to finish first.`);
+        const pipelineKey = `${type}_pipeline`;
+        // Find existing task for this user + type
+        const existing = Object.entries(tasks).find(
+            ([tid, t]) => t.username === activeUser && tid.endsWith(`::${pipelineKey}`)
+        );
+        if (existing && (existing[1].status === 'running' || existing[1].status === 'queued')) {
+            alert(`The ${type.charAt(0).toUpperCase() + type.slice(1)} pipeline is already running for ${activeUser}. Please stop it or wait for it to finish first.`);
             return;
         }
 
         const response = await fetch(`/api/run/${type}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
+            body: JSON.stringify({ username: activeUser })
         });
         const data = await response.json();
         
@@ -432,11 +450,14 @@ async function runSingleStep(stepNum, event) {
         event.stopPropagation();
     }
     
-    // Check if referral pipeline is running
+    // Check if referral pipeline is running for the active user
     try {
         const checkRes = await fetch('/api/tasks');
         const tasks = await checkRes.json();
-        if (tasks['referral_pipeline'] && (tasks['referral_pipeline'].status === 'running' || tasks['referral_pipeline'].status === 'queued')) {
+        const existing = Object.entries(tasks).find(
+            ([tid, t]) => t.username === activeUser && tid.endsWith('::referral_pipeline')
+        );
+        if (existing && (existing[1].status === 'running' || existing[1].status === 'queued')) {
             alert("The Referral pipeline is already running. Please stop it or wait for it to finish first.");
             return;
         }
@@ -444,7 +465,7 @@ async function runSingleStep(stepNum, event) {
         const response = await fetch('/api/run/referral', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ "step": stepNum })
+            body: JSON.stringify({ step: stepNum, username: activeUser })
         });
         const data = await response.json();
         
@@ -466,11 +487,14 @@ async function runRecruiterStep(stepNum, event) {
         event.stopPropagation();
     }
     
-    // Check if recruiter pipeline is running
+    // Check if recruiter pipeline is running for the active user
     try {
         const checkRes = await fetch('/api/tasks');
         const tasks = await checkRes.json();
-        if (tasks['recruiter_pipeline'] && (tasks['recruiter_pipeline'].status === 'running' || tasks['recruiter_pipeline'].status === 'queued')) {
+        const existing = Object.entries(tasks).find(
+            ([tid, t]) => t.username === activeUser && tid.endsWith('::recruiter_pipeline')
+        );
+        if (existing && (existing[1].status === 'running' || existing[1].status === 'queued')) {
             alert("The Recruiter pipeline is already running. Please stop it or wait for it to finish first.");
             return;
         }
@@ -478,7 +502,7 @@ async function runRecruiterStep(stepNum, event) {
         const response = await fetch('/api/run/recruiter', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ "step": stepNum })
+            body: JSON.stringify({ step: stepNum, username: activeUser })
         });
         const data = await response.json();
         
@@ -500,11 +524,14 @@ async function runScraperStep(phase, event) {
         event.stopPropagation();
     }
     
-    // Check if scraper pipeline is running
+    // Check if scraper pipeline is running for the active user
     try {
         const checkRes = await fetch('/api/tasks');
         const tasks = await checkRes.json();
-        if (tasks['scraper_pipeline'] && (tasks['scraper_pipeline'].status === 'running' || tasks['scraper_pipeline'].status === 'queued')) {
+        const existing = Object.entries(tasks).find(
+            ([tid, t]) => t.username === activeUser && tid.endsWith('::scraper_pipeline')
+        );
+        if (existing && (existing[1].status === 'running' || existing[1].status === 'queued')) {
             alert("The Scraper pipeline is already running. Please stop it or wait for it to finish first.");
             return;
         }
@@ -512,7 +539,7 @@ async function runScraperStep(phase, event) {
         const response = await fetch('/api/run/scraper', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ "phase": phase })
+            body: JSON.stringify({ phase: phase, username: activeUser })
         });
         const data = await response.json();
         
@@ -626,11 +653,14 @@ function updateRecruiterPipelineSteps(taskData) {
 
 
 
-// Kill running pipeline tasks
+// Kill running pipeline tasks — uses the namespaced task ID stored on the kill button
 async function killPipeline(type) {
-    const taskId = `${type}_pipeline`;
+    // Try to find the actual namespaced task ID from the kill button's data attribute.
+    // Falls back to constructing it from activeUser for backward compat.
+    const killBtn = document.getElementById(`btn-kill-${type}`);
+    const taskId = (killBtn && killBtn.dataset.taskId) || `${activeUser}::${type}_pipeline`;
     try {
-        await fetch(`/api/task/${taskId}/kill`, { method: 'POST' });
+        await fetch(`/api/task/${encodeURIComponent(taskId)}/kill`, { method: 'POST' });
     } catch (e) {
         console.error("Failed to terminate task:", e);
     }
@@ -1375,6 +1405,8 @@ async function loadUsers() {
             if (cancelBtn) cancelBtn.style.display = 'inline-block';
             // Load configurations for active user
             await loadSettings();
+            // Initialize pipeline status for the active user
+            await initPipelineStatus();
         }
     } catch (e) {
         console.error("Failed to load profiles list:", e);
@@ -1412,13 +1444,14 @@ document.querySelectorAll('.pipeline-tab-btn').forEach(btn => {
         }
 
         // Switch active console log viewer when switching sub-tabs
+        // Build the namespaced task ID for the active user
         let newTaskId = null;
         if (tabName === 'email-scraper') {
-            newTaskId = 'scraper_pipeline';
+            newTaskId = `${activeUser}::scraper_pipeline`;
         } else if (tabName === 'referral-connect') {
-            newTaskId = 'referral_pipeline';
+            newTaskId = `${activeUser}::referral_pipeline`;
         } else if (tabName === 'recruiter-outreach') {
-            newTaskId = 'recruiter_pipeline';
+            newTaskId = `${activeUser}::recruiter_pipeline`;
         }
         
         if (newTaskId) {
@@ -3159,9 +3192,15 @@ async function initPipelineStatus() {
         
         const pipelines = ['scraper', 'referral', 'recruiter'];
         
+        // For each pipeline type, find a task that belongs to the active user.
+        // Task IDs are namespaced as "{username}::pipeline_type".
         pipelines.forEach(p => {
-            const taskId = `${p}_pipeline`;
-            const task = tasks[taskId];
+            const pipelineKey = `${p}_pipeline`;
+            const entry = Object.entries(tasks).find(
+                ([tid, t]) => t.username === activeUser && tid.endsWith(`::${pipelineKey}`)
+            );
+            const taskId = entry ? entry[0] : null;
+            const task = entry ? entry[1] : null;
             const isRunning = task && (task.status === 'running' || task.status === 'queued');
             
             // Set buttons visibility and lock state based on status
@@ -3169,19 +3208,30 @@ async function initPipelineStatus() {
             const killBtn = document.getElementById(`btn-kill-${p}`);
             const badge = document.getElementById(`badge-${p}`);
             
-            if (isRunning) {
+            if (isRunning && taskId) {
                 if (runBtn) runBtn.classList.add('hidden');
-                if (killBtn) killBtn.classList.remove('hidden');
-                if (killBtn) killBtn.disabled = false;
+                if (killBtn) {
+                    killBtn.classList.remove('hidden');
+                    killBtn.disabled = false;
+                    killBtn.dataset.taskId = taskId;  // Store for killPipeline()
+                }
                 startPolling(taskId);
             } else {
                 if (runBtn) runBtn.classList.remove('hidden');
                 if (killBtn) killBtn.classList.add('hidden');
+                // If the active log view was polling a task for a different user, stop it
+                if (activeTaskId && activeTaskId.endsWith(`::${pipelineKey}`) && !activeTaskId.startsWith(`${activeUser}::`)) {
+                    stopPolling();
+                    activeTaskId = null;
+                    const consoleLogs = document.getElementById('console-logs');
+                    if (consoleLogs) consoleLogs.innerHTML = '<div class="log-line system">Log channel idle. Select an active pipeline to view logs.</div>';
+                }
             }
             
-            if (badge && task) {
-                badge.innerText = task.status;
-                badge.className = `status-badge status-${task.status}`;
+            if (badge) {
+                const statusText = task ? task.status : 'idle';
+                badge.innerText = statusText;
+                badge.className = `status-badge status-${statusText}`;
             }
         });
         

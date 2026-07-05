@@ -11,7 +11,15 @@ load_dotenv()
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def get_active_user():
-    """Reads the active user from users/active_user.json. Falls back to first user directory if found."""
+    """Reads the active user. When called inside a pipeline subprocess, CONNECTIFY_USER
+    is set by SubprocessRunner to pin the process to the correct user profile permanently,
+    regardless of which user is currently selected in the UI (active_user.json)."""
+    # Subprocess isolation: pipeline subprocesses are launched with CONNECTIFY_USER set
+    # so they always read the correct user's config/data/chrome-profile.
+    env_user = os.getenv("CONNECTIFY_USER")
+    if env_user:
+        return env_user
+
     active_user_file = os.path.join(BASE_DIR, "users", "active_user.json")
     if os.path.exists(active_user_file):
         try:
