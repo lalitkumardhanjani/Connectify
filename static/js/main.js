@@ -1229,26 +1229,8 @@ let cachedConfig = {};
 
 // Helper to get 1 or 2 initials from a username
 function getUserInitials(name) {
-    // If we have profile details loaded, use first/last name to calculate initials
-    if (name && userDetails[name]) {
-        const details = userDetails[name];
-        if (details.first_name || details.last_name) {
-            const first = details.first_name ? details.first_name.trim().charAt(0) : '';
-            const last = details.last_name ? details.last_name.trim().charAt(0) : '';
-            if (first || last) {
-                return (first + last).toUpperCase();
-            }
-        }
-    }
     if (!name) return 'U';
-    const parts = name.trim().split(/[\s\._\-]+/);
-    const validParts = parts.filter(p => p.length > 0);
-    if (validParts.length === 0) return 'U';
-    if (validParts.length === 1) {
-        const word = validParts[0];
-        return word.length > 1 ? word.slice(0, 2).toUpperCase() : word.charAt(0).toUpperCase();
-    }
-    return (validParts[0].charAt(0) + validParts[validParts.length - 1].charAt(0)).toUpperCase();
+    return name.trim().charAt(0).toUpperCase();
 }
 
 // Searchable user dropdown triggers
@@ -1287,11 +1269,6 @@ function filterUserOptions() {
         option.className = `searchable-select-option ${user === activeUser ? 'selected' : ''}`;
         
         let displayName = user;
-        if (userDetails[user]) {
-            const details = userDetails[user];
-            const fullName = [details.first_name, details.last_name].filter(Boolean).join(' ').trim();
-            displayName = fullName ? `${fullName} (${user})` : user;
-        }
         
         option.innerHTML = `
             <div class="option-avatar-circle">${initials}</div>
@@ -1463,12 +1440,8 @@ async function loadUsers() {
         activeUser = data.selected_user || "";
         userDetails = data.user_details || {};
         
-        // Compute active user display name (full name if available)
+        // Compute active user display name (username only)
         let activeDisplayName = activeUser || 'Select Profile';
-        if (activeUser && userDetails[activeUser]) {
-            const details = userDetails[activeUser];
-            activeDisplayName = [details.first_name, details.last_name].filter(Boolean).join(' ').trim() || activeUser;
-        }
         document.getElementById('selected-user-display').innerText = activeDisplayName;
         
         // Update initials on circular triggers and headers
@@ -1934,9 +1907,8 @@ async function loadSettings() {
             const initEl2 = document.getElementById('dropdown-user-avatar-initials');
             if (initEl2) initEl2.textContent = initials;
             
-            const fullName = [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim() || username || 'Active Candidate';
             const nameEl = document.getElementById('selected-user-display');
-            if (nameEl) nameEl.textContent = fullName;
+            if (nameEl) nameEl.textContent = username;
         }
         
         // Resume file details
