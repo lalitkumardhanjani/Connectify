@@ -665,6 +665,53 @@ def create_user_profile():
     return jsonify({"status": "success", "username": username, "selected_user": config.get("selected_user", username)})
 
 
+
+@app.route('/api/users/delete', methods=['POST'])
+def delete_user_profile():
+    body = request.get_json() or {}
+    username = body.get("username", "").strip()
+    if not username:
+        return jsonify({"status": "error", "message": "Username is required"}), 400
+        
+    active_user = get_selected_user_name()
+    users_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "users")
+    user_folder = os.path.join(users_dir, username)
+    
+    if not os.path.exists(user_folder) or not os.path.isdir(user_folder):
+        return jsonify({"status": "error", "message": "Profile folder not found"}), 404
+        
+    all_users = [d for d in os.listdir(users_dir) if os.path.isdir(os.path.join(users_dir, d)) and d != "default"]
+    
+    if len(all_users) <= 1:
+        return jsonify({"status": "error", "message": "Cannot delete the only profile. Please create another profile first."}), 400
+        
+    new_active = active_user
+    if username == active_user:
+        other_users = [u for u in all_users if u != username]
+        new_active = other_users[0]
+        active_user_file = os.path.join(users_dir, "active_user.json")
+        try:
+            with open(active_user_file, "w") as f:
+                json.dump({"selected_user": new_active}, f, indent=2)
+        except Exception:
+            pass
+            
+    import shutil
+    try:
+        shutil.rmtree(user_folder, ignore_errors=True)
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Failed to delete directory: {str(e)}"}), 500
+        
+    try:
+        from core.storage.engine import _invalidate_cached_config
+        _invalidate_cached_config(username)
+    except Exception:
+        pass
+        
+    return jsonify({"status": "success", "switched_to": new_active if username == active_user else None})
+
+
+
 @app.route('/api/config/sheets/test', methods=['POST'])
 def test_sheets_connection():
     body = request.get_json() or {}

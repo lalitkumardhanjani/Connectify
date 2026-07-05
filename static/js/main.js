@@ -1288,19 +1288,29 @@ function filterUserOptions() {
         let displayName = user;
         if (userDetails[user]) {
             const details = userDetails[user];
-            displayName = [details.first_name, details.last_name].filter(Boolean).join(' ').trim() || user;
+            const fullName = [details.first_name, details.last_name].filter(Boolean).join(' ').trim();
+            displayName = fullName ? `${fullName} (${user})` : user;
         }
         
         option.innerHTML = `
             <div class="option-avatar-circle">${initials}</div>
-            <span>${displayName}</span>
-            ${user === activeUser ? '<i class="fa-solid fa-check option-check-icon"></i>' : ''}
+            <span style="flex-grow: 1; text-align: left;">${displayName}</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                ${user === activeUser ? '<i class="fa-solid fa-check option-check-icon"></i>' : ''}
+                <button type="button" class="profile-delete-btn" title="Delete Profile" 
+                        onclick="event.stopPropagation(); deleteUserProfile('${user}')" 
+                        onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6"
+                        style="background: none; border: none; color: #ef4444; cursor: pointer; padding: 4px; opacity: 0.6; transition: opacity 0.2s; font-size: 0.85rem;">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+            </div>
         `;
         option.addEventListener('click', () => {
             selectUser(user);
         });
         optionsContainer.appendChild(option);
     });
+
 }
 
 // Select a user profile
@@ -1341,6 +1351,57 @@ async function selectUser(username) {
         console.error("Failed to select user:", e);
     }
 }
+
+// Delete user profile
+async function deleteUserProfile(username) {
+    if (allUsers.length <= 1) {
+        alert("Cannot delete the only profile. Please create another profile first.");
+        return;
+    }
+    
+    const confirmDelete = confirm(`Are you sure you want to permanently delete the profile "${username}"? All local folders, configurations, logs, and database files for this user will be deleted.`);
+    if (!confirmDelete) return;
+    
+    try {
+        const response = await fetch('/api/users/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: username })
+        });
+        const data = await response.json();
+        if (data.status === 'success') {
+            // Show brief deletion toast
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed; bottom: 30px; right: 30px; z-index: 9999;
+                background: linear-gradient(135deg, #ef4444, #dc2626);
+                color: white; padding: 14px 20px; border-radius: 10px;
+                font-size: 0.9rem; font-weight: 600; box-shadow: 0 8px 32px rgba(239,68,68,0.3);
+                display: flex; align-items: center; gap: 10px;
+                animation: slideInRight 0.3s ease;
+            `;
+            toast.innerHTML = `<i class="fa-solid fa-user-minus"></i> Profile "<strong>${username}</strong>" deleted successfully.`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+            
+            // If the deleted user was active, switch to the new active user
+            if (data.switched_to) {
+                activeUser = data.switched_to;
+                cachedConfig = null;
+            }
+            
+            // Reload user list and settings
+            await loadUsers();
+            await loadSettings();
+        } else {
+            alert(`Error deleting profile: ${data.message}`);
+        }
+    } catch (e) {
+        console.error("Failed to delete profile:", e);
+        alert("Failed to delete profile. Please check console for details.");
+    }
+}
+
 
 // Create new user profile modal
 function showCreateUserModal() {
