@@ -2418,7 +2418,7 @@ async function saveConfiguration(module) {
                 showSaveError(statusEl, '✕ Google Sheet URL is required.');
                 return;
             }
-            const sheetUrlRegex = /^https:\/\/docs\.google\.com\/spreadsheets\/d\/[a-zA-Z0-9-_]+\/?.*/;
+            const sheetUrlRegex = /^https:\/\/docs\.google\.com\/spreadsheets\/d\/[a-zA-Z0-9-_]+\/?.*/ ;
             if (!sheetUrlRegex.test(sheetUrl)) {
                 showSaveError(statusEl, '✕ Google Sheet URL is invalid. It must look like: https://docs.google.com/spreadsheets/d/spreadsheetId/edit');
                 return;
@@ -2438,10 +2438,23 @@ async function saveConfiguration(module) {
                 return;
             }
         }
-        
+
+        const currentDbType = cachedConfig.global_settings?.database_type || 'local';
+        const storageChanged = currentDbType !== dbType;
+
+        // Update local cache always
         cachedConfig.global_settings.database_type = dbType;
         cachedConfig.global_settings.google_sheet_url = sheetUrl;
         cachedConfig.global_settings.google_credentials_json = credsJson;
+
+        if (storageChanged) {
+            // Storage type changed — run migration via streaming endpoint
+            const globalSettingsPayload = { ...cachedConfig.global_settings };
+            await runStorageMigration(dbType, globalSettingsPayload, statusEl, module);
+            return; // runStorageMigration handles the rest (loadSettings, updateTabUnsavedState)
+        }
+
+        // No storage change — fall through to normal save below
     }
 
     // Now post the FULL config body
@@ -2476,6 +2489,149 @@ async function saveConfiguration(module) {
         console.error("Failed to save configuration:", e);
         showSaveError(statusEl, '✕ Failed to save configuration.');
     }
+}
+
+/**
+ * Runs the storage type migration via the /api/config/storage/switch SSE endpoint.
+ * Shows a live-progress modal while migration is in progress.
+ */
+async function runStorageMigration(newDbType, globalSettingsPayload, statusEl, module) {
+    const directionLabel = newDbType === 'google_sheets'
+        ? 'Local Excel  →  Google Sheets'
+        : 'Google Sheets  →  Local Excel';
+
+    showMigrationModal(directionLabel);
+
+    try {
+        const response = await fetch('/api/config/storage/switch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                database_type: newDbType,
+                global_settings: globalSettingsPayload
+            })
+        });
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({ message: 'Server error' }));
+            appendMigrationLog(`❌ Error: ${err.message}`, 'error');
+            finishMigrationModal(false);
+            if (statusEl) showSaveError(statusEl, '✕ Migration failed. See migration log.');
+            return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let success = false;
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+
+            // Parse SSE lines: "data: {...}\n\n"
+            const lines = buffer.split('\n');
+            buffer = lines.pop(); // keep incomplete last line
+
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed.startsWith('data:')) continue;
+                try {
+                    const event = JSON.parse(trimmed.slice(5).trim());
+                    if (event.type === 'log') {
+                        appendMigrationLog(event.message, 'log');
+                    } else if (event.type === 'done') {
+                        appendMigrationLog('✅ ' + event.message, 'success');
+                        success = true;
+                    } else if (event.type === 'error') {
+                        appendMigrationLog('❌ ' + event.message, 'error');
+                        success = false;
+                    }
+                } catch (_) { /* ignore parse errors on partial lines */ }
+            }
+        }
+
+        finishMigrationModal(success);
+
+        if (success) {
+            if (statusEl) {
+                statusEl.innerText = '✓ Storage migration complete!';
+                statusEl.className = 'save-status success';
+                setTimeout(() => { statusEl.innerText = ''; }, 4000);
+            }
+            updateTabUnsavedState(module, false);
+            await loadSettings();
+        } else {
+            if (statusEl) showSaveError(statusEl, '✕ Migration encountered errors. Check the log.');
+        }
+    } catch (e) {
+        console.error('Migration fetch error:', e);
+        appendMigrationLog('❌ Network error: ' + e.message, 'error');
+        finishMigrationModal(false);
+        if (statusEl) showSaveError(statusEl, '✕ Migration failed (network error).');
+    }
+}
+
+function showMigrationModal(directionLabel) {
+    let modal = document.getElementById('migration-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'migration-modal';
+        modal.innerHTML = `
+<div class="migration-modal-backdrop">
+  <div class="migration-modal-box">
+    <div class="migration-modal-header">
+      <span class="migration-modal-icon">🔄</span>
+      <div>
+        <h3 class="migration-modal-title">Migrating Data</h3>
+        <p class="migration-modal-subtitle" id="migration-direction-label"></p>
+      </div>
+    </div>
+    <div class="migration-log-container" id="migration-log-container"></div>
+    <div class="migration-modal-footer">
+      <div class="migration-spinner" id="migration-spinner"></div>
+      <span class="migration-status-text" id="migration-status-text">Please wait, migration in progress...</span>
+      <button class="migration-close-btn" id="migration-close-btn" style="display:none" onclick="hideMigrationModal()">Close</button>
+    </div>
+  </div>
+</div>`;
+        document.body.appendChild(modal);
+    }
+    document.getElementById('migration-direction-label').textContent = directionLabel;
+    document.getElementById('migration-log-container').innerHTML = '';
+    document.getElementById('migration-spinner').style.display = 'block';
+    document.getElementById('migration-status-text').textContent = 'Please wait, migration in progress...';
+    document.getElementById('migration-status-text').style.color = '';
+    document.getElementById('migration-close-btn').style.display = 'none';
+    modal.style.display = 'block';
+}
+
+function appendMigrationLog(message, type) {
+    const container = document.getElementById('migration-log-container');
+    if (!container) return;
+    const line = document.createElement('div');
+    line.className = `migration-log-line migration-log-${type}`;
+    line.textContent = message;
+    container.appendChild(line);
+    container.scrollTop = container.scrollHeight;
+}
+
+function finishMigrationModal(success) {
+    const spinner = document.getElementById('migration-spinner');
+    const statusText = document.getElementById('migration-status-text');
+    const closeBtn = document.getElementById('migration-close-btn');
+    if (spinner) spinner.style.display = 'none';
+    if (statusText) {
+        statusText.textContent = success ? '✅ Migration completed successfully!' : '❌ Migration encountered errors.';
+        statusText.style.color = success ? '#10b981' : '#ef4444';
+    }
+    if (closeBtn) closeBtn.style.display = 'inline-block';
+}
+
+function hideMigrationModal() {
+    const modal = document.getElementById('migration-modal');
+    if (modal) modal.style.display = 'none';
 }
 
 function showSaveError(statusEl, msg) {
