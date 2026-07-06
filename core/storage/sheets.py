@@ -384,8 +384,13 @@ def append_row(spreadsheet_url, credentials_json_content, worksheet_name, data_d
         ws.append_row(row_values)
         logger.info(f"Appended 1 row to Google Sheets worksheet '{worksheet_name}'")
         
-        # Invalidate cache for this worksheet so next read picks up the new row
-        _cache_invalidate(worksheet_name)
+        # Update cache in-memory if present, and slide the TTL freshness window
+        with _cache_lock:
+            entry = _row_cache.get(worksheet_name)
+            if entry:
+                fetched_at, cached_rows = entry
+                cached_rows.append(data_dict.copy())
+                _row_cache[worksheet_name] = (time.monotonic(), cached_rows)
     except Exception as e:
         logger.error(f"Error appending to Google Sheets worksheet '{worksheet_name}': {e}")
         raise e

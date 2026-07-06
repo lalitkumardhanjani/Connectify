@@ -5,6 +5,13 @@ from core.logging.config import logger
 from core.utils.url_utils import is_valid_external_url, normalize_external_url
 from core.storage.engine import read_database_rows, write_database_rows, append_database_row
 
+import threading
+import time
+
+_last_sync_time = 0
+_sync_lock = threading.Lock()
+SYNC_INTERVAL_SECONDS = 180  # Throttle status syncs to at most once per 3 minutes
+
 # Cache set for fast duplicate checks of external apply URLs
 seen_external_urls = set()
 
@@ -387,6 +394,14 @@ def get_completed_referral_count(company_name, job_url=None, job_id=None, path=N
 
 def sync_job_lead_referral_statuses(path=None):
     """Automatically updates job tracker status to 'Referral Outreach Completed' if targets are met."""
+    global _last_sync_time
+    current_time = time.time()
+    with _sync_lock:
+        if current_time - _last_sync_time < SYNC_INTERVAL_SECONDS:
+            logger.info("Skipping sync_job_lead_referral_statuses: throttled (ran less than 3 minutes ago).")
+            return
+        _last_sync_time = current_time
+
     try:
         from config.user_profiles import get_selected_user_config
         user_conf = get_selected_user_config()

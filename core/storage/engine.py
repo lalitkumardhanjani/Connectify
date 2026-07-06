@@ -711,8 +711,13 @@ class GoogleSheetsStorageProvider(BaseStorageProvider):
             from core.storage.sheets import append_row
             append_row(url, creds_content, ws_name, row)
             
-            # Invalidate cache so next read downloads the appended row
-            _invalidate_cached_rows(username, table_key)
+            # Update cache in-memory if present, and slide the TTL freshness window
+            with _cache_lock:
+                entry = _row_cache.get((username, table_key))
+                if entry:
+                    ts, data = entry
+                    data.append(row.copy())
+                    _row_cache[(username, table_key)] = (time.monotonic(), data)
         except Exception as e:
             logger.error(f"Error appending to Google Sheets worksheet '{ws_name}': {e}")
             raise e
@@ -819,5 +824,12 @@ def append_database_row(table_key: str, row: dict, username: str = None):
     if not username:
         username = get_active_username()
     StorageManager().get_provider(username).append_row(username, table_key, row)
-    _invalidate_cached_rows(username, table_key)
+    
+    # Update cache in-memory if present, and slide the TTL freshness window
+    with _cache_lock:
+        entry = _row_cache.get((username, table_key))
+        if entry:
+            ts, data = entry
+            data.append(row.copy())
+            _row_cache[(username, table_key)] = (time.monotonic(), data)
 
