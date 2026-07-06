@@ -2136,7 +2136,11 @@ function applyFilters(type) {
         let statusMatch = true;
         if (statusVal !== 'all') {
             const currentStatus = (row.Status || 'pending').toLowerCase().trim();
-            statusMatch = currentStatus === statusVal;
+            if (statusVal === 'asked for referral' || statusVal === 'ask for referral') {
+                statusMatch = (currentStatus === 'asked for referral' || currentStatus === 'ask for referral');
+            } else {
+                statusMatch = currentStatus === statusVal;
+            }
         }
         
         // 3. Recency Match
