@@ -671,6 +671,29 @@ class GoogleSheetsStorageProvider(BaseStorageProvider):
                     except (ValueError, TypeError):
                         pass
 
+            # --- AUTOMATIC SELF-HEALING SYNC ---
+            try:
+                local_data = LocalStorageProvider().read_rows(username, table_key, bypass_cache=True)
+                if local_data:
+                    sheets_ids = {str(r.get(id_col)).strip().rstrip(".0") for r in data if r.get(id_col)}
+                    missing_rows = []
+                    for lr in local_data:
+                        lid = str(lr.get(id_col)).strip().rstrip(".0")
+                        if lid and lid not in sheets_ids:
+                            missing_rows.append(lr)
+                    
+                    if missing_rows:
+                        logger.info(f"Self-healing sync: Found {len(missing_rows)} missing rows in Google Sheets for '{table_key}'. Syncing now...")
+                        from core.storage.sheets import append_row
+                        for mr in missing_rows:
+                            try:
+                                append_row(url, creds_content, ws_name, mr)
+                                data.append(mr.copy())
+                            except Exception as se:
+                                logger.warning(f"Self-healing sync failed to append row {mr.get(id_col)}: {se}")
+            except Exception as le:
+                logger.warning(f"Self-healing sync: Error reading local database for comparison: {le}")
+
             if not bypass_cache:
                 _set_cached_rows(username, table_key, data)
             return data
@@ -679,50 +702,49 @@ class GoogleSheetsStorageProvider(BaseStorageProvider):
             return LocalStorageProvider().read_rows(username, table_key, bypass_cache=bypass_cache)
 
     def write_rows(self, username: str, table_key: str, data: list):
+        # 1. ALWAYS write to local Excel database first as a guaranteed offline mirror copy
+        try:
+            LocalStorageProvider().write_rows(username, table_key, data)
+        except Exception as le:
+            logger.warning(f"Failed to write local database mirror backup for '{table_key}': {le}")
+
         sheets_conf = self.get_sheets_config(username)
         if not sheets_conf:
-            LocalStorageProvider().write_rows(username, table_key, data)
             return
 
         url, creds_content = sheets_conf
         ws_name = GOOGLE_SHEET_WORKSHEETS[table_key]["name"]
 
+        # 2. Try to write to Google Sheets online copy
         try:
             from core.storage.sheets import write_rows
             write_rows(url, creds_content, ws_name, data)
             
-            # Save mirror backup copy locally
-            try:
-                LocalStorageProvider().write_rows(username, table_key, data)
-            except Exception as le:
-                logger.warning(f"Failed to write local database mirror backup for '{table_key}': {le}")
-
             # Invalidate and reset cache
             _invalidate_cached_rows(username, table_key)
             _set_cached_rows(username, table_key, data)
         except Exception as e:
-            logger.error(f"Error writing to Google Sheets worksheet '{ws_name}': {e}")
-            raise e
+            logger.error(f"Error writing to Google Sheets worksheet '{ws_name}': {e}. (Saved locally, will sync later).")
 
     def append_row(self, username: str, table_key: str, row: dict):
+        # 1. ALWAYS write to local Excel database first as a guaranteed offline mirror copy
+        try:
+            LocalStorageProvider().append_row(username, table_key, row)
+        except Exception as le:
+            logger.warning(f"Failed to append local database mirror backup for '{table_key}': {le}")
+
         sheets_conf = self.get_sheets_config(username)
         if not sheets_conf:
-            LocalStorageProvider().append_row(username, table_key, row)
             return
 
         url, creds_content = sheets_conf
         ws_name = GOOGLE_SHEET_WORKSHEETS[table_key]["name"]
 
+        # 2. Try to write to Google Sheets online copy
         try:
             from core.storage.sheets import append_row
             append_row(url, creds_content, ws_name, row)
             
-            # Save mirror backup copy locally
-            try:
-                LocalStorageProvider().append_row(username, table_key, row)
-            except Exception as le:
-                logger.warning(f"Failed to append local database mirror backup for '{table_key}': {le}")
-
             # Update cache in-memory if present, and slide the TTL freshness window
             with _cache_lock:
                 entry = _row_cache.get((username, table_key))
@@ -731,8 +753,7 @@ class GoogleSheetsStorageProvider(BaseStorageProvider):
                     data.append(row.copy())
                     _row_cache[(username, table_key)] = (time.monotonic(), data)
         except Exception as e:
-            logger.error(f"Error appending to Google Sheets worksheet '{ws_name}': {e}")
-            raise e
+            logger.error(f"Error appending to Google Sheets worksheet '{ws_name}': {e}. (Saved locally, will sync later).")
 
 
 # ---------------------------------------------------------------------------
