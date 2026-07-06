@@ -255,7 +255,7 @@ class BaseStorageProvider:
     def save_config(self, username: str, config: dict):
         raise NotImplementedError()
 
-    def read_rows(self, username: str, table_key: str) -> list:
+    def read_rows(self, username: str, table_key: str, bypass_cache: bool = False) -> list:
         raise NotImplementedError()
 
     def write_rows(self, username: str, table_key: str, data: list):
@@ -302,7 +302,7 @@ class LocalStorageProvider(BaseStorageProvider):
             raise ValueError(f"Unknown table key: {table_key}")
         return os.path.join(BASE_DIR, "users", username, "data", filename_map[table_key])
 
-    def read_rows(self, username: str, table_key: str) -> list:
+    def read_rows(self, username: str, table_key: str, bypass_cache: bool = False) -> list:
         path = self.get_excel_path(username, table_key)
         if not os.path.exists(path):
             # Auto-initialize with empty headers if file is missing
@@ -634,22 +634,32 @@ class GoogleSheetsStorageProvider(BaseStorageProvider):
         except Exception as e:
             logger.error(f"Failed to save configuration to Google Sheet: {e}")
 
-    def read_rows(self, username: str, table_key: str) -> list:
+    def read_rows(self, username: str, table_key: str, bypass_cache: bool = False) -> list:
         # Check cache first
-        cached = _get_cached_rows(username, table_key)
-        if cached is not None:
-            return cached
+        if not bypass_cache:
+            cached = _get_cached_rows(username, table_key)
+            if cached is not None:
+                return cached
 
         sheets_conf = self.get_sheets_config(username)
         if not sheets_conf:
             logger.warning(f"Google Sheets not configured. Reading from local database instead.")
-            return LocalStorageProvider().read_rows(username, table_key)
+            return LocalStorageProvider().read_rows(username, table_key, bypass_cache=bypass_cache)
 
         url, creds_content = sheets_conf
         ws_name = GOOGLE_SHEET_WORKSHEETS[table_key]["name"]
 
         try:
             from core.storage.sheets import read_rows
+            
+            # If bypassing cache, we must invalidate gspread's internally held cache in sheets.py
+            if bypass_cache:
+                try:
+                    from core.storage.sheets import _cache_invalidate
+                    _cache_invalidate(ws_name)
+                except Exception:
+                    pass
+
             data = read_rows(url, creds_content, ws_name)
             
             # Standardize ID types (convert decimal keys/ID to int strings for consistency with Local Excel)
@@ -661,11 +671,12 @@ class GoogleSheetsStorageProvider(BaseStorageProvider):
                     except (ValueError, TypeError):
                         pass
 
-            _set_cached_rows(username, table_key, data)
+            if not bypass_cache:
+                _set_cached_rows(username, table_key, data)
             return data
         except Exception as e:
             logger.error(f"Error reading Google Sheets worksheet '{ws_name}': {e}. Falling back to Local.")
-            return LocalStorageProvider().read_rows(username, table_key)
+            return LocalStorageProvider().read_rows(username, table_key, bypass_cache=bypass_cache)
 
     def write_rows(self, username: str, table_key: str, data: list):
         sheets_conf = self.get_sheets_config(username)
@@ -783,14 +794,16 @@ def save_user_config(config: dict, username: str = None):
     _set_cached_config(username, config)
 
 
-def read_database_rows(table_key: str, username: str = None) -> list:
+def read_database_rows(table_key: str, username: str = None, bypass_cache: bool = False) -> list:
     if not username:
         username = get_active_username()
-    cached = _get_cached_rows(username, table_key)
-    if cached is not None:
-        return cached
-    data = StorageManager().get_provider(username).read_rows(username, table_key)
-    _set_cached_rows(username, table_key, data)
+    if not bypass_cache:
+        cached = _get_cached_rows(username, table_key)
+        if cached is not None:
+            return cached
+    data = StorageManager().get_provider(username).read_rows(username, table_key, bypass_cache=bypass_cache)
+    if not bypass_cache:
+        _set_cached_rows(username, table_key, data)
     return data
 
 

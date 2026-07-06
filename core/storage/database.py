@@ -147,7 +147,7 @@ def save_job(data, path=None):
         logger.info(f"Skipping duplicate job saving: External URL {apply_url} already matched in cache.")
         return False
         
-    rows = read_database_rows("jobs")
+    rows = read_database_rows("jobs", bypass_cache=True)
     for r in rows:
         r_url = normalize_external_url(r.get('CompanyURL') or '')
         if r_url and r_url == apply_url:
@@ -181,7 +181,7 @@ def load_jobs_for_referral(path=None, status_filter='Asked for Referral'):
 
 def update_status_by_id(job_id, status, path=None):
     """Updates the status of a specific job lead by ID."""
-    rows = read_database_rows("jobs")
+    rows = read_database_rows("jobs", bypass_cache=True)
     updated = False
     try:
         target_id = int(float(job_id))
@@ -203,7 +203,7 @@ def update_status_by_id(job_id, status, path=None):
 
 def edit_lead_row(job_id, company, url, shorten, keyword, position, status, path=None):
     """Edits all columns in a job lead row."""
-    rows = read_database_rows("jobs")
+    rows = read_database_rows("jobs", bypass_cache=True)
     updated = False
     try:
         target_id = int(float(job_id))
@@ -234,12 +234,12 @@ def init_referrals_store(path=None):
 def trim_referrals_excel_to_schema(path=None):
     pass
 
-def load_all_referrals(path=None):
-    return read_database_rows("referrals")
+def load_all_referrals(path=None, bypass_cache: bool = False):
+    return read_database_rows("referrals", bypass_cache=bypass_cache)
 
 def add_or_update_referral(referral_data, path=None):
     """Inserts a new referral outreach row or updates an existing one if matching."""
-    rows = read_database_rows("referrals")
+    rows = read_database_rows("referrals", bypass_cache=True)
     target_profile = str(referral_data.get('Referral_Person_Profile_URL') or '').strip().lower()
     target_job_id = str(referral_data.get('JobID') or '').strip()
     
@@ -248,7 +248,6 @@ def add_or_update_referral(referral_data, path=None):
         curr_profile = str(r.get('Referral_Person_Profile_URL') or '').strip().lower()
         curr_job_id = str(r.get('JobID') or '').strip()
         if curr_profile == target_profile and curr_job_id == target_job_id:
-            # Update columns
             for k, v in referral_data.items():
                 if k != 'ReferralID':
                     r[k] = v
@@ -257,16 +256,26 @@ def add_or_update_referral(referral_data, path=None):
             
     if not updated:
         max_id = max([int(float(r.get('ReferralID') or 0)) for r in rows]) if rows else 0
-        referral_data['ReferralID'] = max_id + 1
-        rows.append(referral_data)
+        new_ref = {
+            'ReferralID': max_id + 1,
+            'JobID': referral_data.get('JobID', ''),
+            'JobTitle': referral_data.get('JobTitle', ''),
+            'CompanyName': referral_data.get('CompanyName', ''),
+            'Company_URL': referral_data.get('Company_URL', ''),
+            'Referral_Person_Name': referral_data.get('Referral_Person_Name', ''),
+            'Referral_Person_Profile_URL': referral_data.get('Referral_Person_Profile_URL', ''),
+            'Referral_Source': referral_data.get('Referral_Source', ''),
+            'Referral_Status': referral_data.get('Referral_Status', 'NEW'),
+            'Sent_Time': referral_data.get('Sent_Time') or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        rows.append(new_ref)
         
     write_database_rows("referrals", rows)
     return True
 
 def is_profile_already_contacted(profile_url, job_url=None, path=None):
-    """Checks if a user has already sent outreach to this LinkedIn profile for this job/company."""
     rows = read_database_rows("referrals")
-    target_profile = str(profile_url or '').strip().lower()
+    target_profile = str(profile_url).strip().lower()
     for r in rows:
         if str(r.get('Referral_Person_Profile_URL') or '').strip().lower() == target_profile:
             return True
@@ -274,7 +283,7 @@ def is_profile_already_contacted(profile_url, job_url=None, path=None):
 
 def edit_referral_contact_row(referral_id, referral_data, path=None):
     """Edits all columns of a referral connection record."""
-    rows = read_database_rows("referrals")
+    rows = read_database_rows("referrals", bypass_cache=True)
     updated = False
     try:
         target_id = int(float(referral_id))
@@ -384,7 +393,7 @@ def sync_job_lead_referral_statuses(path=None):
         connect_conf = user_conf.get("linkedin_connect", {})
         target = int(connect_conf.get("max_connections_per_company") or connect_conf.get("max_connections_per_run") or 5)
         
-        referrals = load_all_referrals()
+        referrals = load_all_referrals(bypass_cache=True)
         company_data = {}
         for ref in referrals:
             c_name = str(ref.get("CompanyName") or "").strip().lower()
@@ -401,7 +410,7 @@ def sync_job_lead_referral_statuses(path=None):
             if is_employee and is_valid_status:
                 company_data[key] += 1
 
-        rows = read_database_rows("jobs")
+        rows = read_database_rows("jobs", bypass_cache=True)
         updated = False
         for r in rows:
             company_name = str(r.get("CompanyName") or "").strip()
