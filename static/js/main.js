@@ -3371,46 +3371,33 @@ document.addEventListener('DOMContentLoaded', () => {
     initPipelineStatus();
     
     // Theme Switcher Initialisation
-    const themeCheckbox = document.getElementById('theme-toggle-checkbox');
-    const themeIcon = document.getElementById('theme-toggle-icon');
-    const themeText = document.getElementById('theme-toggle-text');
+    const btnDark = document.getElementById('theme-btn-dark');
+    const btnLight = document.getElementById('theme-btn-light');
     const currentTheme = localStorage.getItem('theme') || 'dark';
     
-    function updateThemeUI(isLight) {
-        if (isLight) {
+    function switchTheme(theme) {
+        if (theme === 'light') {
             document.body.classList.add('light-theme');
-            if (themeCheckbox) themeCheckbox.checked = true;
-            if (themeIcon) {
-                themeIcon.className = 'fa-solid fa-sun';
-                themeIcon.style.color = 'var(--accent-yellow)';
-            }
-            if (themeText) themeText.innerText = 'Light Mode';
+            if (btnLight) btnLight.classList.add('active');
+            if (btnDark) btnDark.classList.remove('active');
         } else {
             document.body.classList.remove('light-theme');
-            if (themeCheckbox) themeCheckbox.checked = false;
-            if (themeIcon) {
-                themeIcon.className = 'fa-solid fa-moon';
-                themeIcon.style.color = 'var(--accent-purple)';
-            }
-            if (themeText) themeText.innerText = 'Dark Mode';
+            if (btnDark) btnDark.classList.add('active');
+            if (btnLight) btnLight.classList.remove('active');
+        }
+        localStorage.setItem('theme', theme);
+        
+        // Re-render chart analytics if dashboard functions are loaded
+        if (typeof loadDashboardAnalytics === 'function') {
+            loadDashboardAnalytics();
         }
     }
     
     // Initialise on load
-    updateThemeUI(currentTheme === 'light');
+    switchTheme(currentTheme);
     
-    if (themeCheckbox) {
-        themeCheckbox.addEventListener('change', () => {
-            const isLight = themeCheckbox.checked;
-            updateThemeUI(isLight);
-            localStorage.setItem('theme', isLight ? 'light' : 'dark');
-            
-            // Re-render chart analytics if dashboard functions are loaded
-            if (typeof loadDashboardAnalytics === 'function') {
-                loadDashboardAnalytics();
-            }
-        });
-    }
+    if (btnDark) btnDark.addEventListener('click', () => switchTheme('dark'));
+    if (btnLight) btnLight.addEventListener('click', () => switchTheme('light'));
 });
 
 function toggleGoogleSheetsFields() {

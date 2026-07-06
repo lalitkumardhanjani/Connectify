@@ -4146,4 +4146,74 @@ body.light-theme .pagination-btn.active {
     border-color: var(--accent-purple);
 }
 
+/* ==========================================================================
+   SEGMENTED THEME SELECTION STYLING
+   ========================================================================== */
+.theme-selection-container {
+    margin-top: auto;
+    padding-top: 15px;
+    border-top: 1px solid var(--glass-border);
+    width: 100%;
+}
+
+.theme-label {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    user-select: none;
+}
+
+.theme-buttons {
+    display: flex;
+    gap: 6px;
+    background: rgba(0, 0, 0, 0.22);
+    padding: 3px;
+    border-radius: 8px;
+    border: 1px solid var(--glass-border);
+}
+
+.theme-buttons button {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s ease-in-out;
+}
+
+.theme-buttons button:hover:not(.active) {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.theme-buttons button.active {
+    background: var(--accent-purple) !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 8px rgba(92, 83, 226, 0.25) !important;
+    font-weight: 600;
+}
+
+/* Light Theme overrides for segmented control */
+body.light-theme .theme-buttons {
+    background: rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+body.light-theme .theme-buttons button:hover:not(.active) {
+    color: var(--accent-purple);
+    background: rgba(0, 0, 0, 0.02);
+}
+
+
 
