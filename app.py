@@ -663,6 +663,7 @@ def create_user_profile():
             "keywords": [],
             "excluded_keywords": [],
             "interval": "60",
+            "search_pages": 2,
             "review_mode": True,
             "max_connections_per_company": "5",
             "max_connections_per_run": "5"
@@ -1328,6 +1329,7 @@ def save_user_configuration():
     # Apply connect defaults for missing fields
     connect_defaults = {
         "interval": "60",
+        "search_pages": 2,
         "review_mode": True,
         "max_connections_per_company": "5",
         "max_connections_per_run": "5",

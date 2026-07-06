@@ -503,12 +503,18 @@ class GoogleSheetsStorageProvider(BaseStorageProvider):
             # Unflatten dictionary to nested config format
             config_dict = unflatten_dict(flat_dict)
 
-            # Merge with local bootstrap configuration
+            # Merge with local bootstrap configuration (deep merge to preserve defaults not in Sheets)
             local_config = LocalStorageProvider().get_config(username, bypass_cache=bypass_cache)
-            if "global_settings" in local_config:
-                if "global_settings" not in config_dict:
-                    config_dict["global_settings"] = {}
-                config_dict["global_settings"].update(local_config["global_settings"])
+            
+            def deep_merge(target, source):
+                for k, v in source.items():
+                    if k not in target:
+                        target[k] = v
+                    elif isinstance(v, dict) and isinstance(target[k], dict):
+                        deep_merge(target[k], v)
+                        
+            if local_config:
+                deep_merge(config_dict, local_config)
 
             _set_cached_config(username, config_dict)
             return config_dict

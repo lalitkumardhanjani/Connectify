@@ -112,24 +112,61 @@ def get_job_cards(driver):
     logger.info("Loading job cards by scrolling left pane gradually...")
     left_pane = get_left_pane_container(driver)
     
-    # Gradual scroll to trigger lazy loading of all cards
+    # Progressive gradual scroll to trigger lazy loading of all cards
     try:
-        if left_pane:
-            # Scroll down in increments
-            for offset in range(0, 5000, 250):
-                driver.execute_script("arguments[0].scrollTop = arguments[1]", left_pane, offset)
-                time.sleep(0.15)
+        pane = left_pane
+        if not pane:
+            for selector in [
+                '.jobs-search-results-list',
+                '.scaffold-layout__list',
+                'div[class*="jobs-search-results-list"]',
+                'div.jobs-search-results__list',
+                'div[class*="jobs-search-results"]'
+            ]:
+                try:
+                    el = driver.find_element(By.CSS_SELECTOR, selector)
+                    if el.is_displayed():
+                        pane = el
+                        break
+                except Exception:
+                    pass
+
+        if pane:
+            logger.info("Starting progressive scroll on left pane...")
+            current_scroll = 0
+            reached_bottom_count = 0
+            
+            for _ in range(40): # safety limit to prevent infinite loops
+                # Get heights
+                scroll_height = driver.execute_script("return arguments[0].scrollHeight", pane)
+                
+                # Increment scroll position
+                current_scroll += 350
+                if current_scroll > scroll_height:
+                    current_scroll = scroll_height
+                    
+                driver.execute_script("arguments[0].scrollTop = arguments[1]", pane, current_scroll)
+                time.sleep(0.2)
+                
+                # Check if we reached the bottom of current scrollable area
+                if current_scroll >= scroll_height:
+                    # Wait to see if more jobs load and scroll_height increases
+                    time.sleep(1.5)
+                    new_scroll_height = driver.execute_script("return arguments[0].scrollHeight", pane)
+                    if new_scroll_height == scroll_height:
+                        reached_bottom_count += 1
+                        if reached_bottom_count >= 2:
+                            logger.info("Reached absolute bottom of job list.")
+                            break
+                    else:
+                        reached_bottom_count = 0 # reset because height increased
         else:
-            for offset in range(0, 5000, 250):
-                driver.execute_script("""
-                    const pane = document.querySelector('.jobs-search-results-list') || 
-                                  document.querySelector('.scaffold-layout__list') ||
-                                  document.querySelector('div[class*="jobs-search-results-list"]');
-                    if (pane) pane.scrollTop = arguments[0];
-                """, offset)
-                time.sleep(0.15)
+            logger.warning("Could not find scrollable pane for job cards, using window scroll fallback.")
+            for offset in range(0, 4000, 350):
+                driver.execute_script("window.scrollTo(0, arguments[0]);", offset)
+                time.sleep(0.2)
     except Exception as e:
-        logger.warning(f"Error scrolling left pane: {e}")
+        logger.warning(f"Error during gradual scroll: {e}")
 
     time.sleep(1.0)
     
