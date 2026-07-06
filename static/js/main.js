@@ -1957,6 +1957,11 @@ async function loadSettings() {
         
         // 3. LinkedIn Connect fields
         setVal('connect-interval', connect.interval || '60');
+        setVal('connect-search-pages', connect.search_pages || 2);
+        const pagesValSpan = document.getElementById('connect-search-pages-val');
+        if (pagesValSpan) {
+            pagesValSpan.innerText = connect.search_pages || 2;
+        }
         setChecked('connect-review-mode', connect.review_mode);
         setVal('connect-max-connections', connect.max_connections_per_company || connect.max_connections_per_run || '5');
         setVal('connect-message-template', connect.message_template);
@@ -2530,6 +2535,7 @@ async function saveConfiguration(module) {
 
         cachedConfig.config.linkedin_connect = {
             "interval": getVal('connect-interval') || '60',
+            "search_pages": parseInt(getVal('connect-search-pages') || '2', 10),
             "review_mode": getChecked('connect-review-mode'),
             "max_connections_per_company": maxConnsVal.toString(),
             "max_connections_per_run": maxConnsVal.toString(),
@@ -3398,6 +3404,15 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (btnDark) btnDark.addEventListener('click', () => switchTheme('dark'));
     if (btnLight) btnLight.addEventListener('click', () => switchTheme('light'));
+
+    // Connection search pages slider listener
+    const pagesSlider = document.getElementById('connect-search-pages');
+    const pagesSliderVal = document.getElementById('connect-search-pages-val');
+    if (pagesSlider && pagesSliderVal) {
+        pagesSlider.addEventListener('input', (e) => {
+            pagesSliderVal.innerText = e.target.value;
+        });
+    }
 });
 
 function toggleGoogleSheetsFields() {

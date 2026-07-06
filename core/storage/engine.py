@@ -191,6 +191,7 @@ SETTING_METADATA = {
 
     # LinkedIn Connect
     "linkedin_connect.interval": ("LinkedIn Connections", "LinkedIn Connections Run Interval (minutes)"),
+    "linkedin_connect.search_pages": ("LinkedIn Connections", "Pages to Search per Keyword"),
     "linkedin_connect.review_mode": ("LinkedIn Connections", "Review Mode Enabled (True/False)"),
     "linkedin_connect.max_connections_per_company": ("LinkedIn Connections", "Max Connections per Company"),
     "linkedin_connect.max_connections_per_run": ("LinkedIn Connections", "Max Connections per Run"),

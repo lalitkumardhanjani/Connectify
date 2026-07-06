@@ -108,56 +108,31 @@ def scroll_element_into_view_in_left_pane(driver, element):
     return False
 
 def get_job_cards(driver):
-    """Scroll the left list pane and return all found job cards."""
-    logger.info("Loading job cards...")
+    """Scroll the left list pane gradually to load all job cards and return them."""
+    logger.info("Loading job cards by scrolling left pane gradually...")
     left_pane = get_left_pane_container(driver)
-    previous_count = 0
     
-    for _ in range(15):
-        try:
-            if left_pane:
-                driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight", left_pane)
-            else:
+    # Gradual scroll to trigger lazy loading of all cards
+    try:
+        if left_pane:
+            # Scroll down in increments
+            for offset in range(0, 5000, 250):
+                driver.execute_script("arguments[0].scrollTop = arguments[1]", left_pane, offset)
+                time.sleep(0.15)
+        else:
+            for offset in range(0, 5000, 250):
                 driver.execute_script("""
-                    const panel = document.querySelector('.jobs-search-results-list') || 
+                    const pane = document.querySelector('.jobs-search-results-list') || 
                                   document.querySelector('.scaffold-layout__list') ||
                                   document.querySelector('div[class*="jobs-search-results-list"]');
-                    if (panel) {
-                        panel.scrollTop = panel.scrollHeight;
-                    }
-                """)
-        except Exception:
-            pass
-        time.sleep(2)
+                    if (pane) pane.scrollTop = arguments[0];
+                """, offset)
+                time.sleep(0.15)
+    except Exception as e:
+        logger.warning(f"Error scrolling left pane: {e}")
 
-        left_pane = get_left_pane_container(driver)
-        card_selectors = (
-            'li.jobs-search-results__list-item, '
-            '.job-card-container, '
-            'div.job-card-list__item, '
-            'div[role="button"][componentkey*="job-card-component-ref"], '
-            'div.jobs-search-results__list-item, '
-            '.base-card'
-        )
-        if left_pane:
-            cards = left_pane.find_elements(By.CSS_SELECTOR, card_selectors)
-        else:
-            cards = driver.find_elements(By.CSS_SELECTOR, card_selectors)
-            
-        valid_cards = []
-        for c in cards:
-            try:
-                if c.find_elements(By.CSS_SELECTOR, "a[href*='/jobs/view/']"):
-                    valid_cards.append(c)
-            except Exception:
-                pass
-                
-        logger.info(f"Currently visible valid cards: {len(valid_cards)}")
-        if len(valid_cards) == previous_count:
-            break
-        previous_count = len(valid_cards)
-
-    left_pane = get_left_pane_container(driver)
+    time.sleep(1.0)
+    
     card_selectors = (
         'li.jobs-search-results__list-item, '
         '.job-card-container, '
@@ -166,6 +141,8 @@ def get_job_cards(driver):
         'div.jobs-search-results__list-item, '
         '.base-card'
     )
+    
+    left_pane = get_left_pane_container(driver)
     if left_pane:
         cards = left_pane.find_elements(By.CSS_SELECTOR, card_selectors)
     else:
@@ -178,6 +155,7 @@ def get_job_cards(driver):
                 valid_cards.append(c)
         except Exception:
             pass
+            
     logger.info(f"Final valid cards found: {len(valid_cards)}")
     return valid_cards
 
@@ -461,11 +439,11 @@ def run_job_finder(target_url=None):
         
         connect_conf = user_conf.get("linkedin_connect", {})
         try:
-            max_duration = int(connect_conf.get("interval") or 120)
+            max_pages = int(connect_conf.get("search_pages") or 2)
         except (ValueError, TypeError):
-            max_duration = 120
+            max_pages = 2
 
-        logger.info(f"Time limit per combination: {max_duration} seconds")
+        logger.info(f"Page search limit per keyword: {max_pages} pages")
         total_saved = 0
         session_lost = False
         processed_signatures = load_processed_signatures_from_excel()
@@ -484,15 +462,9 @@ def run_job_finder(target_url=None):
                 wait_for_page(2)
 
                 page_no = 1
-                keyword_start_time = time.time()
 
-                while True:
-                    elapsed = time.time() - keyword_start_time
-                    if elapsed >= max_duration:
-                        logger.info(f"Time limit reached for keyword '{keyword}' ({int(elapsed)}s >= {max_duration}s). Moving to next keyword.")
-                        break
-
-                    logger.info(f"\n[PAGE {page_no}] Keyword: '{keyword}' (Elapsed: {int(elapsed)}s)")
+                while page_no <= max_pages:
+                    logger.info(f"\n[PAGE {page_no}/{max_pages}] Keyword: '{keyword}'")
 
                     job_cards = get_job_cards(driver)
                     if not job_cards:
@@ -502,11 +474,6 @@ def run_job_finder(target_url=None):
                     logger.info(f"Found {len(job_cards)} jobs on page {page_no}")
 
                     for index in range(len(job_cards)):
-                        elapsed = time.time() - keyword_start_time
-                        if elapsed >= max_duration:
-                            logger.info(f"Time limit reached during card processing ({int(elapsed)}s >= {max_duration}s).")
-                            break
-
                         sig = ""
                         job_id = ""
                         position = ""
