@@ -66,7 +66,40 @@ def load_processed_signatures_from_excel():
     return sigs
 
 def get_left_pane_container(driver):
-    """Find and return the left list pane container element on LinkedIn."""
+    """Find and return the left list pane container element on LinkedIn using JS overflow detection."""
+    try:
+        container = driver.execute_script("""
+            const selectors = [
+                '.jobs-search-results-list',
+                '.scaffold-layout__list',
+                'div[class*="jobs-search-results-list"]',
+                '.jobs-search-results-list__list',
+                'ul.jobs-search__results-list'
+            ];
+            for (const sel of selectors) {
+                const el = document.querySelector(sel);
+                if (el && el.scrollHeight > el.clientHeight) {
+                    return el;
+                }
+            }
+            const col = document.querySelector('.jobs-search-two-pane__a') || 
+                        document.querySelector('.jobs-search') || 
+                        document.querySelector('div[class*="jobs-search-two-pane"]') ||
+                        document.body;
+            const allDivs = col.querySelectorAll('div, ul, section');
+            for (const el of allDivs) {
+                const style = window.getComputedStyle(el);
+                if ((style.overflowY === 'auto' || style.overflowY === 'scroll') && el.scrollHeight > el.clientHeight) {
+                    return el;
+                }
+            }
+            return null;
+        """)
+        if container:
+            return container
+    except Exception as e:
+        logger.warning(f"Error in JS-based left pane detection: {e}")
+
     for css in [
         '.jobs-search-results-list',
         '.scaffold-layout__list',
@@ -134,14 +167,14 @@ def get_job_cards(driver):
         if pane:
             logger.info("Starting progressive scroll on left pane...")
             current_scroll = 0
-            reached_bottom_count = 0
+            no_change_count = 0
             
             for _ in range(40): # safety limit to prevent infinite loops
-                # Get heights
+                # Get current scroll height
                 scroll_height = driver.execute_script("return arguments[0].scrollHeight", pane)
                 
-                # Increment scroll position
-                current_scroll += 350
+                # Increment scroll position by a smaller step to ensure all intermediate cards load
+                current_scroll += 300
                 if current_scroll > scroll_height:
                     current_scroll = scroll_height
                     
@@ -151,15 +184,15 @@ def get_job_cards(driver):
                 # Check if we reached the bottom of current scrollable area
                 if current_scroll >= scroll_height:
                     # Wait to see if more jobs load and scroll_height increases
-                    time.sleep(1.5)
+                    time.sleep(1.2)
                     new_scroll_height = driver.execute_script("return arguments[0].scrollHeight", pane)
                     if new_scroll_height == scroll_height:
-                        reached_bottom_count += 1
-                        if reached_bottom_count >= 2:
+                        no_change_count += 1
+                        if no_change_count >= 3:  # Only stop if height doesn't change after 3 consecutive attempts
                             logger.info("Reached absolute bottom of job list.")
                             break
                     else:
-                        reached_bottom_count = 0 # reset because height increased
+                        no_change_count = 0 # reset because height increased
         else:
             logger.warning("Could not find scrollable pane for job cards, using window scroll fallback.")
             for offset in range(0, 4000, 350):
@@ -186,10 +219,17 @@ def get_job_cards(driver):
         cards = driver.find_elements(By.CSS_SELECTOR, card_selectors)
         
     valid_cards = []
+    seen_job_ids = set()
     for c in cards:
         try:
-            if c.find_elements(By.CSS_SELECTOR, "a[href*='/jobs/view/']"):
-                valid_cards.append(c)
+            links = c.find_elements(By.CSS_SELECTOR, "a[href*='/jobs/view/']")
+            if links:
+                href = links[0].get_attribute("href")
+                job_id = extract_job_id(href)
+                if job_id:
+                    if job_id not in seen_job_ids:
+                        seen_job_ids.add(job_id)
+                        valid_cards.append(c)
         except Exception:
             pass
             
@@ -532,10 +572,17 @@ def run_job_finder(target_url=None):
                             else:
                                 job_cards = driver.find_elements(By.CSS_SELECTOR, card_selectors)
                             valid_cards = []
+                            seen_job_ids = set()
                             for c in job_cards:
                                 try:
-                                    if c.find_elements(By.CSS_SELECTOR, "a[href*='/jobs/view/']"):
-                                        valid_cards.append(c)
+                                    links = c.find_elements(By.CSS_SELECTOR, "a[href*='/jobs/view/']")
+                                    if links:
+                                        href = links[0].get_attribute("href")
+                                        jid = extract_job_id(href)
+                                        if jid:
+                                            if jid not in seen_job_ids:
+                                                seen_job_ids.add(jid)
+                                                valid_cards.append(c)
                                 except Exception:
                                     pass
 
