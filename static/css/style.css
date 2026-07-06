@@ -4215,5 +4215,143 @@ body.light-theme .theme-buttons button:hover:not(.active) {
     background: rgba(0, 0, 0, 0.02);
 }
 
+/* ==========================================================================
+   LIGHT THEME DATA TABLE & STATUS BADGES POLISH
+   ========================================================================== */
+body.light-theme .data-table td {
+    color: #2b2d42 !important;
+    border-bottom: 1px solid rgba(220, 225, 235, 0.5) !important;
+    font-weight: 500;
+}
+
+body.light-theme .data-table tr:nth-child(even) {
+    background: rgba(240, 244, 249, 0.25) !important;
+}
+
+body.light-theme .data-table a,
+body.light-theme .table-link {
+    color: var(--accent-purple) !important;
+    font-weight: 600 !important;
+    transition: color 0.15s ease-in-out !important;
+}
+
+body.light-theme .data-table a:hover,
+body.light-theme .table-link:hover {
+    color: #3b32c0 !important;
+    text-decoration: underline !important;
+}
+
+/* Table Row Action Modifier Buttons in Light Mode */
+body.light-theme .table-action-btn {
+    background: rgba(255, 255, 255, 0.9) !important;
+    border: 1px solid rgba(200, 208, 224, 0.8) !important;
+}
+
+body.light-theme .btn-edit {
+    color: #0284c7 !important;
+    background: rgba(2, 132, 199, 0.06) !important;
+    border-color: rgba(2, 132, 199, 0.15) !important;
+}
+
+body.light-theme .btn-edit:hover {
+    color: #ffffff !important;
+    background: #0284c7 !important;
+    border-color: #0284c7 !important;
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25) !important;
+}
+
+body.light-theme .btn-delete {
+    color: #dc2626 !important;
+    background: rgba(220, 38, 38, 0.06) !important;
+    border-color: rgba(220, 38, 38, 0.15) !important;
+}
+
+body.light-theme .btn-delete:hover {
+    color: #ffffff !important;
+    background: #dc2626 !important;
+    border-color: #dc2626 !important;
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25) !important;
+}
+
+/* Status Badges & Dropdown Select Pill Coloring in Light Mode */
+body.light-theme .badge-new, 
+body.light-theme .badge-pending, 
+body.light-theme .badge-yellow,
+body.light-theme .status-select-wrapper.new .status-inline-select,
+body.light-theme .status-select-wrapper.pending .status-inline-select {
+    background: #fffbeb !important;
+    color: #b45309 !important;
+    border: 1px solid #fde68a !important;
+}
+
+body.light-theme .badge-interested, 
+body.light-theme .badge-green, 
+body.light-theme .badge-referral_received, 
+body.light-theme .badge-referral-received, 
+body.light-theme .badge-verified,
+body.light-theme .status-select-wrapper.interested .status-inline-select,
+body.light-theme .status-select-wrapper.referral_received .status-inline-select,
+body.light-theme .status-select-wrapper.verified .status-inline-select {
+    background: #ecfdf5 !important;
+    color: #047857 !important;
+    border: 1px solid #a7f3d0 !important;
+}
+
+body.light-theme .badge-not_interested, 
+body.light-theme .badge-not-interested, 
+body.light-theme .badge-red, 
+body.light-theme .badge-failed,
+body.light-theme .status-select-wrapper.not_interested .status-inline-select,
+body.light-theme .status-select-wrapper.failed .status-inline-select {
+    background: #fef2f2 !important;
+    color: #b91c1c !important;
+    border: 1px solid #fca5a5 !important;
+}
+
+body.light-theme .badge-asked_for_referral, 
+body.light-theme .badge-asked-for-referral, 
+body.light-theme .badge-blue, 
+body.light-theme .badge-sent,
+body.light-theme .status-select-wrapper.ask_for_referral .status-inline-select,
+body.light-theme .status-select-wrapper.asked_for_referral .status-inline-select,
+body.light-theme .status-select-wrapper.sent .status-inline-select {
+    background: #f0f9ff !important;
+    color: #0369a1 !important;
+    border: 1px solid #bae6fd !important;
+}
+
+body.light-theme .badge-referred,
+body.light-theme .status-select-wrapper.referred .status-inline-select {
+    background: #f5f3ff !important;
+    color: #6d28d9 !important;
+    border: 1px solid #ddd6fe !important;
+}
+
+body.light-theme .badge-done, 
+body.light-theme .badge-dark-green,
+body.light-theme .status-select-wrapper.done .status-inline-select {
+    background: #f0fdf4 !important;
+    color: #15803d !important;
+    border: 1px solid #bbf7d0 !important;
+}
+
+body.light-theme .badge-replied, 
+body.light-theme .badge-teal,
+body.light-theme .status-select-wrapper.replied .status-inline-select {
+    background: #f0fdfa !important;
+    color: #0f766e !important;
+    border: 1px solid #99f6e4 !important;
+}
+
+body.light-theme .badge-skipped,
+body.light-theme .badge-unverified,
+body.light-theme .status-select-wrapper.skipped .status-inline-select,
+body.light-theme .status-select-wrapper.unverified .status-inline-select {
+    background: #f8fafc !important;
+    color: #475569 !important;
+    border: 1px solid #e2e8f0 !important;
+}
+
+
 
 
