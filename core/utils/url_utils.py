@@ -25,34 +25,7 @@ def normalize_external_url(url):
 
         scheme = parsed.scheme.lower()
         netloc = parsed.netloc.lower()
-        path = parsed.path.rstrip("/")
-
-        ignored_params = {
-            "utm_source",
-            "utm_medium",
-            "utm_campaign",
-            "utm_term",
-            "utm_content",
-            "source",
-            "sourceId",
-            "trk",
-            "trackingId",
-            "refId"
-        }
-
-        query_pairs = urllib.parse.parse_qsl(
-            parsed.query,
-            keep_blank_values=False
-        )
-
-        filtered_pairs = [
-            (k, v)
-            for k, v in query_pairs
-            if k not in ignored_params
-        ]
-
-        filtered_pairs.sort()
-        query = urllib.parse.urlencode(filtered_pairs)
+        path = parsed.path.rstrip("/").lower()
 
         return urllib.parse.urlunparse(
             (
@@ -60,7 +33,7 @@ def normalize_external_url(url):
                 netloc,
                 path,
                 "",
-                query,
+                "",
                 ""
             )
         )

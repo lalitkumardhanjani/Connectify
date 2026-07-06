@@ -23,7 +23,8 @@ def is_already_saved(url):
         if not url:
             return False
         norm = normalize_external_url(decode_apply_redirect(url))
-        _, existing = load_saved_jobs()
+        jobs = load_saved_jobs()
+        existing = {normalize_external_url(j.get("CompanyURL") or "") for j in jobs if j.get("CompanyURL")}
         return norm in existing
     except Exception:
         return False
@@ -31,10 +32,10 @@ def is_already_saved(url):
 def is_job_already_processed_excel(company, position):
     """Check if job signature (company|position) already exists in Excel tracker."""
     try:
-        jobs, _ = load_saved_jobs()
+        jobs = load_saved_jobs()
         job_signature = f"{company.lower().strip()}|{position.lower().strip()}"
         for job in jobs:
-            existing_sig = f"{job.get('company', '').lower().strip()}|{job.get('position', '').lower().strip()}"
+            existing_sig = f"{job.get('CompanyName', '').lower().strip()}|{job.get('JobTitle', '').lower().strip()}"
             if existing_sig == job_signature:
                 return True
         return False
@@ -54,10 +55,10 @@ def load_processed_signatures_from_excel():
     """Load all processed job signatures (company|position) from Excel to populate session tracking."""
     sigs = set()
     try:
-        jobs, _ = load_saved_jobs()
+        jobs = load_saved_jobs()
         for j in jobs:
-            comp = j.get("company", "").lower().strip()
-            pos = j.get("position", "").lower().strip()
+            comp = j.get("CompanyName", "").lower().strip()
+            pos = j.get("JobTitle", "").lower().strip()
             if comp and pos:
                 sigs.add(f"{comp}|{pos}")
     except Exception as e:
@@ -428,7 +429,8 @@ def run_job_finder(target_url=None):
         main_handle = driver.current_window_handle
 
         # Load existing tracker urls
-        _, existing_urls = load_saved_jobs()
+        jobs = load_saved_jobs()
+        existing_urls = {normalize_external_url(j.get("CompanyURL") or "") for j in jobs if j.get("CompanyURL")}
         seen_external_urls.update(existing_urls)
         logger.info(f"Loaded {len(existing_urls)} existing jobs from Excel tracker.\n")
 

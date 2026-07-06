@@ -3448,13 +3448,11 @@ function updateActiveStorageIndicator(dbType) {
 async function checkSystemUpdates() {
     const heading = document.getElementById('update-status-heading');
     const subheading = document.getElementById('update-status-subheading');
-    const commitDetails = document.getElementById('update-commit-details');
     const pullBtn = document.getElementById('btn-pull-updates');
     const spinner = document.getElementById('update-spinner');
     const spinnerLabel = document.getElementById('update-spinner-label');
     const logBox = document.getElementById('update-console-log-box');
     const logText = document.getElementById('update-console-text');
-    const dropdown = document.getElementById('update-details-dropdown');
     const iconContainer = document.getElementById('update-status-icon-container');
     const iconEl = document.getElementById('update-status-icon');
     
@@ -3472,7 +3470,6 @@ async function checkSystemUpdates() {
     pullBtn.classList.add('hidden');
     spinner.classList.remove('hidden');
     spinnerLabel.textContent = "Fetching status from origin/main branch...";
-    dropdown.classList.add('hidden');
     logBox.classList.add('hidden');
     logText.textContent = "";
 
@@ -3487,11 +3484,9 @@ async function checkSystemUpdates() {
             const remote = data.latest_commit;
             const behind = data.behind_by_commits;
 
-            dropdown.classList.remove('hidden');
-
             if (data.updates_available) {
                 heading.textContent = "Updates Available!";
-                subheading.textContent = "A new update of Connectify is available. Click 'Update Now' below to upgrade.";
+                subheading.textContent = `Your system is behind by ${behind} commit${behind > 1 ? 's' : ''}. Click 'Update Now' below to upgrade.`;
                 
                 // Style icon yellow (updates available)
                 iconEl.className = "fa-solid fa-bell fa-bounce";
@@ -3500,10 +3495,6 @@ async function checkSystemUpdates() {
                 iconContainer.style.background = "rgba(255, 179, 0, 0.05)";
                 iconContainer.style.color = "#ffb300";
 
-                commitDetails.innerHTML = `Your repository is behind by <strong>${behind}</strong> commits.<br>` +
-                                           `Current local version: <code>${current}</code> (${currentDesc})<br>` +
-                                           `Remote version: <code>${remote}</code>`;
-                
                 if (data.commits_list && data.commits_list.length > 0) {
                     logBox.classList.remove('hidden');
                     logText.textContent = "Changes included in this update:\n" + data.commits_list.join("\n");
@@ -3511,7 +3502,7 @@ async function checkSystemUpdates() {
                 pullBtn.classList.remove('hidden');
             } else {
                 heading.textContent = "You're Up to Date!";
-                subheading.textContent = "Connectify is running the latest version. No updates are required.";
+                subheading.textContent = `Connectify v${current} is the latest version. No updates required.`;
                 
                 // Style icon green (up to date)
                 iconEl.className = "fa-solid fa-circle-check";
@@ -3519,13 +3510,10 @@ async function checkSystemUpdates() {
                 iconContainer.style.boxShadow = "0 0 15px rgba(0, 230, 118, 0.2)";
                 iconContainer.style.background = "rgba(0, 230, 118, 0.05)";
                 iconContainer.style.color = "#00e676";
-
-                commitDetails.innerHTML = `Current version: <code>${current}</code> (${currentDesc})<br>` +
-                                           `Remote version: <code>${remote}</code>`;
             }
         } else {
             heading.textContent = "Check Failed";
-            subheading.textContent = "Could not check remote repository status.";
+            subheading.textContent = data.message || "Could not connect to the remote repository. Check your internet connection.";
             
             // Style icon red (error)
             iconEl.className = "fa-solid fa-circle-exclamation";
@@ -3533,14 +3521,11 @@ async function checkSystemUpdates() {
             iconContainer.style.boxShadow = "0 0 15px rgba(239, 68, 68, 0.2)";
             iconContainer.style.background = "rgba(239, 68, 68, 0.05)";
             iconContainer.style.color = "#ef4444";
-
-            dropdown.classList.remove('hidden');
-            commitDetails.textContent = data.message || "An error occurred during git fetch.";
         }
     } catch (e) {
         spinner.classList.add('hidden');
         heading.textContent = "Connection Failed";
-        subheading.textContent = "Could not connect to update API endpoint.";
+        subheading.textContent = "Could not connect to the update API. Confirm the server is running.";
         
         // Style icon red (error)
         iconEl.className = "fa-solid fa-circle-exclamation";
@@ -3548,9 +3533,6 @@ async function checkSystemUpdates() {
         iconContainer.style.boxShadow = "0 0 15px rgba(239, 68, 68, 0.2)";
         iconContainer.style.background = "rgba(239, 68, 68, 0.05)";
         iconContainer.style.color = "#ef4444";
-
-        dropdown.classList.remove('hidden');
-        commitDetails.textContent = "Error contacting update service. Confirm the server is active.";
         console.error(e);
     }
 }
@@ -3558,7 +3540,6 @@ async function checkSystemUpdates() {
 async function pullLatestUpdates() {
     const heading = document.getElementById('update-status-heading');
     const subheading = document.getElementById('update-status-subheading');
-    const commitDetails = document.getElementById('update-commit-details');
     const pullBtn = document.getElementById('btn-pull-updates');
     const spinner = document.getElementById('update-spinner');
     const spinnerLabel = document.getElementById('update-spinner-label');

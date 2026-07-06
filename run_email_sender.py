@@ -12,6 +12,11 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, handle_sigterm)
     signal.signal(signal.SIGINT, handle_sigterm)
 
+    from core.logging.config import logger
+    logger.info("============================================================")
+    logger.info("Email Sender Runner Initiated")
+    logger.info("============================================================")
+
     success = run_pipeline(phase="phase2")
     if not success:
         sys.exit(1)

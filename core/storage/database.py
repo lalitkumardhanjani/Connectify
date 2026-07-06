@@ -1,6 +1,5 @@
 import os
 from datetime import datetime
-from config.settings import BASE_DIR
 from config.constants import SCRAPER_HEADERS, JOB_LEADS_HEADERS, REFERRAL_HEADERS
 from core.logging.config import logger
 from core.utils.url_utils import is_valid_external_url, normalize_external_url

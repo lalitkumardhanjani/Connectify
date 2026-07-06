@@ -11,4 +11,10 @@ def handle_sigterm(signum, frame):
 if __name__ == "__main__":
     signal.signal(signal.SIGTERM, handle_sigterm)
     signal.signal(signal.SIGINT, handle_sigterm)
+    
+    from core.logging.config import logger
+    logger.info("============================================================")
+    logger.info("LinkedIn Referral Messaging Runner Initiated")
+    logger.info("============================================================")
+    
     run_phase_two_messaging()

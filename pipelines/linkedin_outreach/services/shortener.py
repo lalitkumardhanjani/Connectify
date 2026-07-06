@@ -14,7 +14,7 @@ def load_job_data_excel(filename):
         try:
             rows = read_rows(url, creds, "Job Leads")
             from config.constants import GOOGLE_SHEET_WORKSHEETS
-            headers = GOOGLE_SHEET_WORKSHEETS["job_leads"]["headers"]
+            headers = GOOGLE_SHEET_WORKSHEETS["jobs"]["headers"]
             return rows, None, None, headers
         except Exception as e:
             logger.error(f"Error loading job leads from Google Sheets: {e}")

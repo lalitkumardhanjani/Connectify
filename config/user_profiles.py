@@ -1,17 +1,19 @@
 import os
 import json
 import shutil
-from config.settings import BASE_DIR
 from config.email_templates import DEFAULT_EMAIL_TEMPLATE, DEFAULT_CONNECTION_TEMPLATE
 
 def get_active_user_file():
+    from config.settings import BASE_DIR
     return os.path.join(BASE_DIR, "users", "active_user.json")
 
 def get_user_config_file(username):
+    from config.settings import BASE_DIR
     return os.path.join(BASE_DIR, "users", username, "config.json")
 
 def migrate_old_monolithic_config():
     """Migrates old monolithic users_config.json and global directories to the users/ directory structure."""
+    from config.settings import BASE_DIR
     old_config_file = os.path.join(BASE_DIR, "users_config.json")
     users_dir = os.path.join(BASE_DIR, "users")
     
@@ -99,6 +101,7 @@ def load_all_configs(bypass_cache: bool = False):
     """
     migrate_old_monolithic_config()
     
+    from config.settings import BASE_DIR
     users_dir = os.path.join(BASE_DIR, "users")
     active_user_file = get_active_user_file()
     
@@ -163,6 +166,7 @@ def save_all_configs(config):
     """
     Saves configurations dynamically back to the active storage provider.
     """
+    from config.settings import BASE_DIR
     users_dir = os.path.join(BASE_DIR, "users")
     os.makedirs(users_dir, exist_ok=True)
     

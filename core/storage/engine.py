@@ -7,6 +7,41 @@ from config.constants import GOOGLE_SHEET_WORKSHEETS
 from core.logging.config import logger
 
 # ---------------------------------------------------------------------------
+# Thread-safe environment override for CONNECTIFY_USER
+# ---------------------------------------------------------------------------
+_thread_local_env = threading.local()
+_orig_setitem = os._Environ.__setitem__
+_orig_getitem = os._Environ.__getitem__
+_orig_delitem = os._Environ.__delitem__
+_orig_getenv = os.getenv
+
+def _thread_safe_setitem(self, key, value):
+    if key == "CONNECTIFY_USER":
+        _thread_local_env.connectify_user = value
+    _orig_setitem(self, key, value)
+
+def _thread_safe_getitem(self, key):
+    if key == "CONNECTIFY_USER" and getattr(_thread_local_env, "connectify_user", None) is not None:
+        return _thread_local_env.connectify_user
+    return _orig_getitem(self, key)
+
+def _thread_safe_delitem(self, key):
+    if key == "CONNECTIFY_USER" and hasattr(_thread_local_env, "connectify_user"):
+        delattr(_thread_local_env, "connectify_user")
+    _orig_delitem(self, key)
+
+def _thread_safe_getenv(key, default=None):
+    if key == "CONNECTIFY_USER" and getattr(_thread_local_env, "connectify_user", None) is not None:
+        return _thread_local_env.connectify_user
+    return _orig_getenv(key, default)
+
+os._Environ.__setitem__ = _thread_safe_setitem
+os._Environ.__getitem__ = _thread_safe_getitem
+os._Environ.__delitem__ = _thread_safe_delitem
+os.getenv = _thread_safe_getenv
+
+
+# ---------------------------------------------------------------------------
 # Caching Layer (In-memory, Thread-Safe, TTL-based)
 # ---------------------------------------------------------------------------
 _cache_lock = threading.Lock()
@@ -58,6 +93,13 @@ def _set_cached_config(username: str, config: dict):
 def _invalidate_cached_config(username: str):
     with _cache_lock:
         _config_cache.pop(username, None)
+
+
+def _clear_all_caches():
+    with _cache_lock:
+        _row_cache.clear()
+        _config_cache.clear()
+
 
 
 # ---------------------------------------------------------------------------
@@ -132,7 +174,7 @@ SETTING_METADATA = {
     "profile.last_working_day": ("User Profile", "Last Working Day"),
 
     # Email Scraper
-    "email_scraper.interval": ("Email Scraper", "Scraper Run Interval (minutes)"),
+    "email_scraper.interval": ("Email Scraper", "Search Execution Frequency (seconds)"),
     "email_scraper.max_emails_per_run": ("Email Scraper", "Max Emails per Run"),
     "email_scraper.review_mode": ("Email Scraper", "Review Mode Enabled (True/False)"),
     "email_scraper.sender_email": ("Email Scraper", "Custom Sender Email"),
@@ -148,7 +190,7 @@ SETTING_METADATA = {
     "email_scraper.filter_locations": ("Email Scraper", "Preferred Locations List"),
 
     # LinkedIn Connect
-    "linkedin_connect.interval": ("LinkedIn Connections", "Run Interval (minutes)"),
+    "linkedin_connect.interval": ("LinkedIn Connections", "LinkedIn Connections Run Interval (minutes)"),
     "linkedin_connect.review_mode": ("LinkedIn Connections", "Review Mode Enabled (True/False)"),
     "linkedin_connect.max_connections_per_company": ("LinkedIn Connections", "Max Connections per Company"),
     "linkedin_connect.max_connections_per_run": ("LinkedIn Connections", "Max Connections per Run"),
@@ -159,7 +201,7 @@ SETTING_METADATA = {
     "linkedin_connect.message_template": ("LinkedIn Connections", "Connection Note Template"),
 
     # Recruiter Outreach
-    "recruiter_outreach.interval": ("Recruiter Outreach", "Run Interval (minutes)"),
+    "recruiter_outreach.interval": ("Recruiter Outreach", "Recruiter Outreach Run Interval (minutes)"),
     "recruiter_outreach.target_count": ("Recruiter Outreach", "Target Count"),
     "recruiter_outreach.review_mode": ("Recruiter Outreach", "Review Mode Enabled (True/False)"),
     "recruiter_outreach.message_template": ("Recruiter Outreach", "Recruiter Message Template"),
@@ -248,6 +290,7 @@ class LocalStorageProvider(BaseStorageProvider):
         except Exception as e:
             logger.error(f"Error saving local config for {username}: {e}")
 
+
     def get_excel_path(self, username: str, table_key: str) -> str:
         filename_map = {
             "jobs": "LinkedIn_Job_Tracker.xlsx",
@@ -329,6 +372,8 @@ class LocalStorageProvider(BaseStorageProvider):
             wb.save(path)
         except Exception as e:
             logger.error(f"Error appending row to local Excel database file '{path}': {e}")
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -713,28 +758,46 @@ def get_active_storage_provider() -> BaseStorageProvider:
 def get_user_config(username: str = None, bypass_cache: bool = False) -> dict:
     if not username:
         username = get_active_username()
-    return StorageManager().get_provider(username).get_config(username, bypass_cache=bypass_cache)
+    if not bypass_cache:
+        cached = _get_cached_config(username)
+        if cached is not None:
+            return cached
+    config = StorageManager().get_provider(username).get_config(username, bypass_cache=bypass_cache)
+    if not bypass_cache:
+        _set_cached_config(username, config)
+    return config
 
 
 def save_user_config(config: dict, username: str = None):
     if not username:
         username = get_active_username()
     StorageManager().get_provider(username).save_config(username, config)
+    _invalidate_cached_config(username)
+    _set_cached_config(username, config)
 
 
 def read_database_rows(table_key: str, username: str = None) -> list:
     if not username:
         username = get_active_username()
-    return StorageManager().get_provider(username).read_rows(username, table_key)
+    cached = _get_cached_rows(username, table_key)
+    if cached is not None:
+        return cached
+    data = StorageManager().get_provider(username).read_rows(username, table_key)
+    _set_cached_rows(username, table_key, data)
+    return data
 
 
 def write_database_rows(table_key: str, data: list, username: str = None):
     if not username:
         username = get_active_username()
     StorageManager().get_provider(username).write_rows(username, table_key, data)
+    _invalidate_cached_rows(username, table_key)
+    _set_cached_rows(username, table_key, data)
 
 
 def append_database_row(table_key: str, row: dict, username: str = None):
     if not username:
         username = get_active_username()
     StorageManager().get_provider(username).append_row(username, table_key, row)
+    _invalidate_cached_rows(username, table_key)
+

@@ -1,6 +1,6 @@
 import os
 import openpyxl
-from config.settings import JOB_TRACKER_FILE
+from config.settings import get_job_tracker_file
 from config.user_profiles import get_selected_user_config
 from config.constants import DBA_KEYWORDS_DEFAULT
 from core.integrations.selenium_driver import get_driver
@@ -72,11 +72,12 @@ def run_phase_two(scraper, review_mode=None):
             logger.error(f"Error loading scraped emails from Google Sheets: {e}")
             return
     else:
-        if not os.path.exists(JOB_TRACKER_FILE):
-            logger.warning(f"Excel database '{JOB_TRACKER_FILE}' not found – nothing to send. Please run Phase 1 (Fetch Emails) first to scrape contact leads.")
+        job_tracker_file = get_job_tracker_file()
+        if not os.path.exists(job_tracker_file):
+            logger.warning(f"Excel database '{job_tracker_file}' not found – nothing to send. Please run Phase 1 (Fetch Emails) first to scrape contact leads.")
             return
             
-        wb = openpyxl.load_workbook(JOB_TRACKER_FILE)
+        wb = openpyxl.load_workbook(job_tracker_file)
         ws = wb.active
         col_map = {cell.value: idx+1 for idx, cell in enumerate(ws[1])}
         email_col = col_map.get('Email')
@@ -103,7 +104,8 @@ def run_phase_two(scraper, review_mode=None):
     emails_sent = 0
 
     if not pending_rows:
-        logger.info(f"No pending or unsent emails found in '{JOB_TRACKER_FILE}'. All scraped email records are already sent or the file is empty.")
+        job_tracker_file = get_job_tracker_file()
+        logger.info(f"No pending or unsent emails found in '{job_tracker_file}'. All scraped email records are already sent or the file is empty.")
         return
         
     logger.info(f"Found {len(pending_rows)} pending emails to process. Target limit: {max_emails} per run.")

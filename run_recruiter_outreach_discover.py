@@ -11,4 +11,10 @@ def handle_sigterm(signum, frame):
 if __name__ == "__main__":
     signal.signal(signal.SIGTERM, handle_sigterm)
     signal.signal(signal.SIGINT, handle_sigterm)
+    
+    from core.logging.config import logger
+    logger.info("============================================================")
+    logger.info("LinkedIn Recruiter Discovery Runner Initiated")
+    logger.info("============================================================")
+    
     run_recruiter_discovery()

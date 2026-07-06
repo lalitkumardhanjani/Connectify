@@ -1,7 +1,6 @@
 import os
 import pandas as pd
 from datetime import datetime, timedelta
-from config.settings import get_job_tracker_file, get_job_leads_file, get_referrals_file
 
 def _load_excel(path):
     """Utility to load an Excel file into a pandas DataFrame.
@@ -15,6 +14,17 @@ def _load_excel(path):
         print(f"Error reading {path}: {e}")
         return pd.DataFrame()
 
+def _load_data_as_df(table_key):
+    """Utility to load table rows as a pandas DataFrame from active storage provider."""
+    try:
+        from core.storage.engine import read_database_rows
+        rows = read_database_rows(table_key)
+        if not rows:
+            return pd.DataFrame()
+        return pd.DataFrame(rows)
+    except Exception as e:
+        print(f"Error loading {table_key} database table: {e}")
+        return pd.DataFrame()
 
 def _find_col(df, *candidates):
     """Case-insensitive column finder. Returns the actual column name or None."""
@@ -28,8 +38,8 @@ def _find_col(df, *candidates):
 # ---------------------- Email Scraper Metrics ----------------------
 
 def get_email_metrics():
-    """Compute email-scraper analytics from job_tracker.xlsx."""
-    df = _load_excel(get_job_tracker_file())
+    """Compute email-scraper analytics from active storage provider."""
+    df = _load_data_as_df("emails")
 
     empty_result = {
         "total_emails": 0,
@@ -150,8 +160,8 @@ def get_email_metrics():
 # ---------------------- Company Scraper Metrics ----------------------
 
 def get_company_metrics():
-    """Compute company-scraper analytics from LinkedIn_Job_Tracker.xlsx."""
-    df = _load_excel(get_job_leads_file())
+    """Compute company-scraper analytics from active storage provider."""
+    df = _load_data_as_df("jobs")
 
     empty_result = {
         "total_companies": 0,
@@ -233,8 +243,8 @@ def get_company_metrics():
 # ---------------------- Outreach & Referral Metrics ----------------------
 
 def get_outreach_metrics():
-    """Compute outreach and referral analytics from referrals.xlsx."""
-    df = _load_excel(get_referrals_file())
+    """Compute outreach and referral analytics from active storage provider."""
+    df = _load_data_as_df("referrals")
 
     empty_result = {
         "total_contacts": 0,

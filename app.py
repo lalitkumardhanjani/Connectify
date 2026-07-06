@@ -112,8 +112,6 @@ class SubprocessRunner:
             script_path = os.path.join(os.getcwd(), script)
             cmd = [PYTHON_BIN, "-u", script_path] + args
             
-            self.log(f"--- Launching Step {self.current_step}/{len(self.commands)}: {script} ---")
-            
             # Read fresh env variables from .env to forward to subprocess
             env_copy = os.environ.copy()
             if os.path.exists(".env"):
@@ -141,6 +139,25 @@ class SubprocessRunner:
                 env_copy["CHROME_PROFILE_DIR"] = os.path.join(user_dir_for_runner, "chrome-profile-referral")
             elif pipeline_type == "recruiter_pipeline":
                 env_copy["CHROME_PROFILE_DIR"] = os.path.join(user_dir_for_runner, "chrome-profile-recruiter")
+
+            # Determine active storage type
+            storage_type = "Local (Excel files)"
+            sheets_url = None
+            try:
+                from core.storage.engine import GoogleSheetsStorageProvider
+                provider = GoogleSheetsStorageProvider()
+                sheets_conf = provider.get_sheets_config(self.username)
+                if sheets_conf:
+                    storage_type = "Google Sheets"
+                    sheets_url = sheets_conf[0]
+            except Exception:
+                pass
+
+            self.log(f"--- Launching Step {self.current_step}/{len(self.commands)}: {script} ---")
+            self.log(f"    - Active Profile   : {self.username}")
+            self.log(f"    - Database Storage : {storage_type}" + (f" (URL: {sheets_url})" if sheets_url else ""))
+            self.log(f"    - Chrome Profile   : {env_copy.get('CHROME_PROFILE_DIR', 'Default')}")
+            self.log(f"    - Script Command   : {script} {' '.join(args) if args else ''}")
             
             try:
                 self.process = subprocess.Popen(

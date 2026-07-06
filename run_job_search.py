@@ -20,5 +20,12 @@ if __name__ == "__main__":
         help="Specific LinkedIn job URL to process directly"
     )
     args = parser.parse_args()
+    
+    from core.logging.config import logger
+    logger.info("============================================================")
+    logger.info("LinkedIn Job Search Runner Initiated")
+    logger.info(f"Target Job URL: {args.target_url or 'None (All matching keywords)'}")
+    logger.info("============================================================")
+    
     run_job_finder(target_url=args.target_url)
 

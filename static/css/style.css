@@ -304,7 +304,209 @@ body {
     box-shadow: var(--card-shadow);
 }
 
+/* ====================================================
+   System Updates Card — Premium Centered Layout
+   ==================================================== */
+
+/* Outer wrapper: full width, center the card */
+.subtab-system-updates-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 30px 20px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* The card itself */
+.system-updates-card {
+    width: 100%;
+    max-width: 640px;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    border-radius: 20px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+    padding: 48px 40px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+.system-updates-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+}
+/* Subtle dot-pattern background */
+.system-updates-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(255,255,255,0.06) 1px, transparent 1px);
+    background-size: 24px 24px;
+    pointer-events: none;
+}
+
+/* Inner flex column — everything perfectly centered */
+.system-updates-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 18px;
+    position: relative; /* above ::before */
+    z-index: 1;
+}
+
+/* Status icon circle */
+.icon-glow-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    font-size: 2.2rem;
+    color: var(--text-secondary);
+    transition: all 0.3s ease;
+}
+.icon-glow-container:hover {
+    box-shadow: 0 0 18px rgba(0, 191, 255, 0.5);
+    border-color: var(--accent-cyan);
+    color: var(--accent-cyan);
+}
+
+/* Gradient title block */
+.gradient-header {
+    text-align: center;
+}
+.gradient-header h2 {
+    font-size: 1.9rem;
+    font-weight: 700;
+    font-family: 'Outfit', sans-serif;
+    margin: 0;
+    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-teal));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+.gradient-header h4 {
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin: 6px 0 0 0;
+    color: var(--text-secondary);
+    background: none;
+    -webkit-background-clip: unset;
+    background-clip: unset;
+    color: var(--text-secondary);
+}
+
+/* Description paragraph */
+.system-updates-desc {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    max-width: 460px;
+    line-height: 1.6;
+}
+
+/* Buttons row */
+.system-updates-actions {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 4px;
+}
+.system-updates-actions .btn {
+    padding: 11px 24px;
+    font-weight: 600;
+    border-radius: 10px;
+}
+
+/* Spinner */
+.system-updates-spinner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #00bfff;
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+.system-updates-spinner i {
+    font-size: 1.2rem;
+}
+
+/* Log console */
+.system-updates-log {
+    width: 100%;
+    text-align: left;
+}
+.system-updates-log span {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    display: block;
+    margin-bottom: 6px;
+}
+.system-updates-log pre {
+    margin: 0;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 6px;
+    padding: 10px;
+    font-family: monospace;
+    font-size: 0.78rem;
+    color: #a6e22e;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 150px;
+}
+
+/* Advanced details */
+.system-updates-details {
+    width: 100%;
+    max-width: 560px;
+    text-align: left;
+    background: rgba(0,0,0,0.15);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 12px;
+    box-sizing: border-box;
+}
+.system-updates-details summary {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    user-select: none;
+    font-weight: 600;
+    outline: none;
+}
+.system-updates-details > div {
+    margin-top: 12px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+details[open] > * {
+    animation: slideDown 0.25s ease-out;
+}
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .subtab-system-updates-wrapper { padding: 16px; }
+    .system-updates-card { padding: 28px 20px; }
+}
+
 .chart-container h3, .quick-runs h3 {
+
     font-size: 1.15rem;
     font-weight: 600;
     margin-bottom: 20px;
