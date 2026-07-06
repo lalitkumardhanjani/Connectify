@@ -169,6 +169,21 @@ class TestSaveJob:
         ids = [int(float(j["JobID"])) for j in jobs]
         assert ids == [1, 2]
 
+    def test_save_job_missing_fields_returns_false(self, local_user):
+        from core.storage.database import save_job, load_saved_jobs
+        # Missing CompanyName
+        assert save_job(self._job(company="")) is False
+        # Missing JobTitle
+        result = save_job({
+            "CompanyName": "TestCo",
+            "CompanyURL": "https://test.com/j1",
+            "JobTitle": ""
+        })
+        assert result is False
+        # Missing CompanyURL
+        assert save_job(self._job(url="")) is False
+        assert len(load_saved_jobs()) == 0
+
 
 class TestJobStatusUpdate:
     def test_update_status_by_id(self, local_user):

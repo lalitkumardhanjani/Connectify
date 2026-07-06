@@ -134,13 +134,19 @@ def load_saved_jobs(path=None):
     return read_database_rows("jobs")
 
 def save_job(data, path=None):
-    """Saves a new job to the job leads database if its URL is unique."""
+    """Saves a new job to the job leads database if its URL is unique and valid."""
+    comp_name = str(data.get('CompanyName') or '').strip()
+    job_title = str(data.get('JobTitle') or '').strip()
     apply_url = normalize_external_url(data.get('CompanyURL') or '')
-    if apply_url:
-        if apply_url in seen_external_urls:
-            logger.info(f"Skipping duplicate job saving: External URL {apply_url} already matched in cache.")
-            return False
-            
+    
+    if not comp_name or not job_title or not apply_url:
+        logger.warning(f"Skipping save_job: Missing critical fields (CompanyName: '{comp_name}', JobTitle: '{job_title}', CompanyURL: '{apply_url}')")
+        return False
+        
+    if apply_url in seen_external_urls:
+        logger.info(f"Skipping duplicate job saving: External URL {apply_url} already matched in cache.")
+        return False
+        
     rows = read_database_rows("jobs")
     for r in rows:
         r_url = normalize_external_url(r.get('CompanyURL') or '')

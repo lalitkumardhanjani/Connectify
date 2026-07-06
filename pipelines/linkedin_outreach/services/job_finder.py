@@ -790,10 +790,10 @@ def run_job_finder(target_url=None):
                             if is_valid:
                                 try:
                                     if save_job({
-                                        "url": external_url,
-                                        "company": company,
-                                        "position": position,
-                                        "search_keyword": keyword
+                                        "CompanyURL": external_url,
+                                        "CompanyName": company,
+                                        "JobTitle": position,
+                                        "SearchKeyword": keyword
                                     }):
                                         total_saved += 1
                                         logger.info("  [SUCCESS] Job stored in Excel tracker.")
