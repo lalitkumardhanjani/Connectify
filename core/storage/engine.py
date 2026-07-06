@@ -378,6 +378,43 @@ class LocalStorageProvider(BaseStorageProvider):
 
         headers = GOOGLE_SHEET_WORKSHEETS[table_key]["headers"]
         try:
+            # Enforce unique constraint check inside LocalStorageProvider.append_row
+            from core.utils.url_utils import normalize_external_url
+            existing_rows = self.read_rows(username, table_key, bypass_cache=True)
+            
+            is_duplicate = False
+            if table_key == "jobs":
+                new_url = normalize_external_url(row.get("CompanyURL") or "")
+                new_comp_url = normalize_external_url(row.get("LinkedIn_Company_URL") or "")
+                for er in existing_rows:
+                    er_url = normalize_external_url(er.get("CompanyURL") or "")
+                    er_comp_url = normalize_external_url(er.get("LinkedIn_Company_URL") or "")
+                    if er_url and er_url == new_url:
+                        is_duplicate = True
+                        break
+                    if er_comp_url and er_comp_url == new_comp_url and er_url == new_url:
+                        is_duplicate = True
+                        break
+            elif table_key == "emails":
+                new_email = str(row.get("Email") or "").strip().lower()
+                new_kw = str(row.get("Keyword") or "").strip().lower()
+                for er in existing_rows:
+                    if str(er.get("Email") or "").strip().lower() == new_email and str(er.get("Keyword") or "").strip().lower() == new_kw:
+                        is_duplicate = True
+                        break
+            elif table_key == "referrals":
+                new_comp = str(row.get("CompanyName") or "").strip().lower()
+                new_member = normalize_external_url(row.get("MemberProfileUrl") or "")
+                new_job = str(row.get("JobID") or "").strip()
+                for er in existing_rows:
+                    if str(er.get("CompanyName") or "").strip().lower() == new_comp and normalize_external_url(er.get("MemberProfileUrl") or "") == new_member and str(er.get("JobID") or "").strip() == new_job:
+                        is_duplicate = True
+                        break
+                        
+            if is_duplicate:
+                logger.info(f"Storage Engine (Excel): Skipped duplicate append for '{table_key}' row.")
+                return
+
             import openpyxl
             wb = openpyxl.load_workbook(path)
             ws = wb.active
@@ -801,6 +838,7 @@ class GoogleSheetsStorageProvider(BaseStorageProvider):
 
     def append_row(self, username: str, table_key: str, row: dict):
         # 1. ALWAYS write to local Excel database first as a guaranteed offline mirror copy
+        # (This enforces the unique check locally first, which might skip the append)
         try:
             LocalStorageProvider().append_row(username, table_key, row)
         except Exception as le:
@@ -812,6 +850,54 @@ class GoogleSheetsStorageProvider(BaseStorageProvider):
 
         url, creds_content = sheets_conf
         ws_name = GOOGLE_SHEET_WORKSHEETS[table_key]["name"]
+
+        # Enforce unique constraint check for Google Sheets before writing
+        try:
+            from core.utils.url_utils import normalize_external_url
+            existing_rows = None
+            with _cache_lock:
+                entry = _row_cache.get((username, table_key))
+                if entry:
+                    existing_rows = entry[1]
+                    
+            if not existing_rows:
+                # If cache is not initialized, read live rows
+                existing_rows = self.read_rows(username, table_key, bypass_cache=True)
+                
+            is_duplicate = False
+            if table_key == "jobs":
+                new_url = normalize_external_url(row.get("CompanyURL") or "")
+                new_comp_url = normalize_external_url(row.get("LinkedIn_Company_URL") or "")
+                for er in existing_rows:
+                    er_url = normalize_external_url(er.get("CompanyURL") or "")
+                    er_comp_url = normalize_external_url(er.get("LinkedIn_Company_URL") or "")
+                    if er_url and er_url == new_url:
+                        is_duplicate = True
+                        break
+                    if er_comp_url and er_comp_url == new_comp_url and er_url == new_url:
+                        is_duplicate = True
+                        break
+            elif table_key == "emails":
+                new_email = str(row.get("Email") or "").strip().lower()
+                new_kw = str(row.get("Keyword") or "").strip().lower()
+                for er in existing_rows:
+                    if str(er.get("Email") or "").strip().lower() == new_email and str(er.get("Keyword") or "").strip().lower() == new_kw:
+                        is_duplicate = True
+                        break
+            elif table_key == "referrals":
+                new_comp = str(row.get("CompanyName") or "").strip().lower()
+                new_member = normalize_external_url(row.get("MemberProfileUrl") or "")
+                new_job = str(row.get("JobID") or "").strip()
+                for er in existing_rows:
+                    if str(er.get("CompanyName") or "").strip().lower() == new_comp and normalize_external_url(er.get("MemberProfileUrl") or "") == new_member and str(er.get("JobID") or "").strip() == new_job:
+                        is_duplicate = True
+                        break
+                        
+            if is_duplicate:
+                logger.info(f"Storage Engine (Sheets): Skipped duplicate append for '{table_key}' row.")
+                return
+        except Exception as ue:
+            logger.warning(f"Storage Engine (Sheets) unique check failed: {ue}")
 
         # 2. Try to write to Google Sheets online copy
         try:
