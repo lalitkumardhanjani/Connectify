@@ -145,6 +145,7 @@ def save_job(data, path=None):
     comp_name = str(data.get('CompanyName') or '').strip()
     job_title = str(data.get('JobTitle') or '').strip()
     apply_url = normalize_external_url(data.get('CompanyURL') or '')
+    linkedin_company_url = normalize_external_url(data.get('LinkedIn_Company_URL') or '')
     
     if not comp_name or not job_title or not apply_url:
         logger.warning(f"Skipping save_job: Missing critical fields (CompanyName: '{comp_name}', JobTitle: '{job_title}', CompanyURL: '{apply_url}')")
@@ -157,15 +158,25 @@ def save_job(data, path=None):
     rows = read_database_rows("jobs", bypass_cache=True)
     for r in rows:
         r_url = normalize_external_url(r.get('CompanyURL') or '')
+        r_comp_url = normalize_external_url(r.get('LinkedIn_Company_URL') or '')
+        
+        # Check by apply_url
         if r_url and r_url == apply_url:
             if apply_url:
                 seen_external_urls.add(apply_url)
             logger.info(f"Skipping duplicate job saving: External URL {apply_url} already matched in database.")
             return False
+            
+        # Check by company URL + apply URL combination
+        if r_comp_url and r_comp_url == linkedin_company_url and r_url == apply_url:
+            if apply_url:
+                seen_external_urls.add(apply_url)
+            logger.info(f"Skipping duplicate job saving: (Company URL: {linkedin_company_url}, Apply URL: {apply_url}) already matched in database.")
+            return False
 
     max_id = max([int(float(r.get('JobID') or 0)) for r in rows]) if rows else 0
     new_job = {
-        'JobID': max_id + 1,
+        'JobID': int(max_id + 1),
         'JobTitle': data.get('JobTitle', ''),
         'CompanyName': data.get('CompanyName', ''),
         'LinkedIn_Company_URL': data.get('LinkedIn_Company_URL', ''),
@@ -173,8 +184,8 @@ def save_job(data, path=None):
         'ShortenURL': data.get('ShortenURL', ''),
         'SearchKeyword': data.get('SearchKeyword', ''),
         'Status': data.get('Status', 'NEW'),
-        'ShortUrlCreated': data.get('ShortUrlCreated', '0'),
-        'CreatedDateTime': data.get('CreatedDateTime') or datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        'ShortUrlCreated': data.get('ShortUrlCreated') if data.get('ShortUrlCreated') is not None else 0,
+        'CreatedDateTime': data.get('CreatedDateTime') or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
     append_database_row("jobs", new_job)
     if apply_url:

@@ -2,6 +2,7 @@ import os
 import json
 import time
 import threading
+from datetime import datetime
 from config.settings import BASE_DIR
 from config.constants import GOOGLE_SHEET_WORKSHEETS
 from core.logging.config import logger
@@ -347,7 +348,22 @@ class LocalStorageProvider(BaseStorageProvider):
                 row_vals = []
                 for h in headers:
                     val = row.get(h)
-                    row_vals.append(str(val) if val is not None else "")
+                    if val is not None and val != "":
+                        val_str = str(val).strip()
+                        if val_str.isdigit():
+                            val = int(val_str)
+                        else:
+                            try:
+                                # Only check float representation if it has a decimal point
+                                if "." in val_str:
+                                    val = float(val_str)
+                                    if val.is_integer():
+                                        val = int(val)
+                            except ValueError:
+                                pass
+                    else:
+                        val = ""
+                    row_vals.append(val)
                 ws.append(row_vals)
             
             wb.save(path)
@@ -368,7 +384,21 @@ class LocalStorageProvider(BaseStorageProvider):
             row_vals = []
             for h in headers:
                 val = row.get(h)
-                row_vals.append(str(val) if val is not None else "")
+                if val is not None and val != "":
+                    val_str = str(val).strip()
+                    if val_str.isdigit():
+                        val = int(val_str)
+                    else:
+                        try:
+                            if "." in val_str:
+                                val = float(val_str)
+                                if val.is_integer():
+                                    val = int(val)
+                        except ValueError:
+                            pass
+                else:
+                    val = ""
+                row_vals.append(val)
             ws.append(row_vals)
             wb.save(path)
         except Exception as e:
@@ -675,12 +705,55 @@ class GoogleSheetsStorageProvider(BaseStorageProvider):
             try:
                 local_data = LocalStorageProvider().read_rows(username, table_key, bypass_cache=True)
                 if local_data:
+                    from core.utils.url_utils import normalize_external_url
                     sheets_ids = {str(r.get(id_col)).strip().rstrip(".0") for r in data if r.get(id_col)}
+                    
+                    # For jobs, build a lookup set of normalized URLs to prevent duplicates by URL
+                    sheets_urls = set()
+                    if table_key == "jobs":
+                        for r in data:
+                            c_url = normalize_external_url(r.get("CompanyURL") or "")
+                            lc_url = normalize_external_url(r.get("LinkedIn_Company_URL") or "")
+                            if c_url:
+                                sheets_urls.add(c_url)
+                            if lc_url and c_url:
+                                sheets_urls.add((lc_url, c_url))
+                                
                     missing_rows = []
                     for lr in local_data:
                         lid = str(lr.get(id_col)).strip().rstrip(".0")
-                        if lid and lid not in sheets_ids:
-                            missing_rows.append(lr)
+                        
+                        # Primary key ID check
+                        if lid and lid in sheets_ids:
+                            continue
+                            
+                        # URL matching checks for jobs
+                        if table_key == "jobs":
+                            c_url = normalize_external_url(lr.get("CompanyURL") or "")
+                            lc_url = normalize_external_url(lr.get("LinkedIn_Company_URL") or "")
+                            if c_url and c_url in sheets_urls:
+                                continue
+                            if lc_url and c_url and (lc_url, c_url) in sheets_urls:
+                                continue
+                                
+                        # Age check: skip syncing rows created less than 120 seconds ago to avoid Sheets delay issues
+                        created_str = lr.get("CreatedDateTime") or lr.get("Timestamp")
+                        is_recent = False
+                        if created_str:
+                            for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S"):
+                                try:
+                                    created_dt = datetime.strptime(str(created_str).split(".")[0], fmt)
+                                    age_seconds = (datetime.now() - created_dt).total_seconds()
+                                    if age_seconds < 120:
+                                        is_recent = True
+                                        break
+                                except ValueError:
+                                    continue
+                                    
+                        if is_recent:
+                            continue
+                            
+                        missing_rows.append(lr)
                     
                     if missing_rows:
                         logger.info(f"Self-healing sync: Found {len(missing_rows)} missing rows in Google Sheets for '{table_key}'. Syncing now...")
