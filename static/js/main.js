@@ -3369,6 +3369,32 @@ async function initPipelineStatus() {
 // Run on page load
 document.addEventListener('DOMContentLoaded', () => {
     initPipelineStatus();
+    
+    // Theme Switcher Initialisation
+    const themeCheckbox = document.getElementById('theme-toggle-checkbox');
+    const currentTheme = localStorage.getItem('theme') || 'dark';
+    
+    if (currentTheme === 'light') {
+        document.body.classList.add('light-theme');
+        if (themeCheckbox) themeCheckbox.checked = true;
+    }
+    
+    if (themeCheckbox) {
+        themeCheckbox.addEventListener('change', () => {
+            if (themeCheckbox.checked) {
+                document.body.classList.add('light-theme');
+                localStorage.setItem('theme', 'light');
+            } else {
+                document.body.classList.remove('light-theme');
+                localStorage.setItem('theme', 'dark');
+            }
+            
+            // Re-render chart analytics if dashboard functions are loaded
+            if (typeof loadDashboardAnalytics === 'function') {
+                loadDashboardAnalytics();
+            }
+        });
+    }
 });
 
 function toggleGoogleSheetsFields() {

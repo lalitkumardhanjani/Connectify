@@ -3908,3 +3908,175 @@ details[open] > * {
     background: rgba(0, 191, 255, 0.2);
     box-shadow: 0 0 8px rgba(0, 191, 255, 0.15);
 }
+
+/* ==========================================================================
+   LIGHT THEME OVERRIDES
+   ========================================================================== */
+body.light-theme {
+    --bg-primary: #f5f6fa;
+    --bg-secondary: #ffffff;
+    --glass-bg: rgba(255, 255, 255, 0.7);
+    --glass-border: rgba(0, 0, 0, 0.08);
+    --glass-glow-border: rgba(127, 90, 240, 0.35);
+    
+    --text-primary: #1f1f2e;
+    --text-secondary: #5e6480;
+    
+    --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.05);
+    --card-hover-shadow: 0 10px 40px 0 rgba(127, 90, 240, 0.12);
+    
+    background-image: 
+        radial-gradient(at 10% 10%, rgba(127, 90, 240, 0.08) 0px, transparent 50%),
+        radial-gradient(at 90% 90%, rgba(0, 176, 255, 0.06) 0px, transparent 50%);
+}
+
+body.light-theme .glass-container {
+    background: rgba(245, 246, 250, 0.4);
+}
+
+body.light-theme .sidebar {
+    background: rgba(240, 242, 248, 0.85);
+    border-right: 1px solid rgba(0, 0, 0, 0.07);
+}
+
+body.light-theme .logo-image {
+    mix-blend-mode: normal;
+    filter: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    border-color: rgba(127, 90, 240, 0.2);
+}
+
+body.light-theme .nav-item {
+    color: #5e6480;
+}
+
+body.light-theme .nav-item:hover {
+    background: rgba(127, 90, 240, 0.05);
+    color: var(--accent-purple);
+}
+
+body.light-theme .nav-item.active {
+    background: rgba(127, 90, 240, 0.08);
+    color: var(--accent-purple);
+    border-left: 3px solid var(--accent-purple);
+}
+
+body.light-theme ::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+body.light-theme ::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.12);
+    border-radius: 4px;
+}
+
+body.light-theme ::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+body.light-theme .data-table th {
+    background: rgba(0, 0, 0, 0.03);
+    color: var(--text-primary);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+body.light-theme .data-table tr:hover {
+    background: rgba(0, 0, 0, 0.015);
+}
+
+body.light-theme input, 
+body.light-theme select, 
+body.light-theme textarea {
+    background: rgba(255, 255, 255, 0.8) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid rgba(0, 0, 0, 0.12) !important;
+}
+
+body.light-theme input:focus, 
+body.light-theme select:focus, 
+body.light-theme textarea:focus {
+    border-color: var(--accent-purple) !important;
+    box-shadow: 0 0 0 3px rgba(127, 90, 240, 0.12) !important;
+    background: #ffffff !important;
+}
+
+body.light-theme .modal-content,
+body.light-theme .searchable-select-dropdown {
+    background: #ffffff !important;
+    color: var(--text-primary) !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08) !important;
+}
+
+body.light-theme .dropdown-user-header {
+    background: #fdfdfd !important;
+}
+
+body.light-theme .dropdown-divider {
+    background: rgba(0, 0, 0, 0.06) !important;
+}
+
+body.light-theme .searchable-select-option:hover {
+    background: rgba(127, 90, 240, 0.06) !important;
+    color: var(--accent-purple) !important;
+}
+
+body.light-theme .searchable-select-search-box input {
+    background: #f5f6fa !important;
+}
+
+body.light-theme .timeline-marker {
+    background: #ffffff;
+    border-color: rgba(0, 0, 0, 0.1);
+}
+
+body.light-theme .timeline-item.active .timeline-marker {
+    border-color: var(--accent-purple);
+}
+
+body.light-theme .timeline-item.completed .timeline-marker {
+    background: var(--accent-teal);
+    border-color: var(--accent-teal);
+}
+
+body.light-theme .user-profile-avatar-trigger {
+    background: rgba(0, 0, 0, 0.04);
+    color: var(--text-primary);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+body.light-theme .active-storage-badge {
+    background: rgba(0, 0, 0, 0.04) !important;
+    color: var(--text-secondary) !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Console logs should always remain cool dark style for standard logging readibility */
+body.light-theme .terminal-box, 
+body.light-theme .log-container, 
+body.light-theme .logger-view {
+    background: #12101f !important;
+    color: #a6accd !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+body.light-theme .tag-badge {
+    background: rgba(127, 90, 240, 0.08) !important;
+    color: var(--accent-purple) !important;
+    border: 1px solid rgba(127, 90, 240, 0.18) !important;
+}
+
+body.light-theme .tags-input-container {
+    background: rgba(255, 255, 255, 0.8) !important;
+    border: 1px solid rgba(0, 0, 0, 0.12) !important;
+}
+
+body.light-theme .status-badge.status-idle {
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--text-secondary);
+}
+
+body.light-theme .info-tooltip-trigger {
+    color: var(--text-secondary);
+}
+

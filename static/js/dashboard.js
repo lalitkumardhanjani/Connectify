@@ -119,6 +119,68 @@ function switchDashModule(module) {
 // ─────────────────────────────────────────────────────────
 //  Chart factory helpers
 // ─────────────────────────────────────────────────────────
+function getChartOptions(isLine = false) {
+    const isLight = document.body.classList.contains('light-theme');
+    const gridColor = isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.04)';
+    const tickColor = isLight ? '#5e6480' : '#9ea4c0';
+    const tickColorAlt = isLight ? '#1f1f2e' : '#e0e0e0';
+    const tooltipBg = isLight ? 'rgba(255,255,255,0.96)' : 'rgba(10,8,19,0.92)';
+    const tooltipText = isLight ? '#1f1f2e' : '#e0e0e0';
+    const tooltipBody = isLight ? '#5e6480' : '#9ea4c0';
+    const tooltipBorder = isLight ? 'rgba(127,90,240,0.2)' : 'rgba(127,90,240,0.3)';
+
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: tooltipBg,
+                titleColor: tooltipText,
+                bodyColor: tooltipBody,
+                borderColor: tooltipBorder,
+                borderWidth: 1,
+                padding: 10,
+            }
+        },
+        scales: {
+            x: {
+                grid: { color: gridColor },
+                ticks: { color: tickColor, font: { size: 11 } }
+            },
+            y: {
+                grid: isLine ? { color: gridColor } : { display: false },
+                ticks: { color: tickColorAlt, font: { size: 11 } }
+            }
+        }
+    };
+}
+
+function getPieChartOptions() {
+    const isLight = document.body.classList.contains('light-theme');
+    const tooltipBg = isLight ? 'rgba(255,255,255,0.96)' : 'rgba(10,8,19,0.92)';
+    const tooltipText = isLight ? '#1f1f2e' : '#e0e0e0';
+    const tooltipBody = isLight ? '#5e6480' : '#9ea4c0';
+    const tooltipBorder = isLight ? 'rgba(127,90,240,0.2)' : 'rgba(127,90,240,0.3)';
+
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '68%',
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: tooltipBg,
+                titleColor: tooltipText,
+                bodyColor: tooltipBody,
+                borderColor: tooltipBorder,
+                borderWidth: 1,
+                padding: 10,
+            }
+        }
+    };
+}
+
 function makePieChart(canvasId, labels, data, colors) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return null;
@@ -135,16 +197,7 @@ function makePieChart(canvasId, labels, data, colors) {
                 hoverOffset: 8,
             }]
         },
-        options: {
-            ...CHART_DEFAULTS,
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '68%',
-            plugins: {
-                ...CHART_DEFAULTS.plugins,
-                legend: { display: false },
-            }
-        }
+        options: getPieChartOptions()
     });
 }
 
@@ -165,20 +218,8 @@ function makeBarChart(canvasId, labels, data, color = PALETTE.purple) {
             }]
         },
         options: {
-            ...CHART_DEFAULTS,
-            responsive: true,
-            maintainAspectRatio: false,
-            indexAxis: 'y',
-            scales: {
-                x: {
-                    grid: { color: 'rgba(255,255,255,0.04)' },
-                    ticks: { color: '#9ea4c0', font: { size: 11 } }
-                },
-                y: {
-                    grid: { display: false },
-                    ticks: { color: '#e0e0e0', font: { size: 11 } }
-                }
-            }
+            ...getChartOptions(false),
+            indexAxis: 'y'
         }
     });
 }
@@ -206,21 +247,7 @@ function makeLineChart(canvasId, labels, data) {
                 tension: 0.4,
             }]
         },
-        options: {
-            ...CHART_DEFAULTS,
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: {
-                    grid: { color: 'rgba(255,255,255,0.04)' },
-                    ticks: { color: '#9ea4c0', font: { size: 11 } }
-                },
-                y: {
-                    grid: { color: 'rgba(255,255,255,0.04)' },
-                    ticks: { color: '#9ea4c0', font: { size: 11 } }
-                }
-            }
-        }
+        options: getChartOptions(true)
     });
 }
 
