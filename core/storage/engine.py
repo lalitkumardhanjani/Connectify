@@ -691,6 +691,12 @@ class GoogleSheetsStorageProvider(BaseStorageProvider):
             from core.storage.sheets import write_rows
             write_rows(url, creds_content, ws_name, data)
             
+            # Save mirror backup copy locally
+            try:
+                LocalStorageProvider().write_rows(username, table_key, data)
+            except Exception as le:
+                logger.warning(f"Failed to write local database mirror backup for '{table_key}': {le}")
+
             # Invalidate and reset cache
             _invalidate_cached_rows(username, table_key)
             _set_cached_rows(username, table_key, data)
@@ -711,6 +717,12 @@ class GoogleSheetsStorageProvider(BaseStorageProvider):
             from core.storage.sheets import append_row
             append_row(url, creds_content, ws_name, row)
             
+            # Save mirror backup copy locally
+            try:
+                LocalStorageProvider().append_row(username, table_key, row)
+            except Exception as le:
+                logger.warning(f"Failed to append local database mirror backup for '{table_key}': {le}")
+
             # Update cache in-memory if present, and slide the TTL freshness window
             with _cache_lock:
                 entry = _row_cache.get((username, table_key))
