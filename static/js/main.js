@@ -3372,22 +3372,38 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Theme Switcher Initialisation
     const themeCheckbox = document.getElementById('theme-toggle-checkbox');
+    const themeIcon = document.getElementById('theme-toggle-icon');
+    const themeText = document.getElementById('theme-toggle-text');
     const currentTheme = localStorage.getItem('theme') || 'dark';
     
-    if (currentTheme === 'light') {
-        document.body.classList.add('light-theme');
-        if (themeCheckbox) themeCheckbox.checked = true;
+    function updateThemeUI(isLight) {
+        if (isLight) {
+            document.body.classList.add('light-theme');
+            if (themeCheckbox) themeCheckbox.checked = true;
+            if (themeIcon) {
+                themeIcon.className = 'fa-solid fa-sun';
+                themeIcon.style.color = 'var(--accent-yellow)';
+            }
+            if (themeText) themeText.innerText = 'Light Mode';
+        } else {
+            document.body.classList.remove('light-theme');
+            if (themeCheckbox) themeCheckbox.checked = false;
+            if (themeIcon) {
+                themeIcon.className = 'fa-solid fa-moon';
+                themeIcon.style.color = 'var(--accent-purple)';
+            }
+            if (themeText) themeText.innerText = 'Dark Mode';
+        }
     }
+    
+    // Initialise on load
+    updateThemeUI(currentTheme === 'light');
     
     if (themeCheckbox) {
         themeCheckbox.addEventListener('change', () => {
-            if (themeCheckbox.checked) {
-                document.body.classList.add('light-theme');
-                localStorage.setItem('theme', 'light');
-            } else {
-                document.body.classList.remove('light-theme');
-                localStorage.setItem('theme', 'dark');
-            }
+            const isLight = themeCheckbox.checked;
+            updateThemeUI(isLight);
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
             
             // Re-render chart analytics if dashboard functions are loaded
             if (typeof loadDashboardAnalytics === 'function') {
