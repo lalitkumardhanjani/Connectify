@@ -578,6 +578,7 @@ Connectify features a RESTful API to manage pipelines, query profiles, and edit 
 
 | Issue / Error | Root Cause | Resolution |
 |---|---|---|
+| Chrome window does not open (invisible / running in background) | The Flask server was started as a background process or service (Session 0), which hides spawned GUI windows. | Stop the background process, open your interactive terminal window, and run the server manually using: <br><code>.venv\Scripts\python.exe app.py</code> |
 | `SessionNotCreatedException: unrecognized Chrome version` | The Chrome version does not match the driver version, or Edge has hijacked the `chrome` path. | Define the absolute path to your Google Chrome installation in `.env`: <br>`CHROME_BINARY_PATH=C:\Program Files\Google\Chrome\Application\chrome.exe` |
 | `ModuleNotFoundError: No module named 'flask'` | The terminal command executed outside the active virtual environment. | Run `.venv\Scripts\activate` (Windows) or `source .venv/bin/activate` (Mac) before executing Python scripts. |
 | `TimeoutException: Manual login timeout` | The manual login window timed out after 300 seconds without detecting a search bar. | Re-run the script and complete the login and 2FA steps within the 5-minute limit. |
