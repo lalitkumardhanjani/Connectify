@@ -397,9 +397,8 @@ class LocalStorageProvider(BaseStorageProvider):
                         break
             elif table_key == "emails":
                 new_email = str(row.get("Email") or "").strip().lower()
-                new_kw = str(row.get("Keyword") or "").strip().lower()
                 for er in existing_rows:
-                    if str(er.get("Email") or "").strip().lower() == new_email and str(er.get("Keyword") or "").strip().lower() == new_kw:
+                    if str(er.get("Email") or "").strip().lower() == new_email:
                         is_duplicate = True
                         break
             elif table_key == "referrals":
@@ -879,9 +878,8 @@ class GoogleSheetsStorageProvider(BaseStorageProvider):
                         break
             elif table_key == "emails":
                 new_email = str(row.get("Email") or "").strip().lower()
-                new_kw = str(row.get("Keyword") or "").strip().lower()
                 for er in existing_rows:
-                    if str(er.get("Email") or "").strip().lower() == new_email and str(er.get("Keyword") or "").strip().lower() == new_kw:
+                    if str(er.get("Email") or "").strip().lower() == new_email:
                         is_duplicate = True
                         break
             elif table_key == "referrals":
