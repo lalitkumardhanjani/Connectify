@@ -1240,8 +1240,14 @@ def pull_system_updates():
         import subprocess
         repo_dir = os.path.dirname(os.path.abspath(__file__))
         
-        # Run git pull origin main
+        # 1. Stash any local modifications to ensure clean merge/pull
+        subprocess.run(["git", "stash"], cwd=repo_dir, capture_output=True, text=True, timeout=15)
+        
+        # 2. Run git pull origin main
         pull_res = subprocess.run(["git", "pull", "origin", "main"], cwd=repo_dir, capture_output=True, text=True, timeout=30)
+        
+        # 3. Pop stashed changes back
+        subprocess.run(["git", "stash", "pop"], cwd=repo_dir, capture_output=True, text=True, timeout=15)
         
         if pull_res.returncode != 0:
             return jsonify({
