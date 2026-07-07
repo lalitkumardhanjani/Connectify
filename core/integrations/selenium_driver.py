@@ -161,6 +161,23 @@ def get_driver():
         service = Service(CHROMEDRIVER_PATH)
     else:
         logger.info("Local chromedriver not found, installing via webdriver_manager...")
+        
+        # Cleanup any stale webdriver_manager lock files to prevent lock-wait timeouts
+        try:
+            wdm_dir = os.path.expanduser("~/.wdm")
+            if os.path.exists(wdm_dir):
+                for root, dirs, files in os.walk(wdm_dir):
+                    for file in files:
+                        if "lock" in file.lower() or file.endswith(".lock") or file.startswith(".wdm-lock-"):
+                            lock_file_path = os.path.join(root, file)
+                            try:
+                                os.remove(lock_file_path)
+                                logger.info(f"Cleaned up stale webdriver_manager lock file: {lock_file_path}")
+                            except Exception as le:
+                                logger.warning(f"Could not remove lock file {lock_file_path}: {le}")
+        except Exception as we:
+            logger.warning(f"Failed to scan and cleanup webdriver_manager locks: {we}")
+
         from webdriver_manager.chrome import ChromeDriverManager
         chromedriver_path = ChromeDriverManager().install()
         logger.info(f"webdriver_manager installed chromedriver at: {chromedriver_path}")
