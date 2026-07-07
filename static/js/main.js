@@ -3613,7 +3613,7 @@ async function pullLatestUpdates() {
             iconContainer.style.background = "rgba(0, 230, 118, 0.05)";
             iconContainer.style.color = "#00e676";
 
-            commitDetails.innerHTML = "Connectify was updated successfully.<br><strong>Gunicorn/Waitress must be restarted</strong> to reload changes from disk.";
+            subheading.innerHTML = "Connectify was updated successfully.<br><strong>Web server must be restarted</strong> to reload changes from disk.";
             logText.textContent = data.log || "Git pull executed successfully.";
         } else {
             heading.textContent = "Update Failed";
@@ -3626,7 +3626,6 @@ async function pullLatestUpdates() {
             iconContainer.style.background = "rgba(239, 68, 68, 0.05)";
             iconContainer.style.color = "#ef4444";
 
-            commitDetails.textContent = "An error occurred executing git pull.";
             logText.textContent = data.log || data.message || "Git pull returned an exit code.";
         }
     } catch (e) {
@@ -3641,7 +3640,6 @@ async function pullLatestUpdates() {
         iconContainer.style.background = "rgba(239, 68, 68, 0.05)";
         iconContainer.style.color = "#ef4444";
 
-        commitDetails.textContent = "Error contacting update service.";
         console.error(e);
     }
 }
