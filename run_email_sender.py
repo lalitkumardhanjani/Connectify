@@ -1,3 +1,5 @@
+import os
+os.environ["CONNECTIFY_PARALLEL"] = "true"
 import warnings
 warnings.filterwarnings('ignore', message='.*urllib3 v2 only supports OpenSSL.*')
 import signal

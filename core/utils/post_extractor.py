@@ -95,6 +95,16 @@ _COMPANY_BLACKLIST = {
     "active", "great", "exciting", "leading", "global", "top", "next",
 }
 
+_GENERIC_WORDS = {
+    "it", "hr", "recruitment", "recruiting", "staffing", "talent", "acquisition", "sourcing",
+    "placement", "agency", "firm", "company", "team", "consultancy", "consulting", "services",
+    "hiring", "manager", "entry", "level", "senior", "junior", "lead", "opportunity", "opportunities",
+    "job", "jobs", "alert", "alerts", "career", "careers", "human", "resources", "management",
+    "solutions", "technologies", "systems", "group", "partner", "partners", "global", "national",
+    "local", "service", "work", "force", "workforce", "people", "resource", "contract", "contractor",
+    "contractors", "hiring-team", "join", "joining", "apply", "applying"
+}
+
 # Patterns that MUST run case-sensitively (to enforce uppercase company first letter)
 _COMPANY_CASE_SENSITIVE_PATTERNS = {
     # Join-team and Join-bang patterns (indices 7 and 8 in _COMPANY_NAME_PATTERNS)
@@ -135,6 +145,14 @@ def extract_company_name(text: str) -> str:
                     continue
                 # Single lowercase word is likely not a company name
                 if len(candidate.split()) == 1 and candidate.islower():
+                    continue
+                # Skip candidates consisting entirely of generic recruitment/HR jargon
+                words = []
+                for w in re.split(r'[\s\-&]+', candidate):
+                    w_clean = w.lower().strip(",.()&-")
+                    if w_clean:
+                        words.append(w_clean)
+                if words and all(w in _GENERIC_WORDS for w in words):
                     continue
                 return candidate
         except Exception:

@@ -134,149 +134,326 @@ async function loadStats() {
 let activeTaskId = null;
 let logPollInterval = null;
 let lastLogLength = 0;
+let polledTasks = {};
 
-// Poll task details & stdout logs
-async function pollLogs() {
-    if (!activeTaskId) return;
+// Helper to determine the active pipeline type based on selected tab
+function getActivePipelineType() {
+    const activeTabEl = document.querySelector('.pipeline-tab-btn.active');
+    if (!activeTabEl) return '';
+    const tabName = activeTabEl.getAttribute('data-pipeline-tab');
+    if (tabName === 'email-scraper') return 'scraper_pipeline';
+    if (tabName === 'referral-connect') return 'referral_pipeline';
+    if (tabName === 'recruiter-outreach') return 'recruiter_pipeline';
+    return '';
+}
 
+// Poll task details & stdout logs for all active pipeline runs
+async function pollAllLogs() {
     try {
-        const response = await fetch(`/api/task/${activeTaskId}/logs`);
-        const data = await response.json();
+        const checkRes = await fetch('/api/tasks');
+        const tasks = await checkRes.json();
         
-        if (data.status === 'error') {
-            setGlobalPipelineLock(null);
-            stopPolling();
-            return;
-        }
-
-        // Update logs console
-        const consoleLogs = document.getElementById('console-logs');
-        if (data.logs.length > lastLogLength) {
-            const newLines = data.logs.slice(lastLogLength);
-            newLines.forEach(line => {
-                const div = document.createElement('div');
-                div.className = 'log-line';
-                
-                // Color formatting logic
-                if (line.includes('[ERROR]') || line.includes('Error starting') || line.includes('Fatal error') || line.includes('Traceback')) {
-                    div.classList.add('error');
-                } else if (line.includes('--- Launching') || line.includes('completed successfully')) {
-                    div.classList.add('system');
-                } else if (line.includes('- INFO -') || line.includes('Processing:') || line.includes('Searching for')) {
-                    div.classList.add('info');
-                }
-                
-                div.innerText = line;
-                consoleLogs.appendChild(div);
-            });
-            lastLogLength = data.logs.length;
-            consoleLogs.scrollTop = consoleLogs.scrollHeight;
-
-            // Trigger real-time updates for dashboard and database tracker tables
-            const isModalOpen = !document.getElementById('edit-scraper-modal').classList.contains('hidden') ||
-                                (document.getElementById('edit-referral-modal') && !document.getElementById('edit-referral-modal').classList.contains('hidden')) ||
-                                (document.getElementById('edit-referral-contact-modal') && !document.getElementById('edit-referral-contact-modal').classList.contains('hidden')) ||
-                                document.querySelector('.modal-overlay:not(.hidden)');
-            
-            const isInteractingWithTable = document.activeElement && 
-                                          (document.activeElement.closest('.data-table') || 
-                                           document.activeElement.closest('.table-responsive') || 
-                                           document.activeElement.classList.contains('status-inline-select'));
-                                           
-            if (!isModalOpen && !isInteractingWithTable) {
-                loadTableData('scraper');
-                loadTableData('referral');
-                loadTableData('referrals');
-            }
-            if (typeof loadDashboardAnalytics === 'function') {
-                loadDashboardAnalytics();
-            }
-        }
-
-        // Highlight step numbers in sequence
-        const activeTaskType = activeTaskId.split('::').pop(); // e.g. "referral_pipeline"
-        if (activeTaskType === 'referral_pipeline') {
-            updateReferralPipelineSteps(data);
-        } else if (activeTaskType === 'scraper_pipeline') {
-            updateScraperPipelineSteps(data);
-        } else if (activeTaskType === 'recruiter_pipeline') {
-            updateRecruiterPipelineSteps(data);
-        }
-
-        // Extract the pipeline type suffix (e.g. "referral" from "Lalit::referral_pipeline")
-        const pipelineType = activeTaskId.split('::').pop();  // e.g. "scraper_pipeline"
-        const pipelinePrefix = pipelineType.replace('_pipeline', '').replace(/_/g, '-');
-
-        // Update badges
-        const badge = document.getElementById(`badge-${pipelinePrefix}`);
-        if (badge) {
-            badge.innerText = data.status;
-            badge.className = `status-badge status-${data.status}`;
-        }
-
-        // Toggle action buttons based on state
-        const runBtn = document.getElementById(`btn-run-${pipelinePrefix}`);
-        const killBtn = document.getElementById(`btn-kill-${pipelinePrefix}`);
+        const activePipelineType = getActivePipelineType();
         
-        if (data.status === 'running' || data.status === 'queued') {
-            if (runBtn) runBtn.classList.add('hidden');
-            if (killBtn) killBtn.classList.remove('hidden');
-            setGlobalPipelineLock(activeTaskId);
-        } else {
-            if (runBtn) runBtn.classList.remove('hidden');
-            if (killBtn) killBtn.classList.add('hidden');
-            setGlobalPipelineLock(null);
-            stopPolling();
-            loadStats(); // Reload stats after completion
-            if (typeof loadDashboardAnalytics === 'function') loadDashboardAnalytics();
-            loadTableData('scraper');
-            loadTableData('referral');
-            loadTableData('referrals');
-            
-            // Clear active steps, but keep completed steps visible
-            const finishedType = activeTaskId.split('::').pop();
-            if (finishedType === 'scraper_pipeline') {
-                const steps = document.querySelectorAll('#card-scraper .p-step-seq');
-                steps.forEach(el => el.classList.remove('active'));
-            } else if (finishedType === 'referral_pipeline') {
-                const steps = document.querySelectorAll('#card-referral .p-step-seq');
-                steps.forEach(el => el.classList.remove('active'));
-            } else if (finishedType === 'recruiter_pipeline') {
-                const steps = document.querySelectorAll('#card-recruiter .p-step-seq');
-                steps.forEach(el => el.classList.remove('active'));
-            }
-        }
-
-        // Show/Hide Stdin interactive overlay
-        const stdinOverlay = document.getElementById('stdin-overlay');
-        if (data.waiting_for_input) {
-            stdinOverlay.classList.remove('hidden');
-            const refButtons = document.getElementById('stdin-referral-buttons');
-            const outButtons = document.getElementById('stdin-outreach-buttons');
-            const promptText = document.getElementById('stdin-prompt-text');
-            const isConnector = (data.current_step_name && data.current_step_name.includes("linkedin_connect")) ||
-                                (data.current_step_name && data.current_step_name.includes("recruiter_outreach")) ||
-                                (data.current_step_name && data.current_step_name.includes("run_referral_outreach_send")) ||
-                                activeTaskId.split('::').pop() === 'recruiter_pipeline';
-            if (activeTaskId.split('::').pop() === 'scraper_pipeline' || isConnector) {
-                if (refButtons) refButtons.classList.add('hidden');
-                if (outButtons) outButtons.classList.remove('hidden');
-                if (activeTaskId === 'scraper_pipeline') {
-                    if (promptText) promptText.innerText = "Outreach Quality Gate is waiting for your choice. Please review the generated email and select:";
-                } else {
-                    if (promptText) promptText.innerText = "Invite Quality Gate is waiting for your choice. Please review the LinkedIn window and select:";
-                }
+        // Find tasks belonging to the active user that are running or queued
+        const activeUserTasks = Object.entries(tasks).filter(
+            ([tid, t]) => t.username === activeUser && (t.status === 'running' || t.status === 'queued')
+        );
+        
+        // Register any newly discovered running tasks
+        activeUserTasks.forEach(([tid, t]) => {
+            if (!polledTasks[tid] || polledTasks[tid].isFinished) {
+                polledTasks[tid] = {
+                    lastLogLength: 0,
+                    status: t.status,
+                    label: getFriendlyTaskLabel(tid),
+                    isFinished: false
+                };
             } else {
-                if (refButtons) refButtons.classList.remove('hidden');
-                if (outButtons) outButtons.classList.add('hidden');
-                if (promptText) promptText.innerText = "Manual review script is waiting for your choice. Please review the Chrome window and make a selection:";
+                polledTasks[tid].status = t.status;
             }
-        } else {
-            stdinOverlay.classList.add('hidden');
+        });
+        
+        // Render or update sub-terminal DOM elements based on selected tab
+        const wrapper = document.getElementById('console-logs-wrapper');
+        if (wrapper) {
+            const activeTabTids = Object.keys(polledTasks).filter(tid => tid.split('::').includes(activePipelineType));
+            
+            // Find active (running/queued) task IDs for the current tab
+            const runningTabTids = activeUserTasks
+                .map(([tid]) => tid)
+                .filter(tid => tid.split('::').includes(activePipelineType));
+            
+            const isFullActive = runningTabTids.some(tid => {
+                const parts = tid.split('::');
+                return parts.length === 2 || parts[2] === 'full';
+            });
+            const isAnyStepActive = runningTabTids.some(tid => {
+                const parts = tid.split('::');
+                return parts.length > 2 && parts[2] !== 'full';
+            });
+            
+            // Filter visible tab TIDs based on activity precedence (hide steps if full is running, and vice versa)
+            const visibleTabTids = activeTabTids.filter(tid => {
+                const parts = tid.split('::');
+                const isStep = parts.length > 2 && parts[2] !== 'full';
+                const isFull = parts.length === 2 || parts[2] === 'full';
+                if (isFullActive && isStep) return false;
+                if (isAnyStepActive && isFull) return false;
+                return true;
+            });
+            
+            if (visibleTabTids.length === 0) {
+                // No active tasks for the currently selected tab
+                wrapper.innerHTML = `
+                    <div class="terminal-logs" id="console-logs" style="flex: 1; min-width: 300px;">
+                        <div class="log-line system">Waiting for process start...</div>
+                    </div>
+                `;
+            } else {
+                // Clear initial idle placeholder if present
+                if (wrapper.querySelector('#console-logs') && wrapper.children.length === 1) {
+                    wrapper.innerHTML = '';
+                }
+                
+                // Show/hide sub-terminals according to current tab selection and precedence rules
+                Object.keys(polledTasks).forEach(tid => {
+                    const safeId = tid.replace(/::/g, '_');
+                    const isForActiveTab = tid.split('::').includes(activePipelineType);
+                    const parts = tid.split('::');
+                    const isStep = parts.length > 2 && parts[2] !== 'full';
+                    const isFull = parts.length === 2 || parts[2] === 'full';
+                    
+                    let shouldShow = isForActiveTab;
+                    if (isForActiveTab) {
+                        if (isFullActive && isStep) shouldShow = false;
+                        if (isAnyStepActive && isFull) shouldShow = false;
+                    }
+                    
+                    if (shouldShow) {
+                        createSubTerminalDOM(tid, polledTasks[tid].label);
+                        const term = document.getElementById(`terminal-${safeId}`);
+                        if (term) term.style.display = 'flex';
+                        updateSubTerminalStatusDOM(tid, polledTasks[tid].status);
+                    } else {
+                        const term = document.getElementById(`terminal-${safeId}`);
+                        if (term) term.style.display = 'none';
+                    }
+                });
+            }
         }
-
+        
+        let anyWaitingForInput = false;
+        
+        // Poll logs for each task actively tracked
+        for (const tid of Object.keys(polledTasks)) {
+            const tInfo = polledTasks[tid];
+            if (tInfo.isFinished) continue; // Skip polling finished tasks
+            
+            try {
+                const res = await fetch(`/api/task/${encodeURIComponent(tid)}/logs`);
+                const data = await res.json();
+                
+                if (data.status === 'error' || (data.status !== 'running' && data.status !== 'queued' && !data.logs)) {
+                    tInfo.status = 'failed';
+                    tInfo.isFinished = true;
+                    updateSubTerminalStatusDOM(tid, 'failed');
+                    continue;
+                }
+                
+                const safeId = tid.replace(/::/g, '_');
+                const logContainer = document.getElementById(`logs-${safeId}`);
+                
+                // Append new logs to the specific sub-terminal logs wrapper
+                if (logContainer && data.logs) {
+                    if (logContainer.querySelector('.system') && logContainer.children.length === 1) {
+                        logContainer.innerHTML = '';
+                    }
+                    if (data.logs.length > tInfo.lastLogLength) {
+                        // Check if the user is currently scrolled to the bottom (or if this is the first append)
+                        const isAtBottom = tInfo.lastLogLength === 0 || 
+                                           (logContainer.scrollHeight - logContainer.clientHeight - logContainer.scrollTop < 60);
+                                           
+                        const newLines = data.logs.slice(tInfo.lastLogLength);
+                        newLines.forEach(line => {
+                            const div = document.createElement('div');
+                            div.className = 'log-line';
+                            if (line.includes('[ERROR]') || line.includes('Error starting') || line.includes('Fatal error') || line.includes('Traceback')) {
+                                div.classList.add('error');
+                            } else if (line.includes('--- Launching') || line.includes('completed successfully')) {
+                                div.classList.add('system');
+                            } else if (line.includes('- INFO -') || line.includes('Processing:') || line.includes('Searching for')) {
+                                div.classList.add('info');
+                            }
+                            div.innerText = line;
+                            logContainer.appendChild(div);
+                        });
+                        tInfo.lastLogLength = data.logs.length;
+                        
+                        // Only auto-scroll to the bottom if the user was already at the bottom
+                        if (isAtBottom) {
+                            logContainer.scrollTop = logContainer.scrollHeight;
+                        }
+                    }
+                }
+                
+                // Check if waiting for input to trigger quality gate popups (only on active tab)
+                const isForActiveTab = tid.split('::').includes(activePipelineType);
+                if (data.waiting_for_input && isForActiveTab) {
+                    anyWaitingForInput = true;
+                    activeTaskId = tid;
+                    
+                    const stdinOverlay = document.getElementById('stdin-overlay');
+                    if (stdinOverlay) {
+                        stdinOverlay.classList.remove('hidden');
+                        const refButtons = document.getElementById('stdin-referral-buttons');
+                        const outButtons = document.getElementById('stdin-outreach-buttons');
+                        const promptText = document.getElementById('stdin-prompt-text');
+                        
+                        const isConnector = (data.current_step_name && data.current_step_name.includes("linkedin_connect")) ||
+                                            (data.current_step_name && data.current_step_name.includes("recruiter_outreach")) ||
+                                            (data.current_step_name && data.current_step_name.includes("run_referral_outreach_send")) ||
+                                            (tid.split('::')[1] || '') === 'recruiter_pipeline';
+                                            
+                        if ((tid.split('::')[1] || '') === 'scraper_pipeline' || isConnector) {
+                            if (refButtons) refButtons.classList.add('hidden');
+                            if (outButtons) outButtons.classList.remove('hidden');
+                            if ((tid.split('::')[1] || '') === 'scraper_pipeline') {
+                                if (promptText) promptText.innerText = `Outreach Quality Gate for ${tInfo.label} is waiting for your choice. Please review the generated email and select:`;
+                            } else {
+                                if (promptText) promptText.innerText = `Invite Quality Gate for ${tInfo.label} is waiting for your choice. Please review the LinkedIn window and select:`;
+                            }
+                        } else {
+                            if (refButtons) refButtons.classList.remove('hidden');
+                            if (outButtons) outButtons.classList.add('hidden');
+                            if (promptText) promptText.innerText = `Manual review script for ${tInfo.label} is waiting for your choice. Please review the Chrome window and make a selection:`;
+                        }
+                    }
+                }
+                
+                // Clean up when task finishes
+                if (data.status === 'success' || data.status === 'failed') {
+                    tInfo.status = data.status;
+                    tInfo.isFinished = true;
+                    updateSubTerminalStatusDOM(tid, data.status);
+                    
+                    if (typeof loadStats === 'function') loadStats();
+                    if (typeof loadDashboardAnalytics === 'function') loadDashboardAnalytics();
+                    loadTableData('scraper');
+                    loadTableData('referral');
+                    loadTableData('referrals');
+                }
+                
+            } catch (e) {
+                console.error(`Error polling task logs for ${tid}:`, e);
+            }
+        }
+        
+        if (!anyWaitingForInput) {
+            const stdinOverlay = document.getElementById('stdin-overlay');
+            if (stdinOverlay) stdinOverlay.classList.add('hidden');
+        }
+        
+        updatePipelineLocks();
+        
     } catch (e) {
-        console.error("Error polling logs:", e);
+        console.error("Error polling concurrent logs:", e);
+    }
+}
+
+// Generate friendly UI labels for sub-terminals
+function getFriendlyTaskLabel(taskId) {
+    const parts = taskId.split('::');
+    if (parts.length < 2) return taskId;
+    const type = parts[1];
+    const step = parts[2] || 'full';
+    
+    let typeLabel = '';
+    if (type === 'scraper_pipeline') {
+        typeLabel = 'Email Outreach';
+    } else if (type === 'referral_pipeline') {
+        typeLabel = 'Referral Outreach';
+    } else if (type === 'recruiter_pipeline') {
+        typeLabel = 'Recruiter Outreach';
+    } else {
+        typeLabel = type.replace('_pipeline', '').replace(/_/g, ' ');
+    }
+    
+    let stepLabel = '';
+    if (step === 'phase1') {
+        stepLabel = 'Fetch Emails';
+    } else if (step === 'phase2') {
+        stepLabel = 'Send Outreach';
+    } else if (step.startsWith('step')) {
+        stepLabel = `Step ${step.replace('step', '')}`;
+    } else if (step === 'full') {
+        stepLabel = 'Full Pipeline';
+    } else {
+        stepLabel = step;
+    }
+    
+    return `${typeLabel} — ${stepLabel}`;
+}
+
+// Create a side-by-side terminal DOM element
+function createSubTerminalDOM(taskId, label) {
+    const wrapper = document.getElementById('console-logs-wrapper');
+    if (!wrapper) return;
+    
+    // Clear initial idle placeholder
+    if (wrapper.querySelector('#console-logs') && wrapper.children.length === 1) {
+        wrapper.innerHTML = '';
+    }
+    
+    const safeId = taskId.replace(/::/g, '_');
+    const oldTerm = document.getElementById(`terminal-${safeId}`);
+    if (oldTerm) {
+        const logContainer = document.getElementById(`logs-${safeId}`);
+        if (logContainer) logContainer.innerHTML = '<div class="log-line system">Process restarted. Waiting for logs...</div>';
+        updateSubTerminalStatusDOM(taskId, 'running');
+        return;
+    }
+    
+    const term = document.createElement('div');
+    term.className = 'sub-terminal';
+    term.id = `terminal-${safeId}`;
+    term.style.flex = "1";
+    term.style.minWidth = "300px";
+    term.style.height = "450px"; 
+    term.style.display = "flex";
+    term.style.flexDirection = "column";
+    term.style.background = "rgba(0, 0, 0, 0.4)";
+    term.style.border = "1px solid rgba(255, 255, 255, 0.08)";
+    term.style.borderRadius = "8px";
+    term.style.overflow = "hidden";
+    term.style.boxShadow = "0 8px 32px rgba(0, 0, 0, 0.3)";
+    
+    term.innerHTML = `
+        <div class="sub-terminal-header" style="background: rgba(255, 255, 255, 0.03); padding: 10px 14px; font-size: 13px; font-weight: 500; border-bottom: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: space-between; align-items: center; color: var(--text-secondary); height: 40px; box-sizing: border-box;">
+            <span><i class="fa-solid fa-terminal" style="margin-right: 8px; color: var(--accent-blue);"></i> ${label}</span>
+            <span class="sub-terminal-status status-badge status-running" id="status-${safeId}" style="font-size: 11px; padding: 2px 8px; border-radius: 4px; text-transform: uppercase;">running</span>
+        </div>
+        <div class="terminal-logs" id="logs-${safeId}" style="height: 410px; flex: 1; overflow-y: auto; padding: 15px; box-sizing: border-box;">
+            <div class="log-line system">Waiting for process logs...</div>
+        </div>
+    `;
+    wrapper.appendChild(term);
+}
+
+// Update sub-terminal status badge in-place
+function updateSubTerminalStatusDOM(taskId, status) {
+    const safeId = taskId.replace(/::/g, '_');
+    const statusEl = document.getElementById(`status-${safeId}`);
+    if (statusEl) {
+        statusEl.innerText = status;
+        statusEl.className = `sub-terminal-status status-badge status-${status}`;
+        if (status === 'success') {
+            statusEl.style.background = 'rgba(0, 230, 118, 0.15)';
+            statusEl.style.color = '#00e676';
+        } else if (status === 'failed') {
+            statusEl.style.background = 'rgba(255, 23, 68, 0.15)';
+            statusEl.style.color = '#ff1744';
+        }
     }
 }
 
@@ -331,42 +508,70 @@ async function updatePipelineLocks() {
         
         const pipelines = ['scraper', 'referral', 'recruiter'];
         
-        // Find task entry for current user + pipeline type from the namespaced task map.
-        // Tasks are keyed as "{username}::scraper_pipeline" etc.
-        // We match by username (activeUser) and pipeline type suffix.
         pipelines.forEach(p => {
             const pipelineKey = `${p}_pipeline`;
-            // Look for a task belonging to the active user for this pipeline type
-            const taskEntry = Object.entries(tasks).find(
-                ([tid, t]) => t.username === activeUser && tid.endsWith(`::${pipelineKey}`)
+            // Find all running tasks for this user + pipeline type
+            const activeTasksForPipeline = Object.entries(tasks).filter(
+                ([tid, t]) => t.username === activeUser && tid.split('::').includes(pipelineKey) && (t.status === 'running' || t.status === 'queued')
             );
-            const isRunning = taskEntry && (taskEntry[1].status === 'running' || taskEntry[1].status === 'queued');
-            const taskId = taskEntry ? taskEntry[0] : `${activeUser}::${pipelineKey}`;
+            
+            const isAnyRunning = activeTasksForPipeline.length > 0;
+            const isFullRunning = activeTasksForPipeline.some(([tid]) => {
+                const parts = tid.split('::');
+                return parts.length === 2 || parts[2] === 'full';
+            });
+            
+            const fullTaskEntry = activeTasksForPipeline.find(([tid]) => {
+                const parts = tid.split('::');
+                return parts.length === 2 || parts[2] === 'full';
+            });
+            const taskId = fullTaskEntry ? fullTaskEntry[0] : `${activeUser}::${pipelineKey}::full`;
             
             // 1. Run Complete Pipeline button
             const runBtn = document.getElementById(`btn-run-${p}`);
             if (runBtn) {
-                runBtn.disabled = isRunning;
+                runBtn.disabled = isAnyRunning;
             }
             
             // 2. Individual step buttons inside this card
             const cardEl = document.getElementById(`card-${p}`);
             if (cardEl) {
-                const stepBtns = cardEl.querySelectorAll('.btn-step-run');
-                stepBtns.forEach(btn => {
-                    btn.disabled = isRunning;
+                const stepItems = cardEl.querySelectorAll('.p-step-seq');
+                stepItems.forEach(item => {
+                    const stepNum = item.getAttribute('data-step');
+                    const btn = item.querySelector('.btn-step-run');
+                    if (btn) {
+                        let stepSuffix = '';
+                        if (p === 'scraper') {
+                            stepSuffix = stepNum === '1' ? 'phase1' : 'phase2';
+                        } else {
+                            stepSuffix = `step${stepNum}`;
+                        }
+                        
+                        const isThisStepRunning = activeTasksForPipeline.some(([tid]) => {
+                            const parts = tid.split('::');
+                            return parts.length === 2 || parts[2] === 'full' || parts[2] === stepSuffix;
+                        });
+                        btn.disabled = isThisStepRunning;
+                        
+                        // Highlight step as active (spinning blue circle) if it is running
+                        if (isThisStepRunning) {
+                            item.classList.add('active');
+                        } else {
+                            item.classList.remove('active');
+                        }
+                    }
                 });
             }
             
             // 3. Kill button
             const killBtn = document.getElementById(`btn-kill-${p}`);
             if (killBtn) {
-                killBtn.disabled = !isRunning;
-                if (isRunning) {
+                killBtn.disabled = !isAnyRunning;
+                if (isAnyRunning) {
                     killBtn.classList.remove('hidden');
                     if (runBtn) runBtn.classList.add('hidden');
-                    // Store the actual namespaced task ID on the button for kill use
-                    killBtn.dataset.taskId = taskId;
+                    killBtn.dataset.taskId = activeTasksForPipeline.map(([tid]) => tid).join(',');
                 } else {
                     killBtn.classList.add('hidden');
                     if (runBtn) runBtn.classList.remove('hidden');
@@ -375,9 +580,15 @@ async function updatePipelineLocks() {
             
             // 4. Update status badges
             const badge = document.getElementById(`badge-${p}`);
-            if (badge && taskEntry) {
-                badge.innerText = taskEntry[1].status;
-                badge.className = `status-badge status-${taskEntry[1].status}`;
+            if (badge) {
+                if (isAnyRunning) {
+                    const status = activeTasksForPipeline[0][1].status;
+                    badge.innerText = status;
+                    badge.className = `status-badge status-${status}`;
+                } else {
+                    badge.innerText = 'idle';
+                    badge.className = `status-badge status-idle`;
+                }
             }
         });
     } catch (e) {
@@ -390,24 +601,27 @@ function setGlobalPipelineLock(runningTaskId) {
 }
 
 function startPolling(taskId) {
-    stopPolling();
     activeTaskId = taskId;
-    lastLogLength = 0;
     
-    // Clear console logs
-    const consoleLogs = document.getElementById('console-logs');
-    consoleLogs.innerHTML = '';
+    const wrapper = document.getElementById('console-logs-wrapper');
+    if (wrapper && wrapper.querySelector('#console-logs') && wrapper.children.length === 1) {
+        wrapper.innerHTML = '';
+    }
+    
+    if (!polledTasks[taskId]) {
+        polledTasks[taskId] = {
+            lastLogLength: 0,
+            status: 'running',
+            label: getFriendlyTaskLabel(taskId)
+        };
+        createSubTerminalDOM(taskId, polledTasks[taskId].label);
+    }
     
     setGlobalPipelineLock(taskId);
-    
-    logPollInterval = setInterval(pollLogs, 1500);
 }
 
 function stopPolling() {
-    if (logPollInterval) {
-        clearInterval(logPollInterval);
-        logPollInterval = null;
-    }
+    // Permanent background loop manages polling cleanly
 }
 
 // Start Pipelines triggers — always for the active user profile
@@ -417,9 +631,11 @@ async function runPipeline(type) {
         const tasks = await checkRes.json();
         const pipelineKey = `${type}_pipeline`;
         // Find existing task for this user + type
-        const existing = Object.entries(tasks).find(
-            ([tid, t]) => t.username === activeUser && tid.endsWith(`::${pipelineKey}`)
-        );
+        const existing = Object.entries(tasks).find(([tid, t]) => {
+            if (t.username !== activeUser) return false;
+            const parts = tid.split('::');
+            return parts.includes(pipelineKey) && (t.status === 'running' || t.status === 'queued');
+        });
         if (existing && (existing[1].status === 'running' || existing[1].status === 'queued')) {
             alert(`The ${type.charAt(0).toUpperCase() + type.slice(1)} pipeline is already running for ${activeUser}. Please stop it or wait for it to finish first.`);
             return;
@@ -454,9 +670,18 @@ async function runSingleStep(stepNum, event) {
     try {
         const checkRes = await fetch('/api/tasks');
         const tasks = await checkRes.json();
-        const existing = Object.entries(tasks).find(
-            ([tid, t]) => t.username === activeUser && tid.endsWith('::referral_pipeline')
-        );
+        const existing = Object.entries(tasks).find(([tid, t]) => {
+            if (t.username !== activeUser) return false;
+            const parts = tid.split('::');
+            if (parts.includes('referral_pipeline')) {
+                const suffix = parts[2] || 'full';
+                const stepSuffix = `step${stepNum}`;
+                if (suffix === 'full' || suffix === stepSuffix) {
+                    return true;
+                }
+            }
+            return false;
+        });
         if (existing && (existing[1].status === 'running' || existing[1].status === 'queued')) {
             alert("The Referral pipeline is already running. Please stop it or wait for it to finish first.");
             return;
@@ -491,9 +716,18 @@ async function runRecruiterStep(stepNum, event) {
     try {
         const checkRes = await fetch('/api/tasks');
         const tasks = await checkRes.json();
-        const existing = Object.entries(tasks).find(
-            ([tid, t]) => t.username === activeUser && tid.endsWith('::recruiter_pipeline')
-        );
+        const existing = Object.entries(tasks).find(([tid, t]) => {
+            if (t.username !== activeUser) return false;
+            const parts = tid.split('::');
+            if (parts.includes('recruiter_pipeline')) {
+                const suffix = parts[2] || 'full';
+                const stepSuffix = `step${stepNum}`;
+                if (suffix === 'full' || suffix === stepSuffix) {
+                    return true;
+                }
+            }
+            return false;
+        });
         if (existing && (existing[1].status === 'running' || existing[1].status === 'queued')) {
             alert("The Recruiter pipeline is already running. Please stop it or wait for it to finish first.");
             return;
@@ -528,11 +762,19 @@ async function runScraperStep(phase, event) {
     try {
         const checkRes = await fetch('/api/tasks');
         const tasks = await checkRes.json();
-        const existing = Object.entries(tasks).find(
-            ([tid, t]) => t.username === activeUser && tid.endsWith('::scraper_pipeline')
-        );
+        const existing = Object.entries(tasks).find(([tid, t]) => {
+            if (t.username !== activeUser) return false;
+            const parts = tid.split('::');
+            if (parts.includes('scraper_pipeline')) {
+                const suffix = parts[2] || 'full';
+                if (suffix === 'full' || suffix === phase || phase === 'full') {
+                    return true;
+                }
+            }
+            return false;
+        });
         if (existing && (existing[1].status === 'running' || existing[1].status === 'queued')) {
-            alert("The Scraper pipeline is already running. Please stop it or wait for it to finish first.");
+            alert("A conflicting scraper task is already running. Please stop it or wait for it to finish first.");
             return;
         }
         
@@ -655,14 +897,16 @@ function updateRecruiterPipelineSteps(taskData) {
 
 // Kill running pipeline tasks — uses the namespaced task ID stored on the kill button
 async function killPipeline(type) {
-    // Try to find the actual namespaced task ID from the kill button's data attribute.
-    // Falls back to constructing it from activeUser for backward compat.
     const killBtn = document.getElementById(`btn-kill-${type}`);
-    const taskId = (killBtn && killBtn.dataset.taskId) || `${activeUser}::${type}_pipeline`;
-    try {
-        await fetch(`/api/task/${encodeURIComponent(taskId)}/kill`, { method: 'POST' });
-    } catch (e) {
-        console.error("Failed to terminate task:", e);
+    const taskIdsStr = (killBtn && killBtn.dataset.taskId) || `${activeUser}::${type}_pipeline`;
+    const ids = taskIdsStr.split(',');
+    for (const taskId of ids) {
+        if (!taskId) continue;
+        try {
+            await fetch(`/api/task/${encodeURIComponent(taskId)}/kill`, { method: 'POST' });
+        } catch (e) {
+            console.error(`Failed to terminate task ${taskId}:`, e);
+        }
     }
 }
 
@@ -1505,16 +1749,14 @@ document.querySelectorAll('.pipeline-tab-btn').forEach(btn => {
         // Build the namespaced task ID for the active user
         let newTaskId = null;
         if (tabName === 'email-scraper') {
-            newTaskId = `${activeUser}::scraper_pipeline`;
+            newTaskId = `${activeUser}::scraper_pipeline::full`;
         } else if (tabName === 'referral-connect') {
-            newTaskId = `${activeUser}::referral_pipeline`;
+            newTaskId = `${activeUser}::referral_pipeline::full`;
         } else if (tabName === 'recruiter-outreach') {
-            newTaskId = `${activeUser}::recruiter_pipeline`;
+            newTaskId = `${activeUser}::recruiter_pipeline::full`;
         }
         
-        if (newTaskId) {
-            startPolling(newTaskId);
-        }
+        pollAllLogs();
     });
 });
 
@@ -1929,7 +2171,7 @@ async function loadSettings() {
         
         // 2. Email Scraper fields
         setVal('scraper-interval', scraper.interval || '60');
-        setChecked('scraper-review-mode', scraper.review_mode);
+        setChecked('scraper-review-mode', !scraper.review_mode);
         setVal('scraper-max-emails', scraper.max_emails_per_run || '5');
         setVal('scraper-email-template', scraper.email_template);
         setVal('scraper-email-subject', scraper.email_subject || '');
@@ -1957,7 +2199,7 @@ async function loadSettings() {
         
         // 3. LinkedIn Connect fields
         setVal('connect-search-pages', connect.search_pages || 2);
-        setChecked('connect-review-mode', connect.review_mode);
+        setChecked('connect-review-mode', !connect.review_mode);
         setVal('connect-max-connections', connect.max_connections_per_company || connect.max_connections_per_run || '5');
         setVal('connect-message-template', connect.message_template);
         setVal('referral-message-template', referralOutreach.message_template || '');
@@ -1972,7 +2214,7 @@ async function loadSettings() {
         // 4. Recruiter Outreach fields
         setVal('recruiter-interval', recruiter.interval || '120');
         setVal('recruiter-target-count', recruiter.target_count || '2');
-        setChecked('recruiter-review-mode', recruiter.review_mode);
+        setChecked('recruiter-review-mode', !recruiter.review_mode);
         setVal('recruiter-message-template', recruiter.message_template);
         setVal('recruiter-direct-message-template', recruiter.direct_message_template || '');
 
@@ -2507,7 +2749,7 @@ async function saveConfiguration(module) {
         cachedConfig.config.email_scraper = {
             "sender_email": cachedConfig.config.email_scraper.sender_email || "",
             "interval": getVal('scraper-interval'),
-            "review_mode": getChecked('scraper-review-mode'),
+            "review_mode": !getChecked('scraper-review-mode'),
             "max_emails_per_run": maxEmailsVal.toString(),
             "search_keywords": scraperSearchKeywords,
             "title_keywords": scraperTitleKeywords,
@@ -2535,7 +2777,7 @@ async function saveConfiguration(module) {
         cachedConfig.config.linkedin_connect = {
             "interval": "60",
             "search_pages": parseInt(getVal('connect-search-pages') || '2', 10),
-            "review_mode": getChecked('connect-review-mode'),
+            "review_mode": !getChecked('connect-review-mode'),
             "max_connections_per_company": maxConnsVal.toString(),
             "max_connections_per_run": maxConnsVal.toString(),
             "search_keywords": connectSearchKeywords,
@@ -2567,7 +2809,7 @@ async function saveConfiguration(module) {
         cachedConfig.config.recruiter_outreach = {
             "interval": cachedConfig.config.recruiter_outreach?.interval || '120',
             "target_count": targetCountVal.toString(),
-            "review_mode": getChecked('recruiter-review-mode'),
+            "review_mode": !getChecked('recruiter-review-mode'),
             "message_template": recruiterTemplate,
             "direct_message_template": recruiterDirectTemplate
         };
@@ -3374,6 +3616,9 @@ async function initPipelineStatus() {
 // Run on page load
 document.addEventListener('DOMContentLoaded', () => {
     initPipelineStatus();
+    
+    // Periodically poll logs and update locks/markers for all active runs concurrently
+    setInterval(pollAllLogs, 1500);
     
     // Theme Switcher Initialisation
     const btnDark = document.getElementById('theme-btn-dark');

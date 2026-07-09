@@ -212,3 +212,23 @@ class TestFlattenUnflatten:
         nested = unflatten_dict(flat)
         assert isinstance(nested["email_scraper"]["search_keywords"], list)
         assert "Data Engineer" in nested["email_scraper"]["search_keywords"]
+
+
+# ===========================================================================
+#  Post Extractor Tests
+# ===========================================================================
+
+class TestPostExtractor:
+    def test_extract_company_name_ignores_generic_jargon(self):
+        from core.utils.post_extractor import extract_company_name
+        
+        # Generic recruitment/HR jargon should be ignored
+        assert extract_company_name("Hiring for IT Recruitment role") == ""
+        assert extract_company_name("Hiring at Entry-Level HR & Recruitment") == ""
+        assert extract_company_name("Join HR & Staffing team!") == ""
+        
+        # Valid company names must be preserved
+        assert extract_company_name("Hiring at Google") == "Google"
+        assert extract_company_name("Hiring for Software Engineer (Flipkart)") == "Flipkart"
+        assert extract_company_name("role at Salesforce") == "Salesforce"
+

@@ -52,9 +52,14 @@ def _kill_lingering_chrome_instances(profile_dir):
         logger.warning(f"Could not check/kill lingering Chrome processes: {e}")
 
 
-def get_driver():
+def get_driver(profile_suffix=None):
     """Initializes and returns a Selenium webdriver.Chrome instance with the configured profile and options."""
-    chrome_profile_dir = get_chrome_profile_dir()
+    if profile_suffix:
+        from config.settings import get_user_dir
+        chrome_profile_dir = os.path.join(get_user_dir(), profile_suffix)
+        os.makedirs(chrome_profile_dir, exist_ok=True)
+    else:
+        chrome_profile_dir = get_chrome_profile_dir()
 
     # Kill any lingering Chrome/ChromeDriver processes (Windows only)
     _kill_stale_chrome_processes()

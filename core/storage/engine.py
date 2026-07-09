@@ -744,6 +744,11 @@ class GoogleSheetsStorageProvider(BaseStorageProvider):
                     from core.utils.url_utils import normalize_external_url
                     sheets_ids = {str(r.get(id_col)).strip().rstrip(".0") for r in data if r.get(id_col)}
                     
+                    # For emails (scraper), build a lookup of existing emails to prevent duplicate email syncs
+                    sheets_emails = set()
+                    if table_key == "emails":
+                        sheets_emails = {str(r.get("Email")).strip().lower() for r in data if r.get("Email")}
+                    
                     # For jobs, build a lookup set of normalized URLs to prevent duplicates by URL
                     sheets_urls = set()
                     if table_key == "jobs":
@@ -762,6 +767,12 @@ class GoogleSheetsStorageProvider(BaseStorageProvider):
                         # Primary key ID check
                         if lid and lid in sheets_ids:
                             continue
+                            
+                        # Email deduplication check for scraper
+                        if table_key == "emails":
+                            lemail = str(lr.get("Email")).strip().lower()
+                            if lemail and lemail in sheets_emails:
+                                continue
                             
                         # URL matching checks for jobs
                         if table_key == "jobs":

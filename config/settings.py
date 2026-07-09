@@ -85,7 +85,23 @@ def get_chrome_profile_dir():
     env_path = os.getenv("CHROME_PROFILE_DIR")
     if env_path:
         return env_path
-    path = os.path.join(get_user_dir(), "chrome-profile")
+    
+    import sys
+    script_name = os.path.basename(sys.argv[0])
+    if "run_email_scraper" in script_name:
+        suffix = "chrome-profile-email-scraper"
+    elif "run_email_sender" in script_name:
+        suffix = "chrome-profile-email-sender"
+    elif "run_email_outreach" in script_name:
+        suffix = "chrome-profile-scraper"
+    elif "run_job_search" in script_name or "run_referral" in script_name:
+        suffix = "chrome-profile-referral"
+    elif "run_recruiter" in script_name:
+        suffix = "chrome-profile-recruiter"
+    else:
+        suffix = "chrome-profile"
+
+    path = os.path.join(get_user_dir(), suffix)
     os.makedirs(path, exist_ok=True)
     return path
 

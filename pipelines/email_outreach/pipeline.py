@@ -134,7 +134,15 @@ def run_pipeline(phase="full", review_mode=None):
     """Orchestrates the entire Email Outreach pipeline process."""
     logger.info(f"Starting Email Scraper & Outreach Pipeline (Phase: {phase})")
     
-    driver = get_driver()
+    profile_suffix = None
+    if phase == "phase1":
+        profile_suffix = "chrome-profile-email-scraper"
+    elif phase == "phase2":
+        profile_suffix = "chrome-profile-email-sender"
+    elif phase == "full":
+        profile_suffix = "chrome-profile-scraper"
+
+    driver = get_driver(profile_suffix=profile_suffix)
     scraper = LinkedInScraper(driver)
     
     try:

@@ -132,9 +132,15 @@ class SubprocessRunner:
             
             # Derive per-user, per-pipeline Chrome profile directories
             user_dir_for_runner = os.path.join(BASE_DIR, "users", self.username)
-            pipeline_type = self.task_id.split("::")[-1]  # e.g. "scraper_pipeline"
+            parts = self.task_id.split("::")
+            pipeline_type = parts[1] if len(parts) > 1 else ""
             if pipeline_type == "scraper_pipeline":
-                env_copy["CHROME_PROFILE_DIR"] = os.path.join(user_dir_for_runner, "chrome-profile-scraper")
+                if script == "run_email_scraper.py":
+                    env_copy["CHROME_PROFILE_DIR"] = os.path.join(user_dir_for_runner, "chrome-profile-email-scraper")
+                elif script == "run_email_sender.py":
+                    env_copy["CHROME_PROFILE_DIR"] = os.path.join(user_dir_for_runner, "chrome-profile-email-sender")
+                else:
+                    env_copy["CHROME_PROFILE_DIR"] = os.path.join(user_dir_for_runner, "chrome-profile-scraper")
             elif pipeline_type == "referral_pipeline":
                 env_copy["CHROME_PROFILE_DIR"] = os.path.join(user_dir_for_runner, "chrome-profile-referral")
             elif pipeline_type == "recruiter_pipeline":
@@ -398,12 +404,20 @@ def start_scraper():
         body = request.get_json(silent=True) or {}
         # Use username from request body, or fall back to the currently selected user
         username = body.get("username") or get_selected_user_name()
-        task_id = f"{username}::scraper_pipeline"
-        
-        if task_id in active_tasks and active_tasks[task_id].status in ("running", "queued"):
-            return jsonify({"status": "error", "message": "Pipeline is already running or queued."}), 400
-        
         phase = body.get("phase", "full")
+        task_id = f"{username}::scraper_pipeline::{phase}"
+        
+        # Check if this specific phase is already running or queued, or if the full pipeline is running
+        full_task_id = f"{username}::scraper_pipeline::full"
+        if task_id in active_tasks and active_tasks[task_id].status in ("running", "queued"):
+            return jsonify({"status": "error", "message": f"Pipeline phase '{phase}' is already running or queued."}), 400
+        if phase != "full" and full_task_id in active_tasks and active_tasks[full_task_id].status in ("running", "queued"):
+            return jsonify({"status": "error", "message": "The full scraper pipeline is already running."}), 400
+        if phase == "full":
+            for p in ("phase1", "phase2"):
+                p_tid = f"{username}::scraper_pipeline::{p}"
+                if p_tid in active_tasks and active_tasks[p_tid].status in ("running", "queued"):
+                    return jsonify({"status": "error", "message": f"Cannot run full pipeline while phase '{p}' is running."}), 400
         
         # Route each phase to its dedicated runner script for clean separation of concerns.
         # The combined run_email_outreach.py is used only for the full pipeline run.
@@ -426,12 +440,20 @@ def start_referral():
     with task_lock:
         body = request.get_json() or {}
         username = body.get("username") or get_selected_user_name()
-        task_id = f"{username}::referral_pipeline"
-        
-        if task_id in active_tasks and active_tasks[task_id].status in ("running", "queued"):
-            return jsonify({"status": "error", "message": "Pipeline is already running or queued."}), 400
-        
         step = body.get("step")
+        step_suffix = f"step{step}" if step is not None else "full"
+        task_id = f"{username}::referral_pipeline::{step_suffix}"
+        
+        full_task_id = f"{username}::referral_pipeline::full"
+        if task_id in active_tasks and active_tasks[task_id].status in ("running", "queued"):
+            return jsonify({"status": "error", "message": "This referral step/pipeline is already running or queued."}), 400
+        if step_suffix != "full" and full_task_id in active_tasks and active_tasks[full_task_id].status in ("running", "queued"):
+            return jsonify({"status": "error", "message": "The full referral pipeline is already running."}), 400
+        if step_suffix == "full":
+            for idx in range(1, 7):
+                s_tid = f"{username}::referral_pipeline::step{idx}"
+                if s_tid in active_tasks and active_tasks[s_tid].status in ("running", "queued"):
+                    return jsonify({"status": "error", "message": f"Cannot run full pipeline while step {idx} is running."}), 400
         
         all_commands = [
             ("run_job_search.py", []),
@@ -465,12 +487,20 @@ def start_recruiter():
     with task_lock:
         body = request.get_json() or {}
         username = body.get("username") or get_selected_user_name()
-        task_id = f"{username}::recruiter_pipeline"
-        
-        if task_id in active_tasks and active_tasks[task_id].status in ("running", "queued"):
-            return jsonify({"status": "error", "message": "Pipeline is already running or queued."}), 400
-        
         step = body.get("step")
+        step_suffix = f"step{step}" if step is not None else "full"
+        task_id = f"{username}::recruiter_pipeline::{step_suffix}"
+        
+        full_task_id = f"{username}::recruiter_pipeline::full"
+        if task_id in active_tasks and active_tasks[task_id].status in ("running", "queued"):
+            return jsonify({"status": "error", "message": "This recruiter step/pipeline is already running or queued."}), 400
+        if step_suffix != "full" and full_task_id in active_tasks and active_tasks[full_task_id].status in ("running", "queued"):
+            return jsonify({"status": "error", "message": "The full recruiter pipeline is already running."}), 400
+        if step_suffix == "full":
+            for idx in range(1, 4):
+                s_tid = f"{username}::recruiter_pipeline::step{idx}"
+                if s_tid in active_tasks and active_tasks[s_tid].status in ("running", "queued"):
+                    return jsonify({"status": "error", "message": f"Cannot run full pipeline while step {idx} is running."}), 400
         
         all_commands = [
             ("run_recruiter_outreach_discover.py", []),
@@ -1823,6 +1853,44 @@ def sanitize_excel_files():
                         print(f"Error sanitizing {excel_path}: {e}")
 
 
+def start_git_autoupdater(app):
+    def check_and_pull():
+        # wait a bit for server to fully start
+        time.sleep(10)
+        repo_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        while True:
+            try:
+                # 1. Fetch from remote
+                fetch_res = subprocess.run(["git", "fetch", "origin"], cwd=repo_dir, capture_output=True, text=True, timeout=30)
+                if fetch_res.returncode == 0:
+                    # 2. Check if local branch is behind remote tracking branch origin/main
+                    behind_log = subprocess.run(["git", "log", "HEAD..origin/main", "--oneline"], cwd=repo_dir, capture_output=True, text=True, timeout=10).stdout.strip()
+                    if behind_log:
+                        print("[Auto-Updater] Remote changes detected. Pulling updates automatically...")
+                        # 3. Pull latest changes
+                        # Stash local changes to avoid merge conflicts with system-generated files
+                        subprocess.run(["git", "stash"], cwd=repo_dir, capture_output=True, text=True, timeout=30)
+                        pull_res = subprocess.run(["git", "pull", "origin", "main"], cwd=repo_dir, capture_output=True, text=True, timeout=60)
+                        subprocess.run(["git", "stash", "pop"], cwd=repo_dir, capture_output=True, text=True, timeout=30)
+                        
+                        if pull_res.returncode == 0:
+                            print("[Auto-Updater] Code successfully updated from remote. Server should reload automatically.")
+                        else:
+                            print(f"[Auto-Updater] Git pull failed: {pull_res.stderr.strip()}", file=sys.stderr)
+            except Exception as e:
+                print(f"[Auto-Updater] Error checking updates: {e}", file=sys.stderr)
+            
+            # Check every 60 seconds
+            time.sleep(60)
+
+    # Only run in the Werkzeug reloader child process to avoid starting duplicate threads in parent/child
+    if os.environ.get("WERZEUG_RUN_MAIN") == "true" or not app.debug:
+        t = threading.Thread(target=check_and_pull, daemon=True)
+        t.start()
+        print("[Auto-Updater] Background git update checker thread started.")
+
+
 if __name__ == '__main__':
     # Ensure standard directories exist
     os.makedirs("templates", exist_ok=True)
@@ -1831,6 +1899,9 @@ if __name__ == '__main__':
     
     # Sanitize existing databases
     sanitize_excel_files()
+    
+    # Start the Git auto-updater thread
+    start_git_autoupdater(app)
     
     # Watch templates and static files to trigger reloader
     extra_files = []
@@ -1842,3 +1913,4 @@ if __name__ == '__main__':
     
     print("Connectify Automation Hub starting at http://127.0.0.1:5001")
     app.run(host='127.0.0.1', port=5001, debug=True, extra_files=extra_files)
+

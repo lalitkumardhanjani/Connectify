@@ -751,8 +751,10 @@
                     </div>
                     
                     <!-- Logs Container -->
-                    <div class="terminal-logs" id="console-logs">
-                        <div class="log-line system">Waiting for process start...</div>
+                    <div id="console-logs-wrapper" style="display: flex; gap: 15px; width: 100%; flex-wrap: wrap; padding: 10px 0;">
+                        <div class="terminal-logs" id="console-logs" style="flex: 1; min-width: 300px;">
+                            <div class="log-line system">Waiting for process start...</div>
+                        </div>
                     </div>
 
                     <!-- STDIN POPUP OVERLAY (Shows when wait_for_input is True) -->
@@ -1007,9 +1009,9 @@
                             <i class="fa-solid fa-cloud"></i> Database Storage
                             <span class="unsaved-dot hidden" id="unsaved-dot-cloud-db" style="color: var(--accent-yellow); margin-left: 5px; font-weight: bold;">*</span>
                         </button>
-                        <button type="button" class="settings-tab-btn" data-settings-tab="system-updates">
+                        <!-- <button type="button" class="settings-tab-btn" data-settings-tab="system-updates">
                             <i class="fa-solid fa-code-branch"></i> System Updates
-                        </button>
+                        </button> -->
                     </div>
 
 
@@ -1039,15 +1041,18 @@
                                         <label for="scraper-max-emails">Target Emails per Run</label>
                                         <input type="number" id="scraper-max-emails" min="1" max="100" value="5" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--glass-border); background:rgba(0,0,0,0.4); color:var(--text-primary);">
                                     </div>
-                                    <div class="form-group toggle-group">
+                                    <div class="form-group toggle-group" style="margin-bottom: 8px;">
                                         <span class="info-icon-wrapper">
-                                            <label for="scraper-review-mode" style="margin-bottom: 0;">Outreach Quality Gate</label>
-                                            <i class="fa-solid fa-circle-info info-tooltip-trigger" data-tooltip="Outreach Quality Gate ON:&#10;The system extracts data but waits for your approval in the database tab before sending outreach emails.&#10;&#10;Outreach Quality Gate OFF:&#10;The system automatically sends emails after successful extraction and validation."></i>
+                                            <label for="scraper-review-mode" style="margin-bottom: 0;">Automatic Email Send</label>
+                                            <i class="fa-solid fa-circle-info info-tooltip-trigger" data-tooltip="Automatic Email Send ON:&#10;The system automatically sends emails after successful extraction and validation.&#10;&#10;Automatic Email Send OFF:&#10;The system extracts data but waits for your approval in the database tab before sending outreach emails."></i>
                                         </span>
                                         <label class="switch">
                                             <input type="checkbox" id="scraper-review-mode">
                                             <span class="slider"></span>
                                         </label>
+                                    </div>
+                                    <div style="font-size: 12px; color: var(--text-secondary); margin-top: -4px; margin-bottom: 16px; line-height: 1.4;">
+                                        Note: Turning this option ON allows the system to deliver emails automatically. If turned OFF, they are held in the database for manual review.
                                     </div>
                                 </div>
 
@@ -1293,15 +1298,18 @@
                                         <label for="connect-max-connections">Target Connections per Company</label>
                                         <input type="number" id="connect-max-connections" min="1" max="100" value="5" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--glass-border); background:rgba(0,0,0,0.4); color:var(--text-primary);">
                                     </div>
-                                    <div class="form-group toggle-group">
+                                    <div class="form-group toggle-group" style="margin-bottom: 8px;">
                                         <span class="info-icon-wrapper">
-                                            <label for="connect-review-mode" style="margin-bottom: 0;">Invite Quality Gate</label>
-                                            <i class="fa-solid fa-circle-info info-tooltip-trigger" data-tooltip="Invite Quality Gate ON:&#10;You review connection invites in the referrals database tab before they are sent.&#10;&#10;Invite Quality Gate OFF:&#10;Connection invites are delivered automatically."></i>
+                                            <label for="connect-review-mode" style="margin-bottom: 0;">Send Automatic Connection</label>
+                                            <i class="fa-solid fa-circle-info info-tooltip-trigger" data-tooltip="Send Automatic Connection ON:&#10;Connection invites are delivered automatically.&#10;&#10;Send Automatic Connection OFF:&#10;You review connection invites in the referrals database tab before they are sent."></i>
                                         </span>
                                         <label class="switch">
                                             <input type="checkbox" id="connect-review-mode">
                                             <span class="slider"></span>
                                         </label>
+                                    </div>
+                                    <div style="font-size: 12px; color: var(--text-secondary); margin-top: -4px; margin-bottom: 16px; line-height: 1.4;">
+                                        Note: Turning this option ON sends connection invites automatically. If turned OFF, you must review them in the referrals database.
                                     </div>
                                 </div>
                                 <div class="settings-card card-glass grid-span-2">
@@ -1544,15 +1552,18 @@
                                           <label for="recruiter-target-count">Target Recruiters per Company</label>
                                           <input type="number" id="recruiter-target-count" min="1" max="100" value="2" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--glass-border); background:rgba(0,0,0,0.4); color:var(--text-primary);">
                                       </div>
-                                      <div class="form-group toggle-group">
+                                      <div class="form-group toggle-group" style="margin-bottom: 8px;">
                                           <span class="info-icon-wrapper">
-                                              <label for="recruiter-review-mode" style="margin-bottom: 0;">Invite Quality Gate</label>
-                                              <i class="fa-solid fa-circle-info info-tooltip-trigger" data-tooltip="Invite Quality Gate ON:&#10;You review recruiter outreach connection invites in the console overlay before they are sent.&#10;&#10;Invite Quality Gate OFF:&#10;Recruiter connection invites are delivered automatically."></i>
+                                              <label for="recruiter-review-mode" style="margin-bottom: 0;">Send Automatic Connection</label>
+                                              <i class="fa-solid fa-circle-info info-tooltip-trigger" data-tooltip="Send Automatic Connection ON:&#10;Recruiter connection invites are delivered automatically.&#10;&#10;Send Automatic Connection OFF:&#10;You review recruiter outreach connection invites in the console overlay before they are sent."></i>
                                           </span>
                                           <label class="switch">
                                               <input type="checkbox" id="recruiter-review-mode">
                                               <span class="slider"></span>
                                           </label>
+                                      </div>
+                                      <div style="font-size: 12px; color: var(--text-secondary); margin-top: -4px; margin-bottom: 16px; line-height: 1.4;">
+                                          Note: Turning this option ON delivers recruiter invites automatically. If turned OFF, they are prompted for manual review.
                                       </div>
                                  </div>
 
@@ -1763,29 +1774,25 @@
                             </div>
                         </div>
 
-                        <!-- SUB-TAB 6: SYSTEM UPDATES -->
+                        <!-- SUB-TAB 6: SYSTEM UPDATES (Commented out because updates are automatically fetched and applied in the background)
                         <div class="settings-tab-pane" id="subtab-system-updates">
                         <div class="subtab-system-updates-wrapper">
                             <section class="system-updates-card card-glass" role="region" aria-label="System Updates">
                                 <div class="system-updates-center">
 
-                                    <!-- Animated status icon -->
                                     <div id="update-status-icon-container" class="icon-glow-container">
                                         <i id="update-status-icon" class="fa-solid fa-cloud-arrow-down"></i>
                                     </div>
 
-                                    <!-- Title + status -->
                                     <div class="gradient-header">
                                         <h2>System Updates</h2>
                                         <h4 id="update-status-heading">Not checked yet</h4>
                                     </div>
 
-                                    <!-- Subheading description -->
                                     <p class="system-updates-desc" id="update-status-subheading">
                                         Keep your Connectify Automation Hub up to date with the latest features and bug fixes.
                                     </p>
 
-                                    <!-- Action buttons -->
                                     <div class="system-updates-actions">
                                         <button type="button" class="btn btn-secondary" id="btn-check-updates" onclick="checkSystemUpdates()">
                                             <i class="fa-solid fa-magnifying-glass"></i> Check for Updates
@@ -1795,13 +1802,11 @@
                                         </button>
                                     </div>
 
-                                    <!-- Spinner -->
                                     <div id="update-spinner" class="hidden system-updates-spinner">
                                         <i class="fa-solid fa-spinner fa-spin"></i>
                                         <span id="update-spinner-label">Checking for updates...</span>
                                     </div>
 
-                                    <!-- Log/Console output area -->
                                     <div id="update-console-log-box" class="hidden system-updates-log">
                                         <span>Update Log Console:</span>
                                         <pre id="update-console-text"></pre>
@@ -1812,6 +1817,7 @@
                             </section>
                         </div>
                         </div>
+                        -->
 
                     </form>
 
