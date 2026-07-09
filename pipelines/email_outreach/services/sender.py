@@ -427,23 +427,29 @@ def send_email_via_gmail(driver, to_email, post_url='', review_mode=None):
                 time.sleep(0.2)
                 body_field.click()
                 time.sleep(0.3)
-                body_field.send_keys(body)
+                
+                # Replace newlines with HTML line breaks for the contenteditable editor
+                body_html = body.replace('\r\n', '\n').replace('\n', '<br>')
+                driver.execute_script("""
+                    var field = arguments[0];
+                    field.innerHTML = arguments[1];
+                    field.dispatchEvent(new Event('input', { bubbles: true }));
+                    field.dispatchEvent(new Event('change', { bubbles: true }));
+                """, body_field, body_html)
                 time.sleep(0.5)
-                logger.info("Successfully populated Body field")
+                logger.info("Successfully populated Message body via HTML")
             except Exception as e:
-                logger.warning(f"Failed to populate body field via send_keys: {e}")
+                logger.warning(f"Failed to populate body field via HTML: {e}")
                 try:
-                    driver.execute_script("""
-                        var field = arguments[0];
-                        field.innerText = arguments[1];
-                        field.textContent = arguments[1];
-                        field.dispatchEvent(new Event('input', { bubbles: true }));
-                        field.dispatchEvent(new Event('change', { bubbles: true }));
-                    """, body_field, body)
+                    body_field.clear()
+                except Exception:
+                    pass
+                try:
+                    body_field.send_keys(body)
                     time.sleep(0.5)
-                    logger.info("Successfully populated Body field (JS)")
+                    logger.info("Successfully populated Body field via send_keys fallback")
                 except Exception as e2:
-                    logger.warning(f"Failed to populate body field via JS: {e2}")
+                    logger.warning(f"Failed to populate body field via send_keys: {e2}")
                     return False
         else:
             logger.warning("Could not find body field")
