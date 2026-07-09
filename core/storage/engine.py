@@ -942,17 +942,8 @@ class StorageManager:
             return cls._instance
 
     def get_provider(self, username: str) -> BaseStorageProvider:
-        # Determine the user's active database type from their local bootstrap config file
-        path = os.path.join(BASE_DIR, "users", username, "config.json")
-        db_type = "local"
-        if os.path.exists(path):
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    cfg = json.load(f)
-                    db_type = cfg.get("global_settings", {}).get("database_type", "local")
-            except Exception:
-                pass
-        return self.providers.get(db_type, self.providers["local"])
+        # Always use local storage provider for active runtime operations
+        return self.providers["local"]
 
 
 # ---------------------------------------------------------------------------
@@ -975,8 +966,8 @@ def get_active_username():
 
 
 def get_active_storage_provider() -> BaseStorageProvider:
-    username = get_active_username()
-    return StorageManager().get_provider(username)
+    # Always return local storage provider for active UI and runtime operations
+    return StorageManager().providers["local"]
 
 
 def get_user_config(username: str = None, bypass_cache: bool = False) -> dict:
@@ -986,7 +977,7 @@ def get_user_config(username: str = None, bypass_cache: bool = False) -> dict:
         cached = _get_cached_config(username)
         if cached is not None:
             return cached
-    config = StorageManager().get_provider(username).get_config(username, bypass_cache=bypass_cache)
+    config = StorageManager().providers["local"].get_config(username, bypass_cache=bypass_cache)
     if not bypass_cache:
         _set_cached_config(username, config)
     return config
@@ -995,9 +986,20 @@ def get_user_config(username: str = None, bypass_cache: bool = False) -> dict:
 def save_user_config(config: dict, username: str = None):
     if not username:
         username = get_active_username()
-    StorageManager().get_provider(username).save_config(username, config)
+    
+    # Save locally
+    StorageManager().providers["local"].save_config(username, config)
     _invalidate_cached_config(username)
     _set_cached_config(username, config)
+    
+    # Backup/Sync to Google Sheets if configured
+    db_type = config.get("global_settings", {}).get("database_type", "local")
+    if db_type == "google_sheets":
+        try:
+            StorageManager().providers["google_sheets"].save_config(username, config)
+            logger.info("Successfully synced configuration changes to Google Sheets backup.")
+        except Exception as e:
+            logger.warning(f"Google Sheets configuration sync failed (quota or rate-limit): {e}")
 
 
 def read_database_rows(table_key: str, username: str = None, bypass_cache: bool = False) -> list:
@@ -1007,7 +1009,7 @@ def read_database_rows(table_key: str, username: str = None, bypass_cache: bool 
         cached = _get_cached_rows(username, table_key)
         if cached is not None:
             return cached
-    data = StorageManager().get_provider(username).read_rows(username, table_key, bypass_cache=bypass_cache)
+    data = StorageManager().providers["local"].read_rows(username, table_key, bypass_cache=bypass_cache)
     if not bypass_cache:
         _set_cached_rows(username, table_key, data)
     return data
@@ -1016,15 +1018,29 @@ def read_database_rows(table_key: str, username: str = None, bypass_cache: bool 
 def write_database_rows(table_key: str, data: list, username: str = None):
     if not username:
         username = get_active_username()
-    StorageManager().get_provider(username).write_rows(username, table_key, data)
+    
+    # Write locally
+    StorageManager().providers["local"].write_rows(username, table_key, data)
     _invalidate_cached_rows(username, table_key)
     _set_cached_rows(username, table_key, data)
+    
+    # Backup/Sync to Google Sheets if configured
+    try:
+        config = get_user_config(username, bypass_cache=True)
+        db_type = config.get("global_settings", {}).get("database_type", "local")
+        if db_type == "google_sheets":
+            StorageManager().providers["google_sheets"].write_rows(username, table_key, data)
+            logger.info(f"Successfully synced database table '{table_key}' to Google Sheets backup.")
+    except Exception as e:
+        logger.warning(f"Google Sheets sync failed for table '{table_key}' (quota or rate-limit): {e}")
 
 
 def append_database_row(table_key: str, row: dict, username: str = None):
     if not username:
         username = get_active_username()
-    StorageManager().get_provider(username).append_row(username, table_key, row)
+    
+    # Append locally
+    StorageManager().providers["local"].append_row(username, table_key, row)
     
     # Update cache in-memory if present, and slide the TTL freshness window
     with _cache_lock:
@@ -1033,4 +1049,14 @@ def append_database_row(table_key: str, row: dict, username: str = None):
             ts, data = entry
             data.append(row.copy())
             _row_cache[(username, table_key)] = (time.monotonic(), data)
+            
+    # Backup/Sync to Google Sheets if configured
+    try:
+        config = get_user_config(username, bypass_cache=True)
+        db_type = config.get("global_settings", {}).get("database_type", "local")
+        if db_type == "google_sheets":
+            StorageManager().providers["google_sheets"].append_row(username, table_key, row)
+            logger.info(f"Successfully appended row to Google Sheets backup for table '{table_key}'.")
+    except Exception as e:
+        logger.warning(f"Google Sheets append failed for table '{table_key}' (quota or rate-limit): {e}")
 

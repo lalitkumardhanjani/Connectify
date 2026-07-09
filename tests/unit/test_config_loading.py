@@ -71,9 +71,9 @@ class TestStorageProviderSelection:
         assert isinstance(provider, LocalStorageProvider)
 
     def test_sheets_user_uses_sheets_provider(self, sheets_user):
-        from core.storage.engine import get_active_storage_provider, GoogleSheetsStorageProvider
+        from core.storage.engine import get_active_storage_provider, LocalStorageProvider
         provider = get_active_storage_provider()
-        assert isinstance(provider, GoogleSheetsStorageProvider)
+        assert isinstance(provider, LocalStorageProvider)
 
     def test_unknown_database_type_falls_back_to_local(self, local_user, tmp_path):
         """Config with unknown database_type should fall back to LocalStorageProvider."""

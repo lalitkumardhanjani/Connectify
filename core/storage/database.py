@@ -18,11 +18,12 @@ seen_external_urls = set()
 def get_sheets_config():
     """Helper to retrieve active Google Sheets configuration if enabled."""
     try:
-        from core.storage.engine import get_active_storage_provider, GoogleSheetsStorageProvider
-        provider = get_active_storage_provider()
-        if isinstance(provider, GoogleSheetsStorageProvider):
-            from core.storage.engine import get_active_username
-            username = get_active_username()
+        from core.storage.engine import GoogleSheetsStorageProvider, get_active_username, get_user_config
+        username = get_active_username()
+        config = get_user_config(username)
+        db_type = config.get("global_settings", {}).get("database_type", "local")
+        if db_type == "google_sheets":
+            provider = GoogleSheetsStorageProvider()
             return provider.get_sheets_config(username)
     except Exception as e:
         logger.warning(f"Error checking sheets configuration: {e}")
