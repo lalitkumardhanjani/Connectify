@@ -135,6 +135,7 @@ let activeTaskId = null;
 let logPollInterval = null;
 let lastLogLength = 0;
 let polledTasks = {};
+let clearedTaskIds = new Set();
 
 // Helper to determine the active pipeline type based on selected tab
 function getActivePipelineType() {
@@ -151,6 +152,7 @@ function getActivePipelineType() {
 function clearLogsForTab(pipelineType) {
     Object.keys(polledTasks).forEach(tid => {
         if (tid.split('::').includes(pipelineType)) {
+            clearedTaskIds.add(tid);
             delete polledTasks[tid];
             const safeId = tid.replace(/::/g, '_');
             const term = document.getElementById(`terminal-${safeId}`);
@@ -167,19 +169,21 @@ async function pollAllLogs() {
         
         const activePipelineType = getActivePipelineType();
         
-        // Find tasks belonging to the active user that are running or queued
+        // Find tasks belonging to the active user (including completed ones for history restoration)
         const activeUserTasks = Object.entries(tasks).filter(
-            ([tid, t]) => t.username === activeUser && (t.status === 'running' || t.status === 'queued')
+            ([tid, t]) => t.username === activeUser
         );
         
-        // Register any newly discovered running tasks
+        // Register any newly discovered tasks (ignoring explicitly cleared ones)
         activeUserTasks.forEach(([tid, t]) => {
-            if (!polledTasks[tid] || polledTasks[tid].isFinished) {
+            if (clearedTaskIds.has(tid)) return;
+            
+            if (!polledTasks[tid]) {
                 polledTasks[tid] = {
                     lastLogLength: 0,
                     status: t.status,
                     label: getFriendlyTaskLabel(tid),
-                    isFinished: false
+                    isFinished: (t.status === 'success' || t.status === 'failed')
                 };
             } else {
                 polledTasks[tid].status = t.status;
@@ -193,6 +197,7 @@ async function pollAllLogs() {
             
             // Find active (running/queued) task IDs for the current tab
             const runningTabTids = activeUserTasks
+                .filter(([tid, t]) => t.status === 'running' || t.status === 'queued')
                 .map(([tid]) => tid)
                 .filter(tid => tid.split('::').includes(activePipelineType));
             
