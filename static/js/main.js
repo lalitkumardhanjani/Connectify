@@ -147,6 +147,18 @@ function getActivePipelineType() {
     return '';
 }
 
+// Clear logs and remove DOM terminals for a specific pipeline type when a new run is started
+function clearLogsForTab(pipelineType) {
+    Object.keys(polledTasks).forEach(tid => {
+        if (tid.split('::').includes(pipelineType)) {
+            delete polledTasks[tid];
+            const safeId = tid.replace(/::/g, '_');
+            const term = document.getElementById(`terminal-${safeId}`);
+            if (term) term.remove();
+        }
+    });
+}
+
 // Poll task details & stdout logs for all active pipeline runs
 async function pollAllLogs() {
     try {
@@ -533,32 +545,84 @@ async function updatePipelineLocks() {
                 runBtn.disabled = isAnyRunning;
             }
             
-            // 2. Individual step buttons inside this card
+            // 2. Individual step buttons and step-by-step active/completed indicators
             const cardEl = document.getElementById(`card-${p}`);
             if (cardEl) {
+                // Clear all previous active/completed classes first
                 const stepItems = cardEl.querySelectorAll('.p-step-seq');
+                stepItems.forEach(item => item.classList.remove('active', 'completed'));
+                
+                // Find all tasks for this user and pipeline
+                const pipelineTasks = Object.entries(tasks).filter(
+                    ([tid, t]) => t.username === activeUser && tid.split('::').includes(pipelineKey)
+                );
+                
+                // Find the active task, or fallback to the most recent task
+                const activeTaskEntry = pipelineTasks.find(([tid, t]) => t.status === 'running' || t.status === 'queued') ||
+                                        pipelineTasks[pipelineTasks.length - 1];
+                
+                let activeStepSuffix = null;
+                let activeStepIdx = 0;
+                let taskStatus = null;
+                let isSingle = true;
+                
+                if (activeTaskEntry) {
+                    const tid = activeTaskEntry[0];
+                    const t = activeTaskEntry[1];
+                    const parts = tid.split('::');
+                    const suffix = parts[2] || 'full';
+                    
+                    taskStatus = t.status;
+                    isSingle = suffix !== 'full';
+                    
+                    if (isSingle) {
+                        activeStepSuffix = suffix;
+                    } else {
+                        activeStepIdx = t.current_step || 1;
+                    }
+                }
+                
                 stepItems.forEach(item => {
-                    const stepNum = item.getAttribute('data-step');
+                    const stepNum = parseInt(item.getAttribute('data-step'));
                     const btn = item.querySelector('.btn-step-run');
-                    if (btn) {
-                        let stepSuffix = '';
-                        if (p === 'scraper') {
-                            stepSuffix = stepNum === '1' ? 'phase1' : 'phase2';
+                    
+                    // Determine step suffix for checking locks/conflicts
+                    let stepSuffix = '';
+                    if (p === 'scraper') {
+                        stepSuffix = stepNum === 1 ? 'phase1' : 'phase2';
+                    } else {
+                        stepSuffix = `step${stepNum}`;
+                    }
+                    
+                    // Lock control: disable button if this step is currently running as part of any active task
+                    const isThisStepRunning = activeTasksForPipeline.some(([tid]) => {
+                        const parts = tid.split('::');
+                        const suffix = parts[2] || 'full';
+                        return suffix === 'full' || suffix === stepSuffix;
+                    });
+                    if (btn) btn.disabled = isThisStepRunning;
+                    
+                    // Update step-by-step indicator classes (active / completed)
+                    if (activeTaskEntry) {
+                        if (isSingle) {
+                            if (activeStepSuffix === stepSuffix) {
+                                if (taskStatus === 'success') {
+                                    item.classList.add('completed');
+                                } else if (taskStatus === 'running' || taskStatus === 'queued') {
+                                    item.classList.add('active');
+                                }
+                            }
                         } else {
-                            stepSuffix = `step${stepNum}`;
-                        }
-                        
-                        const isThisStepRunning = activeTasksForPipeline.some(([tid]) => {
-                            const parts = tid.split('::');
-                            return parts.length === 2 || parts[2] === 'full' || parts[2] === stepSuffix;
-                        });
-                        btn.disabled = isThisStepRunning;
-                        
-                        // Highlight step as active (spinning blue circle) if it is running
-                        if (isThisStepRunning) {
-                            item.classList.add('active');
-                        } else {
-                            item.classList.remove('active');
+                            // Full pipeline mode
+                            if (stepNum < activeStepIdx) {
+                                item.classList.add('completed');
+                            } else if (stepNum === activeStepIdx) {
+                                if (taskStatus === 'success') {
+                                    item.classList.add('completed');
+                                } else if (taskStatus === 'running' || taskStatus === 'queued') {
+                                    item.classList.add('active');
+                                }
+                            }
                         }
                     }
                 });
@@ -649,6 +713,7 @@ async function runPipeline(type) {
         const data = await response.json();
         
         if (data.status === 'success') {
+            clearLogsForTab(`${type}_pipeline`);
             startPolling(data.task_id);
             // Move to pipelines tab to monitor output
             document.querySelector('[data-tab="pipelines"]').click();
@@ -695,6 +760,7 @@ async function runSingleStep(stepNum, event) {
         const data = await response.json();
         
         if (data.status === 'success') {
+            clearLogsForTab('referral_pipeline');
             startPolling(data.task_id);
             // Move to pipelines tab to monitor output
             document.querySelector('[data-tab="pipelines"]').click();
@@ -741,6 +807,7 @@ async function runRecruiterStep(stepNum, event) {
         const data = await response.json();
         
         if (data.status === 'success') {
+            clearLogsForTab('recruiter_pipeline');
             startPolling(data.task_id);
             // Move to pipelines tab to monitor output
             document.querySelector('[data-tab="pipelines"]').click();
@@ -786,6 +853,7 @@ async function runScraperStep(phase, event) {
         const data = await response.json();
         
         if (data.status === 'success') {
+            clearLogsForTab('scraper_pipeline');
             startPolling(data.task_id);
             // Move to pipelines tab to monitor output
             document.querySelector('[data-tab="pipelines"]').click();
