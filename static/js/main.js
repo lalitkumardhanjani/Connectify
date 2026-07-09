@@ -148,17 +148,36 @@ function getActivePipelineType() {
     return '';
 }
 
-// Clear logs and remove DOM terminals for a specific pipeline type when a new run is started
-function clearLogsForTab(pipelineType) {
+// Clear a single specific task's logs and remove its terminal DOM element
+function clearSpecificTask(taskId) {
+    clearedTaskIds.add(taskId);
+    delete polledTasks[taskId];
+    const safeId = taskId.replace(/::/g, '_');
+    const term = document.getElementById(`terminal-${safeId}`);
+    if (term) term.remove();
+}
+
+// Clear the full pipeline and all its steps for a tab when starting a new full pipeline run
+function clearLogsForFullPipeline(pipelineType) {
     Object.keys(polledTasks).forEach(tid => {
         if (tid.split('::').includes(pipelineType)) {
-            clearedTaskIds.add(tid);
-            delete polledTasks[tid];
-            const safeId = tid.replace(/::/g, '_');
-            const term = document.getElementById(`terminal-${safeId}`);
-            if (term) term.remove();
+            clearSpecificTask(tid);
         }
     });
+}
+
+// Clear only the specific step run and the conflicting full pipeline when starting a step
+function clearLogsForStepRun(taskId) {
+    clearSpecificTask(taskId);
+    
+    // Also clear the full pipeline task for this tab if present
+    const parts = taskId.split('::');
+    if (parts.length > 1) {
+        const username = parts[0];
+        const pipelineType = parts[1];
+        const fullTid = `${username}::${pipelineType}::full`;
+        clearSpecificTask(fullTid);
+    }
 }
 
 // Poll task details & stdout logs for all active pipeline runs
@@ -718,7 +737,7 @@ async function runPipeline(type) {
         const data = await response.json();
         
         if (data.status === 'success') {
-            clearLogsForTab(`${type}_pipeline`);
+            clearLogsForFullPipeline(`${type}_pipeline`);
             startPolling(data.task_id);
             // Move to pipelines tab to monitor output
             document.querySelector('[data-tab="pipelines"]').click();
@@ -765,7 +784,7 @@ async function runSingleStep(stepNum, event) {
         const data = await response.json();
         
         if (data.status === 'success') {
-            clearLogsForTab('referral_pipeline');
+            clearLogsForStepRun(data.task_id);
             startPolling(data.task_id);
             // Move to pipelines tab to monitor output
             document.querySelector('[data-tab="pipelines"]').click();
@@ -812,7 +831,7 @@ async function runRecruiterStep(stepNum, event) {
         const data = await response.json();
         
         if (data.status === 'success') {
-            clearLogsForTab('recruiter_pipeline');
+            clearLogsForStepRun(data.task_id);
             startPolling(data.task_id);
             // Move to pipelines tab to monitor output
             document.querySelector('[data-tab="pipelines"]').click();
@@ -858,7 +877,7 @@ async function runScraperStep(phase, event) {
         const data = await response.json();
         
         if (data.status === 'success') {
-            clearLogsForTab('scraper_pipeline');
+            clearLogsForStepRun(data.task_id);
             startPolling(data.task_id);
             // Move to pipelines tab to monitor output
             document.querySelector('[data-tab="pipelines"]').click();
