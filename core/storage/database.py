@@ -49,8 +49,9 @@ def append_email(email, keyword='', post_url='', company_name='', experience='',
     try:
         rows = read_database_rows("emails")
         normalized_email = str(email or '').strip().lower()
+        normalized_post_url = str(post_url or '').strip().lower()
         for r in rows:
-            if str(r.get('Email')).strip().lower() == normalized_email:
+            if str(r.get('Email')).strip().lower() == normalized_email and str(r.get('PostURL')).strip().lower() == normalized_post_url:
                 return False
         max_id = max([int(float(r.get('ID') or 0)) for r in rows]) if rows else 0
     except Exception:
@@ -61,6 +62,7 @@ def append_email(email, keyword='', post_url='', company_name='', experience='',
         'Email': email,
         'Status': 'New',
         'Timestamp': datetime.utcnow().isoformat(),
+        'Generated_Time': datetime.utcnow().isoformat(),
         'Keyword': keyword,
         'PostURL': post_url,
         'CompanyName': company_name,
@@ -79,6 +81,8 @@ def update_status(email, status, path=None):
         if str(r.get('Email')).strip().lower() == normalized_email:
             r['Status'] = status
             r['Timestamp'] = datetime.utcnow().isoformat()
+            if status.lower() == 'sent':
+                r['Sent_Time'] = datetime.utcnow().isoformat()
             updated = True
             break
     if updated:
@@ -152,8 +156,9 @@ def save_job(data, path=None):
         logger.warning(f"Skipping save_job: Missing critical fields (CompanyName: '{comp_name}', JobTitle: '{job_title}', CompanyURL: '{apply_url}')")
         return False
         
-    if apply_url in seen_external_urls:
-        logger.info(f"Skipping duplicate job saving: External URL {apply_url} already matched in cache.")
+    cache_key = (linkedin_company_url, apply_url)
+    if cache_key in seen_external_urls:
+        logger.info(f"Skipping duplicate job saving: (Company URL: {linkedin_company_url}, Apply URL: {apply_url}) already matched in cache.")
         return False
         
     rows = read_database_rows("jobs", bypass_cache=True)
@@ -161,17 +166,9 @@ def save_job(data, path=None):
         r_url = normalize_external_url(r.get('CompanyURL') or '')
         r_comp_url = normalize_external_url(r.get('LinkedIn_Company_URL') or '')
         
-        # Check by apply_url
-        if r_url and r_url == apply_url:
-            if apply_url:
-                seen_external_urls.add(apply_url)
-            logger.info(f"Skipping duplicate job saving: External URL {apply_url} already matched in database.")
-            return False
-            
         # Check by company URL + apply URL combination
-        if r_comp_url and r_comp_url == linkedin_company_url and r_url == apply_url:
-            if apply_url:
-                seen_external_urls.add(apply_url)
+        if r_comp_url == linkedin_company_url and r_url == apply_url:
+            seen_external_urls.add(cache_key)
             logger.info(f"Skipping duplicate job saving: (Company URL: {linkedin_company_url}, Apply URL: {apply_url}) already matched in database.")
             return False
 
@@ -189,8 +186,7 @@ def save_job(data, path=None):
         'CreatedDateTime': data.get('CreatedDateTime') or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
     append_database_row("jobs", new_job)
-    if apply_url:
-        seen_external_urls.add(apply_url)
+    seen_external_urls.add(cache_key)
     return True
 
 def load_jobs_for_referral(path=None, status_filter='Asked for Referral'):
@@ -260,13 +256,16 @@ def add_or_update_referral(referral_data, path=None):
     """Inserts a new referral outreach row or updates an existing one if matching."""
     rows = read_database_rows("referrals", bypass_cache=True)
     target_profile = str(referral_data.get('Referral_Person_Profile_URL') or '').strip().lower()
+    target_job_url = str(referral_data.get('Company_URL') or '').strip().lower()
     target_job_id = str(referral_data.get('JobID') or '').strip()
     
     updated = False
     for r in rows:
         curr_profile = str(r.get('Referral_Person_Profile_URL') or '').strip().lower()
+        curr_job_url = str(r.get('Company_URL') or '').strip().lower()
         curr_job_id = str(r.get('JobID') or '').strip()
-        if curr_profile == target_profile and curr_job_id == target_job_id:
+        
+        if curr_profile == target_profile and (curr_job_url == target_job_url or (target_job_id and curr_job_id == target_job_id)):
             for k, v in referral_data.items():
                 if k != 'ReferralID':
                     r[k] = v
@@ -295,9 +294,13 @@ def add_or_update_referral(referral_data, path=None):
 def is_profile_already_contacted(profile_url, job_url=None, path=None):
     rows = read_database_rows("referrals")
     target_profile = str(profile_url).strip().lower()
+    target_job_url = str(job_url or '').strip().lower()
     for r in rows:
-        if str(r.get('Referral_Person_Profile_URL') or '').strip().lower() == target_profile:
-            return True
+        curr_profile = str(r.get('Referral_Person_Profile_URL') or '').strip().lower()
+        curr_job_url = str(r.get('Company_URL') or '').strip().lower()
+        if curr_profile == target_profile:
+            if not target_job_url or curr_job_url == target_job_url:
+                return True
     return False
 
 def edit_referral_contact_row(referral_id, referral_data, path=None):
@@ -489,8 +492,8 @@ def load_job_leads_with_referral_counts():
     try:
         # Run sync first to update status of completed referrals
         sync_job_lead_referral_statuses()
-        leads = read_database_rows("jobs")
-        referrals = read_database_rows("referrals")
+        leads = read_database_rows("jobs", bypass_cache=True)
+        referrals = read_database_rows("referrals", bypass_cache=True)
     except Exception as e:
         logger.error(f"Error reading job leads or referrals: {e}")
         return []
@@ -560,3 +563,56 @@ def load_job_leads_with_referral_counts():
 
 def migrate_company_url_and_tracking_fields():
     pass
+
+def deduplicate_all_tables(username):
+    """Scans and removes duplicates from all database tables for the given user in both Local DB and Google Sheets."""
+    try:
+        from core.storage.engine import read_database_rows, write_database_rows
+        
+        # 1. Deduplicate 'emails' (Email + PostURL)
+        email_rows = read_database_rows("emails", username=username, bypass_cache=True)
+        unique_emails = []
+        seen_emails = set()
+        for r in email_rows:
+            email_val = str(r.get('Email') or '').strip().lower()
+            post_url_val = str(r.get('PostURL') or '').strip().lower()
+            key = (email_val, post_url_val)
+            if key not in seen_emails:
+                seen_emails.add(key)
+                unique_emails.append(r)
+        if len(unique_emails) < len(email_rows):
+            logger.info(f"Removing {len(email_rows) - len(unique_emails)} duplicate outreach records for user {username}.")
+            write_database_rows("emails", unique_emails, username=username)
+
+        # 2. Deduplicate 'jobs' (LinkedIn_Company_URL + CompanyURL)
+        job_rows = read_database_rows("jobs", username=username, bypass_cache=True)
+        unique_jobs = []
+        seen_jobs = set()
+        for r in job_rows:
+            comp_url_val = str(r.get('LinkedIn_Company_URL') or '').strip().lower()
+            job_url_val = str(r.get('CompanyURL') or '').strip().lower()
+            key = (comp_url_val, job_url_val)
+            if key not in seen_jobs:
+                seen_jobs.add(key)
+                unique_jobs.append(r)
+        if len(unique_jobs) < len(job_rows):
+            logger.info(f"Removing {len(job_rows) - len(unique_jobs)} duplicate job opportunities for user {username}.")
+            write_database_rows("jobs", unique_jobs, username=username)
+
+        # 3. Deduplicate 'referrals' (Company_URL + Referral_Person_Profile_URL)
+        referral_rows = read_database_rows("referrals", username=username, bypass_cache=True)
+        unique_referrals = []
+        seen_referrals = set()
+        for r in referral_rows:
+            job_url_val = str(r.get('Company_URL') or '').strip().lower()
+            profile_url_val = str(r.get('Referral_Person_Profile_URL') or '').strip().lower()
+            key = (job_url_val, profile_url_val)
+            if key not in seen_referrals:
+                seen_referrals.add(key)
+                unique_referrals.append(r)
+        if len(unique_referrals) < len(referral_rows):
+            logger.info(f"Removing {len(referral_rows) - len(unique_referrals)} duplicate referral contacts for user {username}.")
+            write_database_rows("referrals", unique_referrals, username=username)
+
+    except Exception as e:
+        logger.error(f"Error deduplicating tables for user {username}: {e}")

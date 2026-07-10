@@ -180,6 +180,8 @@ function clearLogsForStepRun(taskId) {
     }
 }
 
+let pollCyclesCount = 0;
+
 // Poll task details & stdout logs for all active pipeline runs
 async function pollAllLogs() {
     try {
@@ -197,6 +199,8 @@ async function pollAllLogs() {
         activeUserTasks.forEach(([tid, t]) => {
             if (clearedTaskIds.has(tid)) return;
             
+            const isTaskActive = t.status === 'running' || t.status === 'queued';
+            
             if (!polledTasks[tid]) {
                 polledTasks[tid] = {
                     lastLogLength: 0,
@@ -205,9 +209,21 @@ async function pollAllLogs() {
                     isFinished: false // Start as false to fetch logs at least once
                 };
             } else {
+                const prevStatus = polledTasks[tid].status;
                 polledTasks[tid].status = t.status;
-                if (t.status === 'running' || t.status === 'queued') {
-                    polledTasks[tid].isFinished = false; // Resume polling if restarted
+                
+                // Transition: if a task goes from completed/killed to running/queued, it is a restart!
+                if (isTaskActive && (prevStatus === 'success' || prevStatus === 'failed' || prevStatus === 'stopped' || prevStatus === 'cancelled')) {
+                    polledTasks[tid].isFinished = false;
+                    polledTasks[tid].lastLogLength = 0;
+                    
+                    // Clear the terminal logs container for this task
+                    const safeId = tid.replace(/::/g, '_');
+                    const logContainer = document.getElementById(`logs-${safeId}`);
+                    if (logContainer) {
+                        logContainer.innerHTML = '<div class="log-line system">Process restarted. Waiting for logs...</div>';
+                    }
+                    updateSubTerminalStatusDOM(tid, t.status);
                 }
             }
         });
@@ -371,7 +387,7 @@ async function pollAllLogs() {
                 }
                 
                 // Clean up when task finishes
-                if (data.status === 'success' || data.status === 'failed') {
+                if (data.status === 'success' || data.status === 'failed' || data.status === 'stopped' || data.status === 'cancelled') {
                     tInfo.status = data.status;
                     tInfo.isFinished = true;
                     updateSubTerminalStatusDOM(tid, data.status);
@@ -391,6 +407,21 @@ async function pollAllLogs() {
         if (!anyWaitingForInput) {
             const stdinOverlay = document.getElementById('stdin-overlay');
             if (stdinOverlay) stdinOverlay.classList.add('hidden');
+        }
+        
+        // Check if any task is actively running or queued to periodically refresh live data
+        const hasRunningTask = Object.values(polledTasks).some(t => t.status === 'running' || t.status === 'queued');
+        if (hasRunningTask) {
+            pollCyclesCount++;
+            if (pollCyclesCount >= 2) {
+                pollCyclesCount = 0;
+                loadTableData('scraper');
+                loadTableData('referral');
+                loadTableData('referrals');
+                if (typeof loadStats === 'function') loadStats();
+            }
+        } else {
+            pollCyclesCount = 0;
         }
         
         updatePipelineLocks();
@@ -447,12 +478,6 @@ function createSubTerminalDOM(taskId, label) {
     const safeId = taskId.replace(/::/g, '_');
     const oldTerm = document.getElementById(`terminal-${safeId}`);
     if (oldTerm) {
-        const logContainer = document.getElementById(`logs-${safeId}`);
-        if (logContainer) logContainer.innerHTML = '<div class="log-line system">Process restarted. Waiting for logs...</div>';
-        if (polledTasks[taskId]) {
-            polledTasks[taskId].lastLogLength = 0;
-        }
-        updateSubTerminalStatusDOM(taskId, 'running');
         return;
     }
     
@@ -500,6 +525,9 @@ function updateSubTerminalStatusDOM(taskId, status) {
         } else if (status === 'failed') {
             statusEl.style.background = 'rgba(255, 23, 68, 0.15)';
             statusEl.style.color = '#ff1744';
+        } else if (status === 'stopped' || status === 'cancelled') {
+            statusEl.style.background = 'rgba(255, 152, 0, 0.15)';
+            statusEl.style.color = '#ff9800';
         }
     }
 }
@@ -580,42 +608,16 @@ async function updatePipelineLocks() {
                 runBtn.disabled = isAnyRunning;
             }
             
-            // 2. Individual step buttons and step-by-step active/completed indicators
+            // 2. Individual step buttons and step-by-step active/completed/failed indicators
             const cardEl = document.getElementById(`card-${p}`);
             if (cardEl) {
-                // Clear all previous active/completed classes first
+                // Clear all previous active/completed/failed classes first
                 const stepItems = cardEl.querySelectorAll('.p-step-seq');
-                stepItems.forEach(item => item.classList.remove('active', 'completed'));
+                stepItems.forEach(item => item.classList.remove('active', 'completed', 'failed'));
                 
-                // Find all tasks for this user and pipeline
-                const pipelineTasks = Object.entries(tasks).filter(
-                    ([tid, t]) => t.username === activeUser && tid.split('::').includes(pipelineKey)
-                );
-                
-                // Find the active task, or fallback to the most recent task
-                const activeTaskEntry = pipelineTasks.find(([tid, t]) => t.status === 'running' || t.status === 'queued') ||
-                                        pipelineTasks[pipelineTasks.length - 1];
-                
-                let activeStepSuffix = null;
-                let activeStepIdx = 0;
-                let taskStatus = null;
-                let isSingle = true;
-                
-                if (activeTaskEntry) {
-                    const tid = activeTaskEntry[0];
-                    const t = activeTaskEntry[1];
-                    const parts = tid.split('::');
-                    const suffix = parts[2] || 'full';
-                    
-                    taskStatus = t.status;
-                    isSingle = suffix !== 'full';
-                    
-                    if (isSingle) {
-                        activeStepSuffix = suffix;
-                    } else {
-                        activeStepIdx = t.current_step || 1;
-                    }
-                }
+                // Find the full pipeline task for this user and pipeline
+                const fullTaskId = `${activeUser}::${pipelineKey}::full`;
+                const fullTask = tasks[fullTaskId];
                 
                 stepItems.forEach(item => {
                     const stepNum = parseInt(item.getAttribute('data-step'));
@@ -629,36 +631,60 @@ async function updatePipelineLocks() {
                         stepSuffix = `step${stepNum}`;
                     }
                     
-                    // Lock control: disable button if this step is currently running as part of any active task
-                    const isThisStepRunning = activeTasksForPipeline.some(([tid]) => {
-                        const parts = tid.split('::');
-                        const suffix = parts[2] || 'full';
-                        return suffix === 'full' || suffix === stepSuffix;
-                    });
-                    if (btn) btn.disabled = isThisStepRunning;
+                    const stepTaskId = `${activeUser}::${pipelineKey}::${stepSuffix}`;
+                    const stepTask = tasks[stepTaskId];
                     
-                    // Update step-by-step indicator classes (active / completed)
-                    if (activeTaskEntry) {
-                        if (isSingle) {
-                            if (activeStepSuffix === stepSuffix) {
-                                if (taskStatus === 'success') {
-                                    item.classList.add('completed');
-                                } else if (taskStatus === 'running' || taskStatus === 'queued') {
-                                    item.classList.add('active');
-                                }
-                            }
-                        } else {
-                            // Full pipeline mode
+                    // Check which task is more recent based on start_time
+                    const fullStartTime = fullTask ? (fullTask.start_time || 0) : 0;
+                    const stepStartTime = stepTask ? (stepTask.start_time || 0) : 0;
+                    const hasFullTask = !!fullTask;
+                    const hasStepTask = !!stepTask;
+                    
+                    // If we have both, prefer the one with the larger start_time (most recently run).
+                    // If we only have one, use that one.
+                    const useFullTask = hasFullTask && (!hasStepTask || fullStartTime >= stepStartTime);
+                    
+                    if (useFullTask) {
+                        const isFullActive = fullTask.status === 'running' || fullTask.status === 'queued';
+                        if (isFullActive) {
+                            const activeStepIdx = fullTask.current_step || 1;
                             if (stepNum < activeStepIdx) {
                                 item.classList.add('completed');
                             } else if (stepNum === activeStepIdx) {
-                                if (taskStatus === 'success') {
+                                item.classList.add('active');
+                            }
+                        } else {
+                            // Full pipeline is finished
+                            if (fullTask.status === 'success') {
+                                item.classList.add('completed');
+                            } else {
+                                // fullTask status is failed, stopped, or cancelled
+                                const failedStepIdx = fullTask.current_step || 1;
+                                if (stepNum < failedStepIdx) {
                                     item.classList.add('completed');
-                                } else if (taskStatus === 'running' || taskStatus === 'queued') {
-                                    item.classList.add('active');
+                                } else if (stepNum === failedStepIdx) {
+                                    item.classList.add('failed');
                                 }
                             }
                         }
+                    } else if (hasStepTask) {
+                        // Individual step task is more recent (or is the only one available)
+                        if (stepTask.status === 'running' || stepTask.status === 'queued') {
+                            item.classList.add('active');
+                        } else if (stepTask.status === 'success') {
+                            item.classList.add('completed');
+                        } else if (stepTask.status === 'failed' || stepTask.status === 'stopped' || stepTask.status === 'cancelled') {
+                            item.classList.add('failed');
+                        }
+                    }
+                    
+                    // Lock control: disable individual step run button if the full pipeline is active,
+                    // or if this specific step is already running or queued.
+                    const isFullActive = fullTask && (fullTask.status === 'running' || fullTask.status === 'queued');
+                    const isThisStepActive = stepTask && (stepTask.status === 'running' || stepTask.status === 'queued');
+                    
+                    if (btn) {
+                        btn.disabled = isFullActive || isThisStepActive;
                     }
                 });
             }
@@ -1026,6 +1052,15 @@ async function sendStdin(choice) {
         const data = await response.json();
         if (data.status === 'success') {
             document.getElementById('stdin-overlay').classList.add('hidden');
+            
+            // Instantly refresh the UI database table and the dashboard stats after a short delay to account for write timing
+            setTimeout(() => {
+                loadTableData('scraper');
+                loadTableData('referral');
+                loadTableData('referrals');
+                if (typeof loadStats === 'function') loadStats();
+                if (typeof loadDashboardAnalytics === 'function') loadDashboardAnalytics();
+            }, 800);
         }
     } catch (e) {
         console.error("Failed to pipe stdin:", e);
@@ -1091,6 +1126,11 @@ async function loadTableData(type) {
             applyFilters('referral');
         } else if (type === 'referrals') {
             applyReferralsFiltersAndRender();
+        }
+        
+        // Refresh dashboard statistics immediately whenever data is loaded/changed
+        if (typeof loadDashboardAnalytics === 'function') {
+            loadDashboardAnalytics();
         }
     } catch (e) {
         console.error(`Failed to load ${type} data:`, e);
@@ -2990,6 +3030,9 @@ async function saveConfiguration(module) {
             
             // Reload settings to refresh fields/labels
             await loadSettings();
+            if (typeof loadDashboardAnalytics === 'function') {
+                loadDashboardAnalytics();
+            }
         } else {
             showSaveError(statusEl, '✕ Error saving configurations.');
         }

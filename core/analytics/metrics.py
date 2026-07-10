@@ -18,7 +18,7 @@ def _load_data_as_df(table_key):
     """Utility to load table rows as a pandas DataFrame from active storage provider."""
     try:
         from core.storage.engine import read_database_rows
-        rows = read_database_rows(table_key)
+        rows = read_database_rows(table_key, bypass_cache=True)
         if not rows:
             return pd.DataFrame()
         return pd.DataFrame(rows)
@@ -48,6 +48,7 @@ def get_email_metrics():
         "new": 0,
         "skipped": 0,
         "added_today": 0,
+        "sent_today": 0,
         "status_distribution": {"sent": 0, "pending": 0, "new": 0, "skipped": 0},
         "keyword_counts": {},
         "daily_counts": [],
@@ -81,6 +82,16 @@ def get_email_metrics():
         today_str = datetime.now().strftime('%Y-%m-%d')
         added_today = int(df[timestamp_col].astype(str).str.startswith(today_str).sum())
 
+    # Sent today
+    sent_today = 0
+    sent_time_col = _find_col(df, 'Sent_Time')
+    if sent_time_col:
+        today_str = datetime.now().strftime('%Y-%m-%d')
+        sent_today = int(df[(df['_status'] == 'sent') & (df[sent_time_col].astype(str).str.startswith(today_str))].shape[0])
+    elif timestamp_col:
+        today_str = datetime.now().strftime('%Y-%m-%d')
+        sent_today = int(df[(df['_status'] == 'sent') & (df[timestamp_col].astype(str).str.startswith(today_str))].shape[0])
+
     status_distribution = {"sent": sent, "pending": new_count, "new": new_count, "skipped": skipped}
 
     # Keyword counts — only count non-null, non-empty values
@@ -95,19 +106,55 @@ def get_email_metrics():
     daily_counts = []
     if timestamp_col:
         try:
-            df['_ts'] = pd.to_datetime(df[timestamp_col], errors='coerce')
-            last_30 = datetime.now() - timedelta(days=30)
-            recent = df[df['_ts'] >= last_30].copy()
-            if not recent.empty:
-                daily = (
-                    recent.groupby(recent['_ts'].dt.date)
-                    .size()
-                    .reset_index(name='count')
-                )
-                daily_counts = [
-                    {"date": str(row['_ts']), "count": int(row['count'])}
-                    for _, row in daily.iterrows()
-                ]
+            # Parse Generated_Time for generation date (fallback to Timestamp if missing)
+            gen_time_col = _find_col(df, 'Generated_Time')
+            if gen_time_col:
+                df['_ts_gen'] = pd.to_datetime(df[gen_time_col], errors='coerce')
+            else:
+                df['_ts_gen'] = pd.to_datetime(df[timestamp_col], errors='coerce')
+            
+            # Parse Sent_Time
+            sent_time_col = _find_col(df, 'Sent_Time')
+            if sent_time_col:
+                df['_ts_sent'] = pd.to_datetime(df[sent_time_col], errors='coerce')
+            else:
+                df['_ts_sent'] = pd.NaT
+                
+            # For rows where status is sent and _ts_sent is NaT, fallback to Timestamp
+            sent_mask = df['_status'] == 'sent'
+            df.loc[sent_mask & df['_ts_sent'].isna(), '_ts_sent'] = pd.to_datetime(df.loc[sent_mask & df['_ts_sent'].isna(), timestamp_col], errors='coerce')
+            
+            # Get start date (30 days ago)
+            last_30_date = (datetime.now() - timedelta(days=30)).date()
+            
+            # We want to collect all dates in the last 30 days
+            today = datetime.now().date()
+            dates_range = [today - timedelta(days=i) for i in range(30)]
+            dates_range.reverse() # chronologically ascending
+            
+            # Create a dictionary to hold counts
+            counts_by_date = {str(d): {"generated": 0, "sent": 0} for d in dates_range}
+            
+            # Count generated emails
+            gen_df = df[df['_ts_gen'].dt.date >= last_30_date]
+            if not gen_df.empty:
+                for d, g in gen_df.groupby(gen_df['_ts_gen'].dt.date):
+                    d_str = str(d)
+                    if d_str in counts_by_date:
+                        counts_by_date[d_str]["generated"] = int(len(g))
+                        
+            # Count sent emails
+            sent_df = df[(df['_status'] == 'sent') & (df['_ts_sent'].dt.date >= last_30_date)]
+            if not sent_df.empty:
+                for d, g in sent_df.groupby(sent_df['_ts_sent'].dt.date):
+                    d_str = str(d)
+                    if d_str in counts_by_date:
+                        counts_by_date[d_str]["sent"] = int(len(g))
+            
+            daily_counts = [
+                {"date": d_str, "generated": val["generated"], "sent": val["sent"]}
+                for d_str, val in counts_by_date.items()
+            ]
         except Exception as e:
             print(f"Daily count error: {e}")
 
@@ -147,6 +194,7 @@ def get_email_metrics():
         "new":                 new_count,
         "skipped":             skipped,
         "added_today":         added_today,
+        "sent_today":          sent_today,
         "send_success_rate":   send_success_rate,
         "status_distribution": status_distribution,
         "domain_distribution": domain_distribution,
@@ -168,6 +216,8 @@ def get_company_metrics():
         "new": 0,
         "done": 0,
         "not_interested": 0,
+        "interested": 0,
+        "referral_outreach": 0,
         "status_distribution": {},
         "keyword_counts": {},
         "keyword_status": {}
@@ -191,6 +241,8 @@ def get_company_metrics():
     new          = int((df['_status'] == 'new').sum())
     done         = int((df['_status'] == 'done').sum())
     not_interested = int((df['_status'] == 'not interested').sum())
+    interested   = int((df['_status'] == 'interested').sum())
+    referral_outreach = int(df['_status'].isin(['ask for referral', 'asked for referral', 'referred', 'referral outreach completed']).sum())
 
     # Dynamic status distribution
     status_distribution = {}
@@ -233,6 +285,8 @@ def get_company_metrics():
         "new":                new,
         "done":               done,
         "not_interested":     not_interested,
+        "interested":         interested,
+        "referral_outreach":  referral_outreach,
         "status_distribution": status_distribution,
         "keyword_counts":     keyword_counts,
         "keyword_status":     keyword_status,

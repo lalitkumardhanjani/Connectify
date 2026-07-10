@@ -60,6 +60,7 @@ class SubprocessRunner:
         self.process = None
         self.current_step = 0
         self.thread = None
+        self.start_time = datetime.now().timestamp()
 
     def start(self):
         self.status = "running"
@@ -190,6 +191,12 @@ class SubprocessRunner:
                 clean_line = line.strip()
                 self.logs.append(line.rstrip('\r\n'))
                 
+                # Dynamic step tracking based on stdout lines for combined outreach script
+                if "Executing Phase 1: Post email scraping" in clean_line:
+                    self.current_step = 1
+                elif "Executing Phase 2: Email sending" in clean_line:
+                    self.current_step = 2
+                
                 # Check if review_for_referral or job search is waiting for option/confirmation selection
                 if "Enter choice:" in clean_line or "Options:" in clean_line or "press ENTER to continue" in clean_line or "Send [S] / Skip [K] / Quit [Q]" in clean_line:
                     time.sleep(0.2)
@@ -201,7 +208,7 @@ class SubprocessRunner:
             
             if return_code != 0:
                 self.log(f"Script {script} exited with non-zero status code: {return_code}")
-                if self.status != "killed":
+                if self.status not in ("killed", "stopped"):
                     # Exit code 2 = user-initiated Quit (Quality Gate). Show as
                     # 'stopped' rather than 'failed' so the dashboard badge is correct.
                     if return_code == 2:
@@ -212,64 +219,65 @@ class SubprocessRunner:
             
             self.log(f"Step {self.current_step} completed successfully.")
 
-        if self.status != "killed":
+        if self.status not in ("killed", "stopped"):
             self.status = "success"
-            # Print execution summary & adjust status if no candidates were found/processed
-            try:
-                from core.storage.database import load_all_referrals
-                referrals = load_all_referrals()
-                today_str = datetime.now().strftime("%Y-%m-%d")
-                
-                # Count sent today
-                emp_messages_sent = sum(
-                    1 for r in referrals
-                    if str(r.get('Referral_Status') or '').strip().lower() == 'sent'
-                    and str(r.get('Sent_Time') or '').strip().startswith(today_str)
-                    and str(r.get('Referral_Source') or '').strip() == 'Existing Employee'
-                )
-                emp_connections_sent = sum(
-                    1 for r in referrals
-                    if str(r.get('Referral_Status') or '').strip().lower() == 'sent'
-                    and str(r.get('Sent_Time') or '').strip().startswith(today_str)
-                    and str(r.get('Referral_Source') or '').strip() == 'Sent Employee Connection'
-                )
-                rec_messages_sent = sum(
-                    1 for r in referrals
-                    if str(r.get('Referral_Status') or '').strip().lower() == 'sent'
-                    and str(r.get('Sent_Time') or '').strip().startswith(today_str)
-                    and str(r.get('Referral_Source') or '').strip() == 'Existing Recruiter'
-                )
-                rec_connections_sent = sum(
-                    1 for r in referrals
-                    if str(r.get('Referral_Status') or '').strip().lower() == 'sent'
-                    and str(r.get('Sent_Time') or '').strip().startswith(today_str)
-                    and str(r.get('Referral_Source') or '').strip() == 'Sent Recruiter Connection'
-                )
-                
-                total_sent = emp_messages_sent + emp_connections_sent + rec_messages_sent + rec_connections_sent
-                
-                self.log("=" * 60)
-                self.log("--- Pipeline Execution Summary ---")
-                self.log(f"Existing Employee Messages Sent   : {emp_messages_sent}")
-                self.log(f"Employee Connection Requests Sent : {emp_connections_sent}")
-                self.log(f"Existing Recruiter Messages Sent   : {rec_messages_sent}")
-                self.log(f"Recruiter Connection Requests Sent : {rec_connections_sent}")
-                self.log(f"Total Outreach Actions Sent Today : {total_sent}")
-                
-                # Load selected config targets for the pinned user
-                from config.user_profiles import load_all_configs
-                all_cfg = load_all_configs()
-                user_conf = all_cfg.get("users", {}).get(self.username, {})
-                connect_conf = user_conf.get("linkedin_connect", {})
-                max_connections = int(connect_conf.get("max_connections_per_run") or 5)
-                
-                if total_sent > 0:
-                    self.log("Status: Completed Successfully")
-                else:
-                    self.log("Status: Completed – No Candidates Available")
-                self.log("=" * 60)
-            except Exception as e:
-                self.log(f"Warning: error compiling execution summary: {e}")
+            # Print execution summary & adjust status if no candidates were found/processed (only for referral and recruiter pipelines)
+            if "referral_pipeline" in self.task_id or "recruiter_pipeline" in self.task_id:
+                try:
+                    from core.storage.database import load_all_referrals
+                    referrals = load_all_referrals()
+                    today_str = datetime.now().strftime("%Y-%m-%d")
+                    
+                    # Count sent today
+                    emp_messages_sent = sum(
+                        1 for r in referrals
+                        if str(r.get('Referral_Status') or '').strip().lower() == 'sent'
+                        and str(r.get('Sent_Time') or '').strip().startswith(today_str)
+                        and str(r.get('Referral_Source') or '').strip() == 'Existing Employee'
+                    )
+                    emp_connections_sent = sum(
+                        1 for r in referrals
+                        if str(r.get('Referral_Status') or '').strip().lower() == 'sent'
+                        and str(r.get('Sent_Time') or '').strip().startswith(today_str)
+                        and str(r.get('Referral_Source') or '').strip() == 'Sent Employee Connection'
+                    )
+                    rec_messages_sent = sum(
+                        1 for r in referrals
+                        if str(r.get('Referral_Status') or '').strip().lower() == 'sent'
+                        and str(r.get('Sent_Time') or '').strip().startswith(today_str)
+                        and str(r.get('Referral_Source') or '').strip() == 'Existing Recruiter'
+                    )
+                    rec_connections_sent = sum(
+                        1 for r in referrals
+                        if str(r.get('Referral_Status') or '').strip().lower() == 'sent'
+                        and str(r.get('Sent_Time') or '').strip().startswith(today_str)
+                        and str(r.get('Referral_Source') or '').strip() == 'Sent Recruiter Connection'
+                    )
+                    
+                    total_sent = emp_messages_sent + emp_connections_sent + rec_messages_sent + rec_connections_sent
+                    
+                    self.log("=" * 60)
+                    self.log("--- Pipeline Execution Summary ---")
+                    self.log(f"Existing Employee Messages Sent   : {emp_messages_sent}")
+                    self.log(f"Employee Connection Requests Sent : {emp_connections_sent}")
+                    self.log(f"Existing Recruiter Messages Sent   : {rec_messages_sent}")
+                    self.log(f"Recruiter Connection Requests Sent : {rec_connections_sent}")
+                    self.log(f"Total Outreach Actions Sent Today : {total_sent}")
+                    
+                    # Load selected config targets for the pinned user
+                    from config.user_profiles import load_all_configs
+                    all_cfg = load_all_configs()
+                    user_conf = all_cfg.get("users", {}).get(self.username, {})
+                    connect_conf = user_conf.get("linkedin_connect", {})
+                    max_connections = int(connect_conf.get("max_connections_per_run") or 5)
+                    
+                    if total_sent > 0:
+                        self.log("Status: Completed Successfully")
+                    else:
+                        self.log("Status: Completed – No Candidates Available")
+                    self.log("=" * 60)
+                except Exception as e:
+                    self.log(f"Warning: error compiling execution summary: {e}")
 
     def send_input(self, text):
         if self.process and self.process.stdin:
@@ -284,17 +292,18 @@ class SubprocessRunner:
         return False
 
     def kill(self):
+        self.status = "stopped"
+        self.waiting_for_input = False
         if self.process:
             try:
                 if sys.platform == 'win32':
-                    self.process.terminate()
+                    import subprocess as sp
+                    sp.run(["taskkill", "/F", "/T", "/PID", str(self.process.pid)], capture_output=True, check=False)
                 else:
                     os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
                 self.log("Process terminated by user.")
             except Exception as e:
                 self.log(f"Error terminating process: {e}")
-        self.status = "killed"
-        self.waiting_for_input = False
 
 
 def get_excel_data(file_path):
@@ -531,12 +540,16 @@ def get_all_tasks():
     with task_lock:
         result = {}
         for tid, runner in active_tasks.items():
+            total_steps = len(runner.commands)
+            if "scraper_pipeline" in tid and "full" in tid:
+                total_steps = 2
             result[tid] = {
                 "status": runner.status,
                 "username": runner.username,
                 "waiting_for_input": runner.waiting_for_input,
                 "current_step": runner.current_step,
-                "total_steps": len(runner.commands)
+                "total_steps": total_steps,
+                "start_time": runner.start_time
             }
         return jsonify(result)
 
@@ -1499,7 +1512,7 @@ def get_config():
         "LINKEDIN_EMAIL": global_conf.get("linkedin_email", ""),
         "LINKEDIN_PASSWORD": global_conf.get("linkedin_password", ""),
         "SEARCH_KEYWORDS": "|".join(scraper.get("search_keywords") or scraper.get("keywords") or []),
-        "SEARCH_LOCATION": global_conf.get("search_location", "Bangalore, Karnataka, India"),
+        "SEARCH_LOCATION": global_conf.get("search_location", ""),
         "SEARCH_TIME_RANGE": global_conf.get("search_time_range", "r604800"),
         "DRY_RUN": global_conf.get("dry_run", "0"),
         "MAX_RUN_DURATION_SECONDS": global_conf.get("max_run_duration_seconds", "600"),
@@ -1899,6 +1912,20 @@ if __name__ == '__main__':
     
     # Sanitize existing databases
     sanitize_excel_files()
+    
+    # Run startup database deduplication
+    try:
+        from config.user_profiles import load_all_configs
+        from core.storage.database import deduplicate_all_tables
+        all_cfg = load_all_configs()
+        users = list(all_cfg.get("users", {}).keys())
+        if not users:
+            users = ["default"]
+        for u in users:
+            deduplicate_all_tables(u)
+        print("[Startup Database] Safely scanned and deduplicated all user tables.")
+    except Exception as e:
+        print(f"[Startup Database] Warning: Deduplication run failed: {e}")
     
     # Start the Git auto-updater thread
     start_git_autoupdater(app)

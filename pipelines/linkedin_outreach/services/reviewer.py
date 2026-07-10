@@ -126,7 +126,10 @@ def run_reviewer():
                 logger.info("Stopping reviewer script...")
                 remaining = jobs_to_process[index-1:]
                 updated_rows.extend(remaining)
-                break
+                all_rows = processed_rows + updated_rows
+                save_job_data_excel(wb, ws, headers, all_rows, JOB_LEADS_FILE)
+                import sys
+                sys.exit(2)
             elif choice == '1':
                 logger.info("Interested. Updating status.")
                 if status_col:

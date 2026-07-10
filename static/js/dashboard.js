@@ -17,31 +17,31 @@ const CHART_DEFAULTS = {
 };
 
 const PALETTE = {
-    cyan:   '#00b0ff',
-    green:  '#00e676',
+    cyan: '#00b0ff',
+    green: '#00e676',
     yellow: '#ffb300',
     purple: '#7f5af0',
-    teal:   '#2cb67d',
-    red:    '#ff3d00',
+    teal: '#2cb67d',
+    red: '#ff3d00',
     orange: '#ff6d00',
-    pink:   '#f72585',
+    pink: '#f72585',
     indigo: '#7b2ff7',
-    gray:   '#9ea4c0',
+    gray: '#9ea4c0',
 };
 
 const BAR_COLORS = [
     PALETTE.cyan, PALETTE.purple, PALETTE.teal, PALETTE.yellow,
-    PALETTE.green, PALETTE.pink,  PALETTE.orange, PALETTE.indigo,
+    PALETTE.green, PALETTE.pink, PALETTE.orange, PALETTE.indigo,
 ];
 
 // Active chart instances (so we can destroy and re-create cleanly)
-let emailStatusChartInst   = null;
-let emailKeywordChartInst  = null;
-let emailDomainChartInst   = null;
-let emailDailyChartInst    = null;
-let coStatusChartInst      = null;
-let coKeywordChartInst     = null;
-let coHiringChartInst      = null;
+let emailStatusChartInst = null;
+let emailKeywordChartInst = null;
+let emailDomainChartInst = null;
+let emailDailyChartInst = null;
+let coStatusChartInst = null;
+let coKeywordChartInst = null;
+let coHiringChartInst = null;
 let outreachStatusChartInst = null;
 let outreachSourceChartInst = null;
 let outreachDailyChartInst = null;
@@ -107,7 +107,7 @@ function switchDashModule(module) {
     const activeTab = document.getElementById(`dash-module-${module}`);
     if (activePanel) activePanel.classList.add('active');
     if (activeTab) activeTab.classList.add('active');
-    
+
     // Refresh statistics upon module switch to show real-time changes
     if (module === 'email') {
         loadEmailDashboard();
@@ -212,7 +212,7 @@ function makeBarChart(canvasId, labels, data, color = PALETTE.purple) {
             datasets: [{
                 data,
                 backgroundColor: BAR_COLORS.slice(0, labels.length).map(c => c + '55'),
-                borderColor:     BAR_COLORS.slice(0, labels.length),
+                borderColor: BAR_COLORS.slice(0, labels.length),
                 borderWidth: 1.5,
                 borderRadius: 6,
             }]
@@ -224,30 +224,67 @@ function makeBarChart(canvasId, labels, data, color = PALETTE.purple) {
     });
 }
 
-function makeLineChart(canvasId, labels, data) {
+function makeLineChart(canvasId, labels, generatedData, sentData) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return null;
     const ctx = canvas.getContext('2d');
-    const gradient = ctx.createLinearGradient(0, 0, 0, 200);
-    gradient.addColorStop(0,   'rgba(0,176,255,0.35)');
-    gradient.addColorStop(1,   'rgba(0,176,255,0.0)');
+
+    const genGradient = ctx.createLinearGradient(0, 0, 0, 200);
+    genGradient.addColorStop(0, 'rgba(0,176,255,0.35)');
+    genGradient.addColorStop(1, 'rgba(0,176,255,0.0)');
+
+    const datasets = [{
+        label: 'Emails Generated',
+        data: generatedData,
+        borderColor: PALETTE.cyan,
+        borderWidth: 2,
+        pointBackgroundColor: PALETTE.cyan,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        fill: true,
+        backgroundColor: genGradient,
+        tension: 0.4,
+    }];
+
+    if (sentData) {
+        const sentGradient = ctx.createLinearGradient(0, 0, 0, 200);
+        sentGradient.addColorStop(0, 'rgba(0,230,118,0.25)');
+        sentGradient.addColorStop(1, 'rgba(0,230,118,0.0)');
+
+        datasets.push({
+            label: 'Emails Sent',
+            data: sentData,
+            borderColor: '#00e676', // Emerald Green
+            borderWidth: 2,
+            pointBackgroundColor: '#00e676',
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            fill: true,
+            backgroundColor: sentGradient,
+            tension: 0.4,
+        });
+    }
+
     return new Chart(ctx, {
         type: 'line',
         data: {
             labels,
-            datasets: [{
-                data,
-                borderColor: PALETTE.cyan,
-                borderWidth: 2,
-                pointBackgroundColor: PALETTE.cyan,
-                pointRadius: 4,
-                pointHoverRadius: 6,
-                fill: true,
-                backgroundColor: gradient,
-                tension: 0.4,
-            }]
+            datasets
         },
-        options: getChartOptions(true)
+        options: {
+            ...getChartOptions(true),
+            plugins: {
+                ...getChartOptions(true).plugins,
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        color: 'rgba(255,255,255,0.7)',
+                        font: { family: 'Outfit, sans-serif', size: 11 }
+                    }
+                }
+            }
+        }
     });
 }
 
@@ -272,7 +309,7 @@ async function loadEmailDashboard() {
     try {
         const res = await fetch('/api/email_stats');
         d = await res.json();
-    } catch(e) {
+    } catch (e) {
         console.warn('Could not fetch email stats:', e);
         d = {
             total_emails: 0, sent: 0, pending: 0, added_today: 0,
@@ -282,11 +319,14 @@ async function loadEmailDashboard() {
     }
 
     // KPI cards
-    document.getElementById('email-total').textContent   = fmt(d.total_emails);
-    document.getElementById('email-sent').textContent    = fmt(d.sent);
+    document.getElementById('email-total').textContent = fmt(d.total_emails);
+    document.getElementById('email-sent').textContent = fmt(d.sent);
+    const sentTodayEl = document.getElementById('email-sent-today');
+    if (sentTodayEl) {
+        sentTodayEl.textContent = fmt(d.sent_today || 0);
+    }
     document.getElementById('email-pending').textContent = fmt(d.pending);
-    document.getElementById('email-today').textContent   = fmt(d.added_today);
-    document.getElementById('pending-count-badge').textContent = fmt(d.pending) + ' pending';
+    document.getElementById('email-today').textContent = fmt(d.added_today);
 
     const successRateEl = document.getElementById('email-success-rate');
     if (successRateEl) {
@@ -294,17 +334,17 @@ async function loadEmailDashboard() {
     }
 
     // Leaderboard
-    const kwEntries = Object.entries(d.keyword_counts || {}).sort((a,b) => b[1]-a[1]);
+    const kwEntries = Object.entries(d.keyword_counts || {}).sort((a, b) => b[1] - a[1]);
     const topKw = kwEntries[0];
     document.getElementById('email-top-keyword').textContent =
         topKw ? `${topKw[0]}  —  ${fmt(topKw[1])} emails` : 'No data yet';
 
     // Status Pie Chart
-    const sentVal    = d.sent    || 0;
+    const sentVal = d.sent || 0;
     const pendingVal = d.pending || 0;
     const skippedVal = d.skipped || 0;
     const statusLabels = ['Sent', 'Pending', 'Skipped'];
-    const statusData   = [sentVal, pendingVal, skippedVal];
+    const statusData = [sentVal, pendingVal, skippedVal];
     const statusColors = [PALETTE.cyan, PALETTE.yellow, PALETTE.gray];
 
     if (emailStatusChartInst) emailStatusChartInst.destroy();
@@ -317,20 +357,20 @@ async function loadEmailDashboard() {
     emailKeywordChartInst = makeBarChart(
         'emailKeywordChart',
         topKws.map(([k]) => k),
-        topKws.map(([,v]) => v)
+        topKws.map(([, v]) => v)
     );
 
     // Domain Doughnut Chart
-    const domains = Object.entries(d.domain_distribution || {}).sort((a,b)=>b[1]-a[1]);
+    const domains = Object.entries(d.domain_distribution || {}).sort((a, b) => b[1] - a[1]);
     const topDomains = domains.slice(0, 7);
-    const otherDomainsCount = domains.slice(7).reduce((sum, [,v]) => sum + v, 0);
+    const otherDomainsCount = domains.slice(7).reduce((sum, [, v]) => sum + v, 0);
     const domainLabels = topDomains.map(([k]) => k.startsWith('.') ? k : '@' + k);
-    const domainData = topDomains.map(([,v]) => v);
+    const domainData = topDomains.map(([, v]) => v);
     if (otherDomainsCount > 0) {
         domainLabels.push('Other corporate');
         domainData.push(otherDomainsCount);
     }
-    
+
     if (emailDomainChartInst) emailDomainChartInst.destroy();
     emailDomainChartInst = makePieChart('emailDomainChart', domainLabels, domainData, BAR_COLORS);
 
@@ -340,7 +380,8 @@ async function loadEmailDashboard() {
     emailDailyChartInst = makeLineChart(
         'emailDailyChart',
         daily.map(r => r.date),
-        daily.map(r => r.count)
+        daily.map(r => r.generated || r.count || 0),
+        daily.map(r => r.sent || 0)
     );
 
     // Keyword Effectiveness Table
@@ -353,7 +394,7 @@ async function loadEmailDashboard() {
             kwTbody.innerHTML = '';
             kwEntries.slice(0, 15).forEach(([kw, count], i) => {
                 kwTbody.appendChild(mkRow(
-                    `<span class="rank-num ${rankClass(i)}">${i+1}</span>`,
+                    `<span class="rank-num ${rankClass(i)}">${i + 1}</span>`,
                     kw,
                     `<span class="count-value">${fmt(count)}</span>`,
                     progressBar(count, maxKw)
@@ -362,10 +403,6 @@ async function loadEmailDashboard() {
         }
     }
 
-    // Pending Queue Table
-    pendingQueueData = d.pending_queue || [];
-    pendingCurrentPage = 1; // Reset to page 1 on refresh
-    renderPendingQueuePage();
 }
 
 // ─────────────────────────────────────────────────────────
@@ -376,10 +413,10 @@ async function loadCompanyDashboard() {
     try {
         const res = await fetch('/api/company_stats');
         d = await res.json();
-    } catch(e) {
+    } catch (e) {
         console.warn('Could not fetch company stats:', e);
         d = {
-            total_companies: 0, new: 0, done: 0, not_interested: 0,
+            total_companies: 0, new: 0, done: 0, not_interested: 0, interested: 0, referral_outreach: 0,
             status_distribution: {}, keyword_counts: {}, keyword_status: {},
             top_hiring_companies: {}
         };
@@ -387,32 +424,52 @@ async function loadCompanyDashboard() {
 
     // KPI cards
     document.getElementById('co-total').textContent = fmt(d.total_companies);
-    document.getElementById('co-new').textContent   = fmt(d.new);
-    document.getElementById('co-done').textContent  = fmt(d.done);
-    document.getElementById('co-ni').textContent    = fmt(d.not_interested);
+    document.getElementById('co-new').textContent = fmt(d.new);
+    const coInterestedEl = document.getElementById('co-interested');
+    if (coInterestedEl) coInterestedEl.textContent = fmt(d.interested || 0);
+    const coReferralEl = document.getElementById('co-referral-outreach');
+    if (coReferralEl) coReferralEl.textContent = fmt(d.referral_outreach || 0);
+    document.getElementById('co-done').textContent = fmt(d.done);
+    document.getElementById('co-ni').textContent = fmt(d.not_interested);
 
     // Leaderboard
-    const coKwEntries = Object.entries(d.keyword_counts || {}).sort((a,b)=>b[1]-a[1]);
+    const coKwEntries = Object.entries(d.keyword_counts || {}).sort((a, b) => b[1] - a[1]);
     const topCoKw = coKwEntries[0];
     document.getElementById('co-top-keyword').textContent =
         topCoKw ? `${topCoKw[0]}  —  ${fmt(topCoKw[1])} companies` : 'No data yet';
 
     // Dynamic Status Pie Chart
     const statusDist = d.status_distribution || {};
-    const coStatusLabels = Object.keys(statusDist).map(s => s.charAt(0).toUpperCase() + s.slice(1));
-    const coStatusData = Object.values(statusDist);
-    
-    const statusColorsMap = {
-        'new': PALETTE.cyan,
-        'done': PALETTE.teal,
-        'not interested': PALETTE.red,
-        'interested': PALETTE.purple,
-        'asked for referral': PALETTE.indigo,
-        'in progress': PALETTE.yellow,
-        'discovered': PALETTE.green,
-        'referred': PALETTE.pink
-    };
-    const coStatusColors = Object.keys(statusDist).map(s => statusColorsMap[s.toLowerCase()] || PALETTE.gray);
+    let newCount = 0;
+    let interestedCount = 0;
+    let outreachCount = 0;
+    let doneCount = 0;
+    let niCount = 0;
+
+    Object.entries(statusDist).forEach(([status, val]) => {
+        const s = status.toLowerCase();
+        if (s === 'new') {
+            newCount += val;
+        } else if (s === 'interested') {
+            interestedCount += val;
+        } else if (['ask for referral', 'asked for referral', 'referred', 'referral outreach completed'].includes(s)) {
+            outreachCount += val;
+        } else if (s === 'done') {
+            doneCount += val;
+        } else if (s === 'not interested') {
+            niCount += val;
+        }
+    });
+
+    const coStatusLabels = ['New', 'Interested', 'Referral Outreach', 'Done', 'Not Interested'];
+    const coStatusData = [newCount, interestedCount, outreachCount, doneCount, niCount];
+    const coStatusColors = [
+        PALETTE.purple, // New -> Purple
+        PALETTE.green,  // Interested -> Green
+        PALETTE.yellow, // Referral Outreach -> Yellow
+        PALETTE.teal,   // Done -> Teal
+        PALETTE.red     // Not Interested -> Red
+    ];
 
     if (coStatusChartInst) coStatusChartInst.destroy();
     coStatusChartInst = makePieChart('coStatusChart', coStatusLabels, coStatusData, coStatusColors);
@@ -423,17 +480,8 @@ async function loadCompanyDashboard() {
     if (coKeywordChartInst) coKeywordChartInst.destroy();
     coKeywordChartInst = makeBarChart(
         'coKeywordChart',
-        topCoKws.map(([k])=>k),
-        topCoKws.map(([,v])=>v)
-    );
-
-    // Top Hiring Companies Chart
-    const hiringEntries = Object.entries(d.top_hiring_companies || {}).sort((a,b)=>b[1]-a[1]);
-    if (coHiringChartInst) coHiringChartInst.destroy();
-    coHiringChartInst = makeBarChart(
-        'coHiringChart',
-        hiringEntries.map(([k])=>k),
-        hiringEntries.map(([,v])=>v)
+        topCoKws.map(([k]) => k),
+        topCoKws.map(([, v]) => v)
     );
 
     // Keyword Analysis Table
@@ -446,7 +494,7 @@ async function loadCompanyDashboard() {
             coKwTbody.innerHTML = '';
             coKwEntries.slice(0, 15).forEach(([kw, count], i) => {
                 coKwTbody.appendChild(mkRow(
-                    `<span class="rank-num ${rankClass(i)}">${i+1}</span>`,
+                    `<span class="rank-num ${rankClass(i)}">${i + 1}</span>`,
                     kw,
                     `<span class="count-value">${fmt(count)}</span>`,
                     progressBar(count, maxCoKw)
@@ -454,113 +502,9 @@ async function loadCompanyDashboard() {
             });
         }
     }
-
-    // Keyword vs Status Table
-    const ksTbody = document.querySelector('#co-keyword-status-table tbody');
-    if (ksTbody) {
-        const ks = d.keyword_status || {};
-        const ksEntries = Object.entries(ks).sort((a,b) => {
-            const totalA = (a[1].new||0)+(a[1].done||0)+(a[1].not_interested||0);
-            const totalB = (b[1].new||0)+(b[1].done||0)+(b[1].not_interested||0);
-            return totalB - totalA;
-        });
-
-        if (ksEntries.length === 0) {
-            ksTbody.innerHTML = emptyRow(4);
-        } else {
-            ksTbody.innerHTML = '';
-            ksEntries.slice(0, 15).forEach(([kw, s]) => {
-                ksTbody.appendChild(mkRow(
-                    `<strong>${kw}</strong>`,
-                    `<span class="count-value" style="color:var(--accent-cyan)">${fmt(s.new||0)}</span>`,
-                    `<span class="count-value" style="color:var(--accent-teal)">${fmt(s.done||0)}</span>`,
-                    `<span class="count-value" style="color:var(--accent-red)">${fmt(s.not_interested||0)}</span>`
-                ));
-            });
-        }
-    }
 }
 
-function renderPendingQueuePage() {
-    const pqTbody = document.querySelector('#email-pending-table tbody');
-    if (!pqTbody) return;
-    
-    if (pendingQueueData.length === 0) {
-        pqTbody.innerHTML = emptyRow(3, 'No pending emails 🎉');
-        renderPendingPaginationControls(0);
-        return;
-    }
-    
-    const totalPages = Math.ceil(pendingQueueData.length / pendingRecordsPerPage) || 1;
-    if (pendingCurrentPage > totalPages) {
-        pendingCurrentPage = totalPages;
-    }
-    if (pendingCurrentPage < 1) {
-        pendingCurrentPage = 1;
-    }
-    
-    const startIndex = (pendingCurrentPage - 1) * pendingRecordsPerPage;
-    const pageData = pendingQueueData.slice(startIndex, startIndex + pendingRecordsPerPage);
-    
-    pqTbody.innerHTML = '';
-    pageData.forEach(row => {
-        const email   = row.Email   || row.email   || '—';
-        const keyword = row.Keyword || row.keyword || '—';
-        const ts      = row.Timestamp || row.timestamp || '—';
-        pqTbody.appendChild(mkRow(email, keyword, ts));
-    });
-    
-    renderPendingPaginationControls(pendingQueueData.length);
-}
 
-function renderPendingPaginationControls(totalRecords) {
-    const container = document.getElementById('email-pending-pagination');
-    if (!container) return;
-    
-    if (totalRecords <= pendingRecordsPerPage) {
-        container.innerHTML = '';
-        return;
-    }
-    
-    const totalPages = Math.ceil(totalRecords / pendingRecordsPerPage) || 1;
-    const startRecord = (pendingCurrentPage - 1) * pendingRecordsPerPage + 1;
-    const endRecord = Math.min(pendingCurrentPage * pendingRecordsPerPage, totalRecords);
-    
-    let infoHtml = `<div class="pagination-info">Showing <strong>${startRecord}</strong> to <strong>${endRecord}</strong> of <strong>${totalRecords}</strong> records</div>`;
-    
-    let controlsHtml = `<div class="pagination-controls">`;
-    const prevDisabled = pendingCurrentPage === 1 ? 'disabled' : '';
-    controlsHtml += `
-        <button class="pagination-btn" type="button" onclick="changePendingPage(${pendingCurrentPage - 1})" ${prevDisabled}>
-            <i class="fa-solid fa-chevron-left"></i> Prev
-        </button>
-    `;
-    
-    controlsHtml += `<div class="pagination-pages">`;
-    for (let i = 1; i <= totalPages; i++) {
-        const activeClass = i === pendingCurrentPage ? 'active' : '';
-        controlsHtml += `<button class="pagination-page-btn ${activeClass}" type="button" onclick="changePendingPage(${i})">${i}</button>`;
-    }
-    controlsHtml += `</div>`;
-    
-    const nextDisabled = pendingCurrentPage === totalPages ? 'disabled' : '';
-    controlsHtml += `
-        <button class="pagination-btn" type="button" onclick="changePendingPage(${pendingCurrentPage + 1})" ${nextDisabled}>
-            Next <i class="fa-solid fa-chevron-right"></i>
-        </button>
-    `;
-    controlsHtml += `</div>`;
-    
-    container.innerHTML = infoHtml + controlsHtml;
-}
-
-function changePendingPage(page) {
-    pendingCurrentPage = page;
-    renderPendingQueuePage();
-}
-
-// Expose changePendingPage globally
-window.changePendingPage = changePendingPage;
 
 // ─────────────────────────────────────────────────────────
 //  Bootstrap — run when dashboard tab is active
@@ -570,7 +514,7 @@ async function loadOutreachDashboard() {
     try {
         const res = await fetch('/api/outreach_stats');
         d = await res.json();
-    } catch(e) {
+    } catch (e) {
         console.warn('Could not fetch outreach stats:', e);
         d = {
             total_contacts: 0, sent: 0, pending: 0, failed: 0,
@@ -591,7 +535,7 @@ async function loadOutreachDashboard() {
     if (elFailed) elFailed.textContent = fmt(d.failed);
 
     // Leaderboard Target Company
-    const compEntries = Object.entries(d.company_distribution || {}).sort((a,b)=>b[1]-a[1]);
+    const compEntries = Object.entries(d.company_distribution || {}).sort((a, b) => b[1] - a[1]);
     const topComp = compEntries[0];
     const elLeaderboard = document.getElementById('outreach-top-company');
     if (elLeaderboard) {
@@ -614,12 +558,12 @@ async function loadOutreachDashboard() {
     renderLegend('outreach-status-legend', statusLabels, statusColors, statusData);
 
     // Source Bar Chart
-    const sourceEntries = Object.entries(d.source_distribution || {}).sort((a,b)=>b[1]-a[1]);
+    const sourceEntries = Object.entries(d.source_distribution || {}).sort((a, b) => b[1] - a[1]);
     if (outreachSourceChartInst) outreachSourceChartInst.destroy();
     outreachSourceChartInst = makeBarChart(
         'outreachSourceChart',
-        sourceEntries.map(([k])=>k),
-        sourceEntries.map(([,v])=>v)
+        sourceEntries.map(([k]) => k),
+        sourceEntries.map(([, v]) => v)
     );
 
     // Daily Line Chart
@@ -640,11 +584,11 @@ async function loadOutreachDashboard() {
         } else {
             tbody.innerHTML = '';
             recent.forEach(row => {
-                const statusClass = row.Status.toLowerCase() === 'sent' ? 'status-pill done' : 
-                                   (row.Status.toLowerCase() === 'pending' ? 'status-pill new' : 'status-pill ni');
+                const statusClass = row.Status.toLowerCase() === 'sent' ? 'status-pill done' :
+                    (row.Status.toLowerCase() === 'pending' ? 'status-pill new' : 'status-pill ni');
                 const statusText = row.Status || 'Unknown';
                 const statusBadge = `<span class="${statusClass}">${statusText}</span>`;
-                
+
                 tbody.appendChild(mkRow(
                     row.Name || '—',
                     `<strong>${row.Company}</strong>`,
@@ -668,7 +612,7 @@ async function loadDashboardAnalytics() {
 // calls this function when the dashboard nav-item is clicked).
 // We expose it globally:
 window.loadDashboardAnalytics = loadDashboardAnalytics;
-window.switchDashModule       = switchDashModule;
+window.switchDashModule = switchDashModule;
 
 // Auto-load on first paint if dashboard is already active
 document.addEventListener('DOMContentLoaded', () => {

@@ -278,3 +278,111 @@ class TestGetSheetsConfig:
         url, creds = result
         assert "docs.google.com" in url
         assert "service_account" in creds
+
+
+class TestCompositeUniquenessConstraints:
+    def test_append_email_composite_uniqueness(self, local_user):
+        from core.storage.database import append_email, read_database_rows
+        assert append_email("test@domain.com", post_url="https://post.com/1") is True
+        assert append_email("test@domain.com", post_url="https://post.com/1") is False
+        assert append_email("test@domain.com", post_url="https://post.com/2") is True
+        assert append_email("other@domain.com", post_url="https://post.com/1") is True
+        assert len(read_database_rows("emails")) == 3
+
+    def test_save_job_composite_uniqueness(self, local_user):
+        from core.storage.database import save_job, load_saved_jobs
+        j1 = {"JobTitle": "SWE", "CompanyName": "CoA", "LinkedIn_Company_URL": "https://li.com/coa", "CompanyURL": "https://apply.com/1", "Status": "NEW"}
+        j2 = {"JobTitle": "SWE", "CompanyName": "CoB", "LinkedIn_Company_URL": "https://li.com/cob", "CompanyURL": "https://apply.com/1", "Status": "NEW"}
+        
+        assert save_job(j1) is True
+        assert save_job(j1) is False
+        assert save_job(j2) is True
+        assert len(load_saved_jobs()) == 2
+
+    def test_add_or_update_referral_composite_uniqueness(self, local_user):
+        from core.storage.database import add_or_update_referral, load_all_referrals
+        r1 = {"JobID": "1", "JobTitle": "SWE", "CompanyName": "CoA", "Company_URL": "https://apply.com/1", "Referral_Person_Name": "P1", "Referral_Person_Profile_URL": "https://li.com/in/p1", "Referral_Status": "NEW"}
+        r2 = {"JobID": "2", "JobTitle": "SWE", "CompanyName": "CoB", "Company_URL": "https://apply.com/2", "Referral_Person_Name": "P1", "Referral_Person_Profile_URL": "https://li.com/in/p1", "Referral_Status": "NEW"}
+        
+        assert add_or_update_referral(r1) is True
+        assert add_or_update_referral(r1) is True
+        assert len(load_all_referrals()) == 1
+        assert add_or_update_referral(r2) is True
+        assert len(load_all_referrals()) == 2
+
+    def test_deduplicate_all_tables_cleans_existing(self, local_user):
+        from core.storage.database import deduplicate_all_tables
+        from core.storage.engine import write_database_rows, read_database_rows
+        
+        emails = [
+            {'ID': 1, 'Email': 'a@a.com', 'PostURL': 'http://a.com', 'Status': 'New'},
+            {'ID': 2, 'Email': 'a@a.com', 'PostURL': 'http://a.com', 'Status': 'New'},
+            {'ID': 3, 'Email': 'b@b.com', 'PostURL': 'http://b.com', 'Status': 'New'}
+        ]
+        write_database_rows("emails", emails)
+        
+        deduplicate_all_tables(local_user["username"])
+        
+        cleaned = read_database_rows("emails")
+        assert len(cleaned) == 2
+
+    def test_get_email_metrics_daily_counts(self, local_user):
+        from core.storage.database import append_email, update_status
+        from core.analytics.metrics import get_email_metrics
+        
+        # Add a generated email
+        append_email("gen@a.com")
+        
+        # Add another email and update to sent
+        append_email("sent@b.com")
+        update_status("sent@b.com", "sent")
+        
+        metrics = get_email_metrics()
+        daily = metrics["daily_counts"]
+        
+        assert len(daily) == 30
+        
+        # Today's daily stats should show 2 generated and 1 sent
+        today_stats = daily[-1]
+        assert today_stats["generated"] == 2
+        assert today_stats["sent"] == 1
+        assert metrics["sent_today"] == 1
+
+    def test_get_company_metrics(self, local_user):
+        from core.storage.database import save_job
+        from core.analytics.metrics import get_company_metrics
+        from core.storage.engine import read_database_rows, write_database_rows
+        
+        job1 = {
+            "JobTitle": "Job 1",
+            "CompanyName": "Company A",
+            "Location": "New York",
+            "CompanyURL": "http://a.com",
+            "ShortenURL": "",
+            "SearchKeyword": "Python",
+            "Status": "NEW"
+        }
+        job2 = {
+            "JobTitle": "Job 2",
+            "CompanyName": "Company B",
+            "Location": "New York",
+            "CompanyURL": "http://b.com",
+            "ShortenURL": "",
+            "SearchKeyword": "Python",
+            "Status": "NEW"
+        }
+        save_job(job1)
+        save_job(job2)
+        
+        rows = read_database_rows("jobs")
+        for r in rows:
+            if r["CompanyName"] == "Company B":
+                r["Status"] = "Interested"
+            elif r["CompanyName"] == "Company A":
+                r["Status"] = "Asked for Referral"
+        write_database_rows("jobs", rows)
+        
+        metrics = get_company_metrics()
+        assert metrics["total_companies"] == 2
+        assert metrics["interested"] == 1
+        assert metrics["referral_outreach"] == 1

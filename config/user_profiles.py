@@ -142,7 +142,7 @@ def load_all_configs(bypass_cache: bool = False):
         global_settings = {
             "linkedin_email": os.getenv("LINKEDIN_EMAIL", ""),
             "linkedin_password": os.getenv("LINKEDIN_PASSWORD", ""),
-            "search_location": "Bangalore, Karnataka, India",
+            "search_location": "",
             "search_time_range": "r604800",
             "dry_run": "0",
             "max_run_duration_seconds": "600",

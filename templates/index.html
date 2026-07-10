@@ -1,11 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Connectify Automation Hub</title>
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Space+Grotesk:wght@400;700&display=swap"
+        rel="stylesheet">
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- ChartJS library -->
@@ -15,6 +18,7 @@
     <!-- Favicon / Web icon -->
     <link rel="icon" type="image/png" href="/static/connectify_logo.png">
 </head>
+
 <body>
     <div class="glass-container">
         <!-- Sidebar Navigation -->
@@ -44,7 +48,7 @@
                     <i class="fa-solid fa-sliders"></i> Settings
                 </button>
             </nav>
-            
+
             <!-- Theme Selector Button Group -->
             <div class="theme-selection-container">
                 <div class="theme-label">Theme Mode</div>
@@ -64,16 +68,17 @@
             <!-- Active Profile Dropdown -->
             <div class="user-selector-container" style="display: flex; align-items: center; gap: 12px;">
                 <!-- Active Storage Indicator -->
-                <div id="active-storage-indicator" class="active-storage-badge badge-local" title="Current active database backend">
+                <div id="active-storage-indicator" class="active-storage-badge badge-local"
+                    title="Current active database backend">
                     <i class="fa-solid fa-database"></i> <span>Active Storage: Local Database</span>
                 </div>
-                
+
                 <div class="searchable-select" id="user-searchable-select">
                     <!-- Trigger: A circular profile avatar with initials -->
                     <div class="user-profile-avatar-trigger" id="user-select-trigger" title="Switch active profile">
                         <span id="selected-user-display-initials">U</span>
                     </div>
-                    
+
                     <!-- Dropdown Menu -->
                     <div class="searchable-select-dropdown hidden" id="user-select-dropdown">
                         <div class="dropdown-user-header">
@@ -87,13 +92,15 @@
                         <div class="dropdown-section-title">Switch Profile</div>
                         <div class="searchable-select-search-box">
                             <i class="fa-solid fa-magnifying-glass search-icon"></i>
-                            <input type="text" id="user-search-input" placeholder="Search profiles..." autocomplete="off">
+                            <input type="text" id="user-search-input" placeholder="Search profiles..."
+                                autocomplete="off">
                         </div>
                         <div class="searchable-select-options" id="user-select-options-list">
                             <!-- Populated dynamically -->
                         </div>
                         <div class="searchable-select-footer">
-                            <button type="button" class="btn btn-primary btn-create-user-trigger" id="btn-show-create-modal" style="width: 100%; justify-content: center; gap: 8px;">
+                            <button type="button" class="btn btn-primary btn-create-user-trigger"
+                                id="btn-show-create-modal" style="width: 100%; justify-content: center; gap: 8px;">
                                 <i class="fa-solid fa-user-plus"></i> Add Profile
                             </button>
                         </div>
@@ -120,7 +127,7 @@
                 <!-- ===== MODULE 1: EMAIL SCRAPER ===== -->
                 <div id="dash-panel-email" class="dash-panel active">
                     <!-- KPI Cards -->
-                    <div class="kpi-grid" id="email-kpi-grid">
+                    <div class="kpi-grid-5" id="email-kpi-grid">
                         <div class="kpi-card kpi-cyan">
                             <div class="kpi-icon"><i class="fa-solid fa-envelope"></i></div>
                             <div class="kpi-body">
@@ -134,8 +141,17 @@
                                 <span class="kpi-label">Emails Sent</span>
                                 <div style="display: flex; align-items: baseline; gap: 8px;">
                                     <h2 class="kpi-value" id="email-sent">—</h2>
-                                    <span class="kpi-badge-teal" id="email-success-rate" style="font-size: 0.76rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; background: rgba(0, 230, 118, 0.12); color: var(--accent-green); border: 1px solid rgba(0, 230, 118, 0.2);">0% rate</span>
+                                    <span class="kpi-badge-teal" id="email-success-rate"
+                                        style="font-size: 0.76rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; background: rgba(0, 230, 118, 0.12); color: var(--accent-green); border: 1px solid rgba(0, 230, 118, 0.2);">0%
+                                        rate</span>
                                 </div>
+                            </div>
+                        </div>
+                        <div class="kpi-card kpi-teal">
+                            <div class="kpi-icon"><i class="fa-solid fa-calendar-check"></i></div>
+                            <div class="kpi-body">
+                                <span class="kpi-label">Sent Today</span>
+                                <h2 class="kpi-value" id="email-sent-today">—</h2>
                             </div>
                         </div>
                         <div class="kpi-card kpi-yellow">
@@ -162,7 +178,7 @@
                     </div>
 
                     <!-- Charts Row -->
-                    <div class="charts-grid">
+                    <div class="charts-grid-equal">
                         <div class="chart-card card-glass">
                             <h3 class="chart-title"><i class="fa-solid fa-chart-pie"></i> Email Status</h3>
                             <div class="chart-wrap">
@@ -176,13 +192,7 @@
                                 <canvas id="emailKeywordChart"></canvas>
                             </div>
                         </div>
-                        <div class="chart-card card-glass">
-                            <h3 class="chart-title"><i class="fa-solid fa-at"></i> Email Domains</h3>
-                            <div class="chart-wrap">
-                                <canvas id="emailDomainChart"></canvas>
-                            </div>
-                        </div>
-                        <div class="chart-card card-glass chart-card-wide" style="grid-column: span 3;">
+                        <div class="chart-card card-glass chart-card-wide" style="grid-column: span 2;">
                             <h3 class="chart-title"><i class="fa-solid fa-chart-line"></i> Emails Generated Per Day</h3>
                             <div class="chart-wrap">
                                 <canvas id="emailDailyChart"></canvas>
@@ -206,37 +216,21 @@
                                         <th>Share</th>
                                     </tr>
                                 </thead>
-                                <tbody><tr><td colspan="4" class="table-empty">Loading...</td></tr></tbody>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="4" class="table-empty">Loading...</td>
+                                    </tr>
+                                </tbody>
                             </table>
                         </div>
                     </div>
 
-                    <!-- Pending Queue Table -->
-                    <div class="analytics-table-section card-glass" style="margin-top:1rem;">
-                        <div class="table-section-header">
-                            <h3><i class="fa-solid fa-hourglass-half"></i> New Queue</h3>
-                            <span class="kpi-badge-yellow" id="pending-count-badge">0 new</span>
-                        </div>
-                        <div class="table-wrap">
-                            <table class="analytics-table" id="email-pending-table">
-                                <thead>
-                                    <tr>
-                                        <th>Email</th>
-                                        <th>Keyword</th>
-                                        <th>Created Date</th>
-                                    </tr>
-                                </thead>
-                                <tbody><tr><td colspan="3" class="table-empty">Loading...</td></tr></tbody>
-                            </table>
-                        </div>
-                        <div class="pagination-container" id="email-pending-pagination" style="margin-top: 12px;"></div>
-                    </div>
                 </div>
 
                 <!-- ===== MODULE 2: COMPANY DATABASE ===== -->
                 <div id="dash-panel-company" class="dash-panel">
                     <!-- KPI Cards -->
-                    <div class="kpi-grid">
+                    <div class="kpi-grid-6" id="company-kpi-grid">
                         <div class="kpi-card kpi-cyan">
                             <div class="kpi-icon"><i class="fa-solid fa-building"></i></div>
                             <div class="kpi-body">
@@ -244,11 +238,25 @@
                                 <h2 class="kpi-value" id="co-total">—</h2>
                             </div>
                         </div>
-                        <div class="kpi-card kpi-cyan">
-                            <div class="kpi-icon"><i class="fa-solid fa-sparkles"></i></div>
+                        <div class="kpi-card kpi-purple">
+                            <div class="kpi-icon"><i class="fa-solid fa-circle-plus"></i></div>
                             <div class="kpi-body">
                                 <span class="kpi-label">New</span>
                                 <h2 class="kpi-value" id="co-new">—</h2>
+                            </div>
+                        </div>
+                        <div class="kpi-card kpi-green">
+                            <div class="kpi-icon"><i class="fa-solid fa-thumbs-up"></i></div>
+                            <div class="kpi-body">
+                                <span class="kpi-label">Interested</span>
+                                <h2 class="kpi-value" id="co-interested">—</h2>
+                            </div>
+                        </div>
+                        <div class="kpi-card kpi-yellow">
+                            <div class="kpi-icon"><i class="fa-solid fa-share-nodes"></i></div>
+                            <div class="kpi-body">
+                                <span class="kpi-label">Referral Outreach</span>
+                                <h2 class="kpi-value" id="co-referral-outreach">—</h2>
                             </div>
                         </div>
                         <div class="kpi-card kpi-teal">
@@ -275,9 +283,10 @@
                     </div>
 
                     <!-- Charts Row -->
-                    <div class="charts-grid">
+                    <div class="charts-grid-equal">
                         <div class="chart-card card-glass">
-                            <h3 class="chart-title"><i class="fa-solid fa-chart-pie"></i> Company Status Distribution</h3>
+                            <h3 class="chart-title"><i class="fa-solid fa-chart-pie"></i> Company Status Distribution
+                            </h3>
                             <div class="chart-wrap">
                                 <canvas id="coStatusChart"></canvas>
                             </div>
@@ -287,12 +296,6 @@
                             <h3 class="chart-title"><i class="fa-solid fa-chart-bar"></i> Search Keyword Analysis</h3>
                             <div class="chart-wrap">
                                 <canvas id="coKeywordChart"></canvas>
-                            </div>
-                        </div>
-                        <div class="chart-card card-glass">
-                            <h3 class="chart-title"><i class="fa-solid fa-building-user"></i> Top Hiring Companies</h3>
-                            <div class="chart-wrap">
-                                <canvas id="coHiringChart"></canvas>
                             </div>
                         </div>
                     </div>
@@ -313,31 +316,15 @@
                                         <th>Share</th>
                                     </tr>
                                 </thead>
-                                <tbody><tr><td colspan="4" class="table-empty">Loading...</td></tr></tbody>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="4" class="table-empty">Loading...</td>
+                                    </tr>
+                                </tbody>
                             </table>
                         </div>
                     </div>
 
-                    <!-- Keyword vs Status Table -->
-                    <div class="analytics-table-section card-glass" style="margin-top:1rem;">
-                        <div class="table-section-header">
-                            <h3><i class="fa-solid fa-table-columns"></i> Keyword vs Status Breakdown</h3>
-                            <span class="table-badge" style="background:rgba(44,182,125,0.15);color:#2cb67d;">Very Useful</span>
-                        </div>
-                        <div class="table-wrap">
-                            <table class="analytics-table" id="co-keyword-status-table">
-                                <thead>
-                                    <tr>
-                                        <th>Keyword</th>
-                                        <th><span class="status-pill new">New</span></th>
-                                        <th><span class="status-pill done">Done</span></th>
-                                        <th><span class="status-pill ni">Not Interested</span></th>
-                                    </tr>
-                                </thead>
-                                <tbody><tr><td colspan="4" class="table-empty">Loading...</td></tr></tbody>
-                            </table>
-                        </div>
-                    </div>
                 </div>
 
 
@@ -373,10 +360,13 @@
                                             <span id="profile-display-exp-val">Experience not set</span>
                                         </div>
                                     </div>
-                                    <button type="submit" class="btn btn-success" style="width: 100%; justify-content: center; margin-top: 15px;">
+                                    <button type="submit" class="btn btn-success"
+                                        style="width: 100%; justify-content: center; margin-top: 15px;">
                                         <i class="fa-solid fa-floppy-disk"></i> Save Profile
                                     </button>
-                                    <div id="profile-save-status" class="save-status" style="margin-top: 10px; font-size: 0.78rem; text-align: center; min-height: 16px; display: block; font-weight: 500;"></div>
+                                    <div id="profile-save-status" class="save-status"
+                                        style="margin-top: 10px; font-size: 0.78rem; text-align: center; min-height: 16px; display: block; font-weight: 500;">
+                                    </div>
                                 </div>
 
                                 <!-- Resume Card -->
@@ -395,9 +385,11 @@
                                             <div id="resume-download-link-container"></div>
                                         </div>
                                         <div style="display: flex; gap: 10px; margin-top: 10px;">
-                                            <button type="button" class="btn btn-secondary btn-file-select" style="flex-grow: 1; justify-content: center;">
+                                            <button type="button" class="btn btn-secondary btn-file-select"
+                                                style="flex-grow: 1; justify-content: center;">
                                                 <i class="fa-solid fa-cloud-arrow-up"></i> Upload Resume
-                                                <input type="file" id="resume-file-input" accept=".pdf,.doc,.docx" onchange="uploadResumeFile()">
+                                                <input type="file" id="resume-file-input" accept=".pdf,.doc,.docx"
+                                                    onchange="uploadResumeFile()">
                                             </button>
                                         </div>
                                     </div>
@@ -439,17 +431,20 @@
                                         </div>
                                         <div class="form-group">
                                             <label for="profile-linkedin-url">LinkedIn Profile URL</label>
-                                            <input type="url" id="profile-linkedin-url" placeholder="https://www.linkedin.com/in/username">
+                                            <input type="url" id="profile-linkedin-url"
+                                                placeholder="https://www.linkedin.com/in/username">
                                         </div>
                                     </div>
                                     <div class="form-row-grid-2" style="margin-top: 12px;">
                                         <div class="form-group">
                                             <label for="profile-current-location">Current Location</label>
-                                            <input type="text" id="profile-current-location" placeholder="e.g. Bangalore, India">
+                                            <input type="text" id="profile-current-location"
+                                                placeholder="e.g. Bangalore, India">
                                         </div>
                                         <div class="form-group">
                                             <label for="profile-locations">Preferred Locations</label>
-                                            <input type="text" id="profile-locations" placeholder="Bangalore, Karnataka, India">
+                                            <input type="text" id="profile-locations"
+                                                placeholder="Bangalore, Karnataka, India">
                                         </div>
                                     </div>
                                     <div class="form-row-grid-2" style="margin-top: 12px;">
@@ -465,11 +460,13 @@
                                     <div class="form-row-grid-2" style="margin-top: 12px;">
                                         <div class="form-group">
                                             <label for="profile-notice-period">Notice Period</label>
-                                            <input type="text" id="profile-notice-period" placeholder="e.g. 30 Days, Immediate">
+                                            <input type="text" id="profile-notice-period"
+                                                placeholder="e.g. 30 Days, Immediate">
                                         </div>
                                         <div class="form-group">
                                             <label for="profile-last-working-day">Last Working Day</label>
-                                            <input type="text" id="profile-last-working-day" placeholder="e.g. 23rd July">
+                                            <input type="text" id="profile-last-working-day"
+                                                placeholder="e.g. 23rd July">
                                         </div>
                                     </div>
                                 </div>
@@ -503,10 +500,12 @@
                 <div class="pipelines-wrapper">
                     <!-- Tab Pane 1: Email Scraper -->
                     <div class="pipeline-tab-pane active" id="pane-email-scraper">
-                        <div class="pipeline-card card-glass" id="card-scraper" style="max-width: 800px; margin: 0 auto;">
+                        <div class="pipeline-card card-glass" id="card-scraper"
+                            style="max-width: 800px; margin: 0 auto;">
                             <div class="pipeline-header">
                                 <div class="pipeline-title-group">
-                                    <div class="pipeline-icon-box blue-glow"><i class="fa-solid fa-envelope-open-text"></i></div>
+                                    <div class="pipeline-icon-box blue-glow"><i
+                                            class="fa-solid fa-envelope-open-text"></i></div>
                                     <div>
                                         <h3>Email Scraper Pipeline</h3>
                                         <span class="pipeline-subtitle">Automated Cold Outreach</span>
@@ -514,20 +513,22 @@
                                 </div>
                                 <span class="status-badge status-idle" id="badge-scraper">Idle</span>
                             </div>
-                            
+
                             <div class="pipeline-timeline">
                                 <!-- Step 1 -->
                                 <div class="timeline-item p-step-seq" data-step="1">
                                     <div class="timeline-marker">
                                         <span class="marker-num">1</span>
                                         <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
-                                        <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                        <span class="marker-spinner"><i
+                                                class="fa-solid fa-circle-notch fa-spin"></i></span>
                                     </div>
                                     <div class="timeline-content">
                                         <h4>Fetch Emails</h4>
                                         <p>Scrapes hiring contact emails from LinkedIn feed posts</p>
                                     </div>
-                                    <button class="btn-step-run" onclick="runScraperStep('phase1', event)" title="Run email fetching only">
+                                    <button class="btn-step-run" onclick="runScraperStep('phase1', event)"
+                                        title="Run email fetching only">
                                         <i class="fa-solid fa-play"></i>
                                     </button>
                                 </div>
@@ -536,13 +537,15 @@
                                     <div class="timeline-marker">
                                         <span class="marker-num">2</span>
                                         <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
-                                        <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                        <span class="marker-spinner"><i
+                                                class="fa-solid fa-circle-notch fa-spin"></i></span>
                                     </div>
                                     <div class="timeline-content">
                                         <h4>Send Outreach</h4>
                                         <p>Delivers personalized cold outreach emails via Gmail/SMTP</p>
                                     </div>
-                                    <button class="btn-step-run" onclick="runScraperStep('phase2', event)" title="Run email sending only">
+                                    <button class="btn-step-run" onclick="runScraperStep('phase2', event)"
+                                        title="Run email sending only">
                                         <i class="fa-solid fa-play"></i>
                                     </button>
                                 </div>
@@ -557,10 +560,12 @@
 
                     <!-- Tab Pane 2: Referral Connect -->
                     <div class="pipeline-tab-pane" id="pane-referral-connect">
-                        <div class="pipeline-card card-glass" id="card-referral" style="max-width: 800px; margin: 0 auto;">
+                        <div class="pipeline-card card-glass" id="card-referral"
+                            style="max-width: 800px; margin: 0 auto;">
                             <div class="pipeline-header">
                                 <div class="pipeline-title-group">
-                                    <div class="pipeline-icon-box teal-glow"><i class="fa-solid fa-network-wired"></i></div>
+                                    <div class="pipeline-icon-box teal-glow"><i class="fa-solid fa-network-wired"></i>
+                                    </div>
                                     <div>
                                         <h3>Referral Connection Pipeline</h3>
                                         <span class="pipeline-subtitle">Automating Warm Referrals</span>
@@ -568,20 +573,22 @@
                                 </div>
                                 <span class="status-badge status-idle" id="badge-referral">Idle</span>
                             </div>
-                            
+
                             <div class="pipeline-timeline">
                                 <!-- Step 1 -->
                                 <div class="timeline-item p-step-seq" data-step="1">
                                     <div class="timeline-marker">
                                         <span class="marker-num">1</span>
                                         <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
-                                        <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                        <span class="marker-spinner"><i
+                                                class="fa-solid fa-circle-notch fa-spin"></i></span>
                                     </div>
                                     <div class="timeline-content">
                                         <h4>Find Relevant Jobs</h4>
                                         <p>Searches LinkedIn for target job postings matching your profile</p>
                                     </div>
-                                    <button class="btn-step-run" onclick="runSingleStep(1, event)" title="Run this step only">
+                                    <button class="btn-step-run" onclick="runSingleStep(1, event)"
+                                        title="Run this step only">
                                         <i class="fa-solid fa-play"></i>
                                     </button>
                                 </div>
@@ -590,13 +597,15 @@
                                     <div class="timeline-marker">
                                         <span class="marker-num">2</span>
                                         <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
-                                        <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                        <span class="marker-spinner"><i
+                                                class="fa-solid fa-circle-notch fa-spin"></i></span>
                                     </div>
                                     <div class="timeline-content">
                                         <h4>Analyze Referral Opportunities</h4>
                                         <p>Interactive review to evaluate potential referral contacts</p>
                                     </div>
-                                    <button class="btn-step-run" onclick="runSingleStep(2, event)" title="Run this step only">
+                                    <button class="btn-step-run" onclick="runSingleStep(2, event)"
+                                        title="Run this step only">
                                         <i class="fa-solid fa-play"></i>
                                     </button>
                                 </div>
@@ -605,13 +614,15 @@
                                     <div class="timeline-marker">
                                         <span class="marker-num">3</span>
                                         <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
-                                        <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                        <span class="marker-spinner"><i
+                                                class="fa-solid fa-circle-notch fa-spin"></i></span>
                                     </div>
                                     <div class="timeline-content">
                                         <h4>Discover Connected Employees</h4>
                                         <p>Finds existing 1st-degree LinkedIn connections at target companies</p>
                                     </div>
-                                    <button class="btn-step-run" onclick="runSingleStep(3, event)" title="Run this step only">
+                                    <button class="btn-step-run" onclick="runSingleStep(3, event)"
+                                        title="Run this step only">
                                         <i class="fa-solid fa-play"></i>
                                     </button>
                                 </div>
@@ -620,13 +631,16 @@
                                     <div class="timeline-marker">
                                         <span class="marker-num">4</span>
                                         <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
-                                        <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                        <span class="marker-spinner"><i
+                                                class="fa-solid fa-circle-notch fa-spin"></i></span>
                                     </div>
                                     <div class="timeline-content">
                                         <h4>Send Referral Messages</h4>
-                                        <p>Sends referral request messages to those existing connections and verifies delivery</p>
+                                        <p>Sends referral request messages to those existing connections and verifies
+                                            delivery</p>
                                     </div>
-                                    <button class="btn-step-run" onclick="runSingleStep(4, event)" title="Run this step only">
+                                    <button class="btn-step-run" onclick="runSingleStep(4, event)"
+                                        title="Run this step only">
                                         <i class="fa-solid fa-play"></i>
                                     </button>
                                 </div>
@@ -635,13 +649,15 @@
                                     <div class="timeline-marker">
                                         <span class="marker-num">5</span>
                                         <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
-                                        <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                        <span class="marker-spinner"><i
+                                                class="fa-solid fa-circle-notch fa-spin"></i></span>
                                     </div>
                                     <div class="timeline-content">
                                         <h4>Prepare Referral Links</h4>
                                         <p>Generates short, trackable career links for warm outreach</p>
                                     </div>
-                                    <button class="btn-step-run" onclick="runSingleStep(5, event)" title="Run this step only">
+                                    <button class="btn-step-run" onclick="runSingleStep(5, event)"
+                                        title="Run this step only">
                                         <i class="fa-solid fa-play"></i>
                                     </button>
                                 </div>
@@ -650,18 +666,20 @@
                                     <div class="timeline-marker">
                                         <span class="marker-num">6</span>
                                         <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
-                                        <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                        <span class="marker-spinner"><i
+                                                class="fa-solid fa-circle-notch fa-spin"></i></span>
                                     </div>
                                     <div class="timeline-content">
                                         <h4>Send LinkedIn Connection Requests</h4>
                                         <p>Automates warm connection requests & referral messages on LinkedIn</p>
                                     </div>
-                                    <button class="btn-step-run" onclick="runSingleStep(6, event)" title="Run this step only">
+                                    <button class="btn-step-run" onclick="runSingleStep(6, event)"
+                                        title="Run this step only">
                                         <i class="fa-solid fa-play"></i>
                                     </button>
                                 </div>
                             </div>
-                            
+
                             <div class="pipeline-actions">
                                 <button class="btn btn-primary" id="btn-run-referral">Run Complete Pipeline</button>
                                 <button class="btn btn-danger hidden" id="btn-kill-referral">Stop Pipeline</button>
@@ -671,10 +689,12 @@
 
                     <!-- Tab Pane 3: Recruiter Outreach -->
                     <div class="pipeline-tab-pane" id="pane-recruiter-outreach">
-                        <div class="pipeline-card card-glass" id="card-recruiter" style="max-width: 800px; margin: 0 auto;">
+                        <div class="pipeline-card card-glass" id="card-recruiter"
+                            style="max-width: 800px; margin: 0 auto;">
                             <div class="pipeline-header">
                                 <div class="pipeline-title-group">
-                                    <div class="pipeline-icon-box purple-glow"><i class="fa-solid fa-user-tie"></i></div>
+                                    <div class="pipeline-icon-box purple-glow"><i class="fa-solid fa-user-tie"></i>
+                                    </div>
                                     <div>
                                         <h3>Recruiter Outreach Pipeline</h3>
                                         <span class="pipeline-subtitle">Automating Recruiter Connections</span>
@@ -682,19 +702,21 @@
                                 </div>
                                 <span class="status-badge status-idle" id="badge-recruiter">Idle</span>
                             </div>
-                            
+
                             <div class="pipeline-timeline">
                                 <div class="timeline-item p-step-seq" data-step="1">
                                     <div class="timeline-marker">
                                         <span class="marker-num">1</span>
                                         <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
-                                        <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                        <span class="marker-spinner"><i
+                                                class="fa-solid fa-circle-notch fa-spin"></i></span>
                                     </div>
                                     <div class="timeline-content">
                                         <h4>Discover Connected Recruiters</h4>
                                         <p>Finds existing 1st-degree LinkedIn connections at target companies</p>
                                     </div>
-                                    <button class="btn-step-run" onclick="runRecruiterStep(1, event)" title="Run this step only">
+                                    <button class="btn-step-run" onclick="runRecruiterStep(1, event)"
+                                        title="Run this step only">
                                         <i class="fa-solid fa-play"></i>
                                     </button>
                                 </div>
@@ -702,13 +724,16 @@
                                     <div class="timeline-marker">
                                         <span class="marker-num">2</span>
                                         <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
-                                        <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                        <span class="marker-spinner"><i
+                                                class="fa-solid fa-circle-notch fa-spin"></i></span>
                                     </div>
                                     <div class="timeline-content">
                                         <h4>Send Recruiter Messages</h4>
-                                        <p>Sends recruiter outreach messages to those existing connections and verifies delivery</p>
+                                        <p>Sends recruiter outreach messages to those existing connections and verifies
+                                            delivery</p>
                                     </div>
-                                    <button class="btn-step-run" onclick="runRecruiterStep(2, event)" title="Run this step only">
+                                    <button class="btn-step-run" onclick="runRecruiterStep(2, event)"
+                                        title="Run this step only">
                                         <i class="fa-solid fa-play"></i>
                                     </button>
                                 </div>
@@ -716,13 +741,15 @@
                                     <div class="timeline-marker">
                                         <span class="marker-num">3</span>
                                         <span class="marker-icon"><i class="fa-solid fa-check"></i></span>
-                                        <span class="marker-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                        <span class="marker-spinner"><i
+                                                class="fa-solid fa-circle-notch fa-spin"></i></span>
                                     </div>
                                     <div class="timeline-content">
                                         <h4>Recruiter Connection Requests</h4>
                                         <p>Finds talent acquisition professionals & sends connection requests</p>
                                     </div>
-                                    <button class="btn-step-run" onclick="runRecruiterStep(3, event)" title="Run this step only">
+                                    <button class="btn-step-run" onclick="runRecruiterStep(3, event)"
+                                        title="Run this step only">
                                         <i class="fa-solid fa-play"></i>
                                     </button>
                                 </div>
@@ -749,9 +776,10 @@
                             <span></span>
                         </div>
                     </div>
-                    
+
                     <!-- Logs Container -->
-                    <div id="console-logs-wrapper" style="display: flex; gap: 15px; width: 100%; flex-wrap: wrap; padding: 10px 0;">
+                    <div id="console-logs-wrapper"
+                        style="display: flex; gap: 15px; width: 100%; flex-wrap: wrap; padding: 10px 0;">
                         <div class="terminal-logs" id="console-logs" style="flex: 1; min-width: 300px;">
                             <div class="log-line system">Waiting for process start...</div>
                         </div>
@@ -763,8 +791,9 @@
                             <div class="stdin-header">
                                 <i class="fa-solid fa-circle-question"></i> Action Required
                             </div>
-                            <p id="stdin-prompt-text">Manual review script is waiting for your choice. Please review the Chrome window and make a selection:</p>
-                            
+                            <p id="stdin-prompt-text">Manual review script is waiting for your choice. Please review the
+                                Chrome window and make a selection:</p>
+
                             <!-- Referral Pipeline Buttons -->
                             <div class="stdin-buttons" id="stdin-referral-buttons">
                                 <button class="btn btn-success" onclick="sendStdin('1')">
@@ -819,8 +848,10 @@
                                     <th style="width: 120px; text-align: center;">Actions</th>
                                 </tr>
                                 <tr class="table-filter-row">
-                                    <th><input type="text" id="filter-col-id" placeholder="ID..." class="col-filter-input"></th>
-                                    <th><input type="text" id="filter-col-email" placeholder="Email..." class="col-filter-input"></th>
+                                    <th><input type="text" id="filter-col-id" placeholder="ID..."
+                                            class="col-filter-input"></th>
+                                    <th><input type="text" id="filter-col-email" placeholder="Email..."
+                                            class="col-filter-input"></th>
                                     <th>
                                         <select id="filter-col-status" class="col-filter-select">
                                             <option value="">All</option>
@@ -834,11 +865,15 @@
                                             <option value="">All</option>
                                         </select>
                                     </th>
-                                    <th><input type="text" id="filter-col-timestamp" placeholder="Date..." class="col-filter-input"></th>
+                                    <th><input type="text" id="filter-col-timestamp" placeholder="Date..."
+                                            class="col-filter-input"></th>
                                     <th></th>
-                                    <th><input type="text" id="filter-col-company" placeholder="Company..." class="col-filter-input"></th>
-                                    <th><input type="text" id="filter-col-experience" placeholder="Experience..." class="col-filter-input"></th>
-                                    <th><input type="text" id="filter-col-location" placeholder="Location..." class="col-filter-input"></th>
+                                    <th><input type="text" id="filter-col-company" placeholder="Company..."
+                                            class="col-filter-input"></th>
+                                    <th><input type="text" id="filter-col-experience" placeholder="Experience..."
+                                            class="col-filter-input"></th>
+                                    <th><input type="text" id="filter-col-location" placeholder="Location..."
+                                            class="col-filter-input"></th>
                                     <th></th>
                                 </tr>
                             </thead>
@@ -924,13 +959,17 @@
 
                 <div class="table-card card-glass" style="margin-top: 30px;">
                     <div class="table-header-custom" style="padding: 20px 20px 0 20px;">
-                        <h3 style="margin: 0; font-size: 1.25rem; color: var(--accent-blue);"><i class="fa-solid fa-users-rectangle"></i> Referral Outreach Contacts</h3>
-                        <p class="card-subtitle" style="margin: 5px 0 0 0; color: var(--text-secondary); font-size: 0.85rem;">Manage individual 1st-degree referral contacts, recruiters, and connection requests.</p>
+                        <h3 style="margin: 0; font-size: 1.25rem; color: var(--accent-blue);"><i
+                                class="fa-solid fa-users-rectangle"></i> Referral Outreach Contacts</h3>
+                        <p class="card-subtitle"
+                            style="margin: 5px 0 0 0; color: var(--text-secondary); font-size: 0.85rem;">Manage
+                            individual 1st-degree referral contacts, recruiters, and connection requests.</p>
                     </div>
                     <div class="table-controls flex-wrap" style="margin-top: 15px;">
                         <div class="search-box">
                             <i class="fa-solid fa-magnifying-glass"></i>
-                            <input type="text" id="search-referrals-outreach" placeholder="Search by name, company, status...">
+                            <input type="text" id="search-referrals-outreach"
+                                placeholder="Search by name, company, status...">
                         </div>
                         <div class="filter-controls">
                             <div class="filter-group">
@@ -987,7 +1026,8 @@
             <section id="tab-settings" class="tab-pane">
                 <header class="section-header">
                     <h1>Configuration Settings</h1>
-                    <p>Manage your personal info, scraping preferences, outreach templates, and credentials. Changes sync automatically.</p>
+                    <p>Manage your personal info, scraping preferences, outreach templates, and credentials. Changes
+                        sync automatically.</p>
                 </header>
 
                 <div class="settings-wrapper">
@@ -995,19 +1035,23 @@
                     <div class="settings-tabs-menu">
                         <button type="button" class="settings-tab-btn active" data-settings-tab="email-scraper">
                             <i class="fa-solid fa-envelope"></i> Outreach Engine
-                            <span class="unsaved-dot hidden" id="unsaved-dot-scraper" style="color: var(--accent-yellow); margin-left: 5px; font-weight: bold;">*</span>
+                            <span class="unsaved-dot hidden" id="unsaved-dot-scraper"
+                                style="color: var(--accent-yellow); margin-left: 5px; font-weight: bold;">*</span>
                         </button>
                         <button type="button" class="settings-tab-btn" data-settings-tab="linkedin-connect">
                             <i class="fa-solid fa-circle-nodes"></i> LinkedIn Automator
-                            <span class="unsaved-dot hidden" id="unsaved-dot-connect" style="color: var(--accent-yellow); margin-left: 5px; font-weight: bold;">*</span>
+                            <span class="unsaved-dot hidden" id="unsaved-dot-connect"
+                                style="color: var(--accent-yellow); margin-left: 5px; font-weight: bold;">*</span>
                         </button>
                         <button type="button" class="settings-tab-btn" data-settings-tab="recruiter-outreach">
                             <i class="fa-solid fa-user-tie"></i> Recruiter Outreach
-                            <span class="unsaved-dot hidden" id="unsaved-dot-recruiter" style="color: var(--accent-yellow); margin-left: 5px; font-weight: bold;">*</span>
+                            <span class="unsaved-dot hidden" id="unsaved-dot-recruiter"
+                                style="color: var(--accent-yellow); margin-left: 5px; font-weight: bold;">*</span>
                         </button>
                         <button type="button" class="settings-tab-btn" data-settings-tab="cloud-db">
                             <i class="fa-solid fa-cloud"></i> Database Storage
-                            <span class="unsaved-dot hidden" id="unsaved-dot-cloud-db" style="color: var(--accent-yellow); margin-left: 5px; font-weight: bold;">*</span>
+                            <span class="unsaved-dot hidden" id="unsaved-dot-cloud-db"
+                                style="color: var(--accent-yellow); margin-left: 5px; font-weight: bold;">*</span>
                         </button>
                         <!-- <button type="button" class="settings-tab-btn" data-settings-tab="system-updates">
                             <i class="fa-solid fa-code-branch"></i> System Updates
@@ -1023,7 +1067,8 @@
 
                                 <!-- ROW 1, COL 1: Automation Control (1 natural column — same as LinkedIn Automator's Connection Automation Control) -->
                                 <div class="settings-card card-glass">
-                                    <h3><i class="fa-solid fa-gears glow-icon-blue"></i> Outreach Automation Control</h3>
+                                    <h3><i class="fa-solid fa-gears glow-icon-blue"></i> Outreach Automation Control
+                                    </h3>
                                     <p class="card-subtitle">Configure search intervals and pipeline gates</p>
                                     <div class="form-group">
                                         <label for="scraper-interval">Search Execution Frequency</label>
@@ -1039,44 +1084,62 @@
                                     </div>
                                     <div class="form-group" style="margin-bottom: 16px;">
                                         <label for="scraper-max-emails">Target Emails per Run</label>
-                                        <input type="number" id="scraper-max-emails" min="1" max="100" value="5" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--glass-border); background:rgba(0,0,0,0.4); color:var(--text-primary);">
+                                        <input type="number" id="scraper-max-emails" min="1" max="100" value="5"
+                                            style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--glass-border); background:rgba(0,0,0,0.4); color:var(--text-primary);">
                                     </div>
                                     <div class="form-group toggle-group" style="margin-bottom: 8px;">
                                         <span class="info-icon-wrapper">
-                                            <label for="scraper-review-mode" style="margin-bottom: 0;">Automatic Email Send</label>
-                                            <i class="fa-solid fa-circle-info info-tooltip-trigger" data-tooltip="Automatic Email Send ON:&#10;The system automatically sends emails after successful extraction and validation.&#10;&#10;Automatic Email Send OFF:&#10;The system extracts data but waits for your approval in the database tab before sending outreach emails."></i>
+                                            <label for="scraper-review-mode" style="margin-bottom: 0;">Automatic Email
+                                                Send</label>
+                                            <i class="fa-solid fa-circle-info info-tooltip-trigger"
+                                                data-tooltip="Automatic Email Send ON:&#10;The system automatically sends emails after successful extraction and validation.&#10;&#10;Automatic Email Send OFF:&#10;The system extracts data but waits for your approval in the database tab before sending outreach emails."></i>
                                         </span>
                                         <label class="switch">
                                             <input type="checkbox" id="scraper-review-mode">
                                             <span class="slider"></span>
                                         </label>
                                     </div>
-                                    <div style="font-size: 12px; color: var(--text-secondary); margin-top: -4px; margin-bottom: 16px; line-height: 1.4;">
-                                        Note: Turning this option ON allows the system to deliver emails automatically. If turned OFF, they are held in the database for manual review.
+                                    <div
+                                        style="font-size: 12px; color: var(--text-secondary); margin-top: -4px; margin-bottom: 16px; line-height: 1.4;">
+                                        Note: Turning this option ON allows the system to deliver emails automatically.
+                                        If turned OFF, they are held in the database for manual review.
                                     </div>
                                 </div>
 
                                 <!-- ROW 1, COL 2–3: LinkedIn Search Keywords (grid-span-2 — same as LinkedIn Automator) -->
                                 <div class="settings-card card-glass grid-span-2">
-                                    <h3><i class="fa-solid fa-magnifying-glass glow-icon-blue"></i> LinkedIn Search Keywords</h3>
-                                    <p class="card-subtitle">Manage terms used to search for hiring posts on LinkedIn</p>
+                                    <h3><i class="fa-solid fa-magnifying-glass glow-icon-blue"></i> LinkedIn Search
+                                        Keywords</h3>
+                                    <p class="card-subtitle">Manage terms used to search for hiring posts on LinkedIn
+                                    </p>
                                     <div class="form-group">
                                         <div class="tags-input-container" id="scraper-search-keywords-container">
                                             <!-- Keywords tags rendered by JS -->
-                                            <input type="text" class="tag-input-field" id="scraper-search-tag-input" placeholder="Add keyword (press Enter)...">
+                                            <input type="text" class="tag-input-field" id="scraper-search-tag-input"
+                                                placeholder="Add keyword (press Enter)...">
                                         </div>
                                         <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
-                                            <button type="button" class="btn-tag-action" onclick="toggleBulkPaste('scraper-search')">
+                                            <button type="button" class="btn-tag-action"
+                                                onclick="toggleBulkPaste('scraper-search')">
                                                 <i class="fa-solid fa-paste"></i> Bulk Paste Keywords
                                             </button>
                                         </div>
                                         <!-- Inline Bulk Paste container -->
-                                        <div class="keyword-bulk-paste-container hidden" id="scraper-search-bulk-paste-box" style="margin-top: 10px;">
-                                            <label for="scraper-search-bulk-paste-text" style="font-size: 0.8rem; color: var(--text-secondary);">Bulk Paste Keywords (comma or newline separated):</label>
-                                            <textarea id="scraper-search-bulk-paste-text" placeholder="SQL DBA&#10;SQL Server DBA&#10;Azure DBA" style="width: 100%; min-height: 80px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: 6px; padding: 10px; color: var(--text-primary); font-family: var(--font-sans); margin-top: 5px; resize: vertical; outline: none;"></textarea>
+                                        <div class="keyword-bulk-paste-container hidden"
+                                            id="scraper-search-bulk-paste-box" style="margin-top: 10px;">
+                                            <label for="scraper-search-bulk-paste-text"
+                                                style="font-size: 0.8rem; color: var(--text-secondary);">Bulk Paste
+                                                Keywords (comma or newline separated):</label>
+                                            <textarea id="scraper-search-bulk-paste-text"
+                                                placeholder="SQL DBA&#10;SQL Server DBA&#10;Azure DBA"
+                                                style="width: 100%; min-height: 80px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: 6px; padding: 10px; color: var(--text-primary); font-family: var(--font-sans); margin-top: 5px; resize: vertical; outline: none;"></textarea>
                                             <div style="display: flex; gap: 8px; margin-top: 8px;">
-                                                <button type="button" class="btn btn-primary" onclick="applyBulkKeywords('scraper-search')" style="padding: 6px 12px; font-size: 0.8rem;">Apply</button>
-                                                <button type="button" class="btn btn-secondary" onclick="toggleBulkPaste('scraper-search')" style="padding: 6px 12px; font-size: 0.8rem;">Cancel</button>
+                                                <button type="button" class="btn btn-primary"
+                                                    onclick="applyBulkKeywords('scraper-search')"
+                                                    style="padding: 6px 12px; font-size: 0.8rem;">Apply</button>
+                                                <button type="button" class="btn btn-secondary"
+                                                    onclick="toggleBulkPaste('scraper-search')"
+                                                    style="padding: 6px 12px; font-size: 0.8rem;">Cancel</button>
                                             </div>
                                         </div>
                                     </div>
@@ -1084,25 +1147,38 @@
 
                                 <!-- ROW 2: Job Title Match Keywords — full width -->
                                 <div class="settings-card card-glass grid-span-3">
-                                    <h3><i class="fa-solid fa-square-check glow-icon-blue"></i> Job Title Match Keywords</h3>
-                                    <p class="card-subtitle">Manage terms required to match in the hiring post content</p>
+                                    <h3><i class="fa-solid fa-square-check glow-icon-blue"></i> Job Title Match Keywords
+                                    </h3>
+                                    <p class="card-subtitle">Manage terms required to match in the hiring post content
+                                    </p>
                                     <div class="form-group">
                                         <div class="tags-input-container" id="scraper-title-keywords-container">
                                             <!-- Keywords tags rendered by JS -->
-                                            <input type="text" class="tag-input-field" id="scraper-title-tag-input" placeholder="Add keyword (press Enter)...">
+                                            <input type="text" class="tag-input-field" id="scraper-title-tag-input"
+                                                placeholder="Add keyword (press Enter)...">
                                         </div>
                                         <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
-                                            <button type="button" class="btn-tag-action" onclick="toggleBulkPaste('scraper-title')">
+                                            <button type="button" class="btn-tag-action"
+                                                onclick="toggleBulkPaste('scraper-title')">
                                                 <i class="fa-solid fa-paste"></i> Bulk Paste Keywords
                                             </button>
                                         </div>
                                         <!-- Inline Bulk Paste container -->
-                                        <div class="keyword-bulk-paste-container hidden" id="scraper-title-bulk-paste-box" style="margin-top: 10px;">
-                                            <label for="scraper-title-bulk-paste-text" style="font-size: 0.8rem; color: var(--text-secondary);">Bulk Paste Keywords (comma or newline separated):</label>
-                                            <textarea id="scraper-title-bulk-paste-text" placeholder="SQL DBA&#10;SQL Server DBA&#10;Azure DBA" style="width: 100%; min-height: 80px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: 6px; padding: 10px; color: var(--text-primary); font-family: var(--font-sans); margin-top: 5px; resize: vertical; outline: none;"></textarea>
+                                        <div class="keyword-bulk-paste-container hidden"
+                                            id="scraper-title-bulk-paste-box" style="margin-top: 10px;">
+                                            <label for="scraper-title-bulk-paste-text"
+                                                style="font-size: 0.8rem; color: var(--text-secondary);">Bulk Paste
+                                                Keywords (comma or newline separated):</label>
+                                            <textarea id="scraper-title-bulk-paste-text"
+                                                placeholder="SQL DBA&#10;SQL Server DBA&#10;Azure DBA"
+                                                style="width: 100%; min-height: 80px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: 6px; padding: 10px; color: var(--text-primary); font-family: var(--font-sans); margin-top: 5px; resize: vertical; outline: none;"></textarea>
                                             <div style="display: flex; gap: 8px; margin-top: 8px;">
-                                                <button type="button" class="btn btn-primary" onclick="applyBulkKeywords('scraper-title')" style="padding: 6px 12px; font-size: 0.8rem;">Apply</button>
-                                                <button type="button" class="btn btn-secondary" onclick="toggleBulkPaste('scraper-title')" style="padding: 6px 12px; font-size: 0.8rem;">Cancel</button>
+                                                <button type="button" class="btn btn-primary"
+                                                    onclick="applyBulkKeywords('scraper-title')"
+                                                    style="padding: 6px 12px; font-size: 0.8rem;">Apply</button>
+                                                <button type="button" class="btn btn-secondary"
+                                                    onclick="toggleBulkPaste('scraper-title')"
+                                                    style="padding: 6px 12px; font-size: 0.8rem;">Cancel</button>
                                             </div>
                                         </div>
                                     </div>
@@ -1111,24 +1187,37 @@
                                 <!-- ROW 3, COL 1: Exclusion Filters -->
                                 <div class="settings-card card-glass exclusion-keywords-card">
                                     <h3><i class="fa-solid fa-ban glow-icon-red"></i> Exclusion Filters</h3>
-                                    <p class="card-subtitle">Posts matching any exclusion keyword will be skipped entirely — not scraped or saved</p>
+                                    <p class="card-subtitle">Posts matching any exclusion keyword will be skipped
+                                        entirely — not scraped or saved</p>
                                     <div class="form-group">
-                                        <div class="tags-input-container tags-input-excluded" id="scraper-excluded-keywords-container">
+                                        <div class="tags-input-container tags-input-excluded"
+                                            id="scraper-excluded-keywords-container">
                                             <!-- Exclusion keyword tags rendered by JS -->
-                                            <input type="text" class="tag-input-field" id="scraper-excluded-tag-input" placeholder="Add exclusion keyword (press Enter)...">
+                                            <input type="text" class="tag-input-field" id="scraper-excluded-tag-input"
+                                                placeholder="Add exclusion keyword (press Enter)...">
                                         </div>
                                         <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
-                                            <button type="button" class="btn-tag-action btn-tag-action-red" onclick="toggleExcludedBulkPaste('scraper')">
+                                            <button type="button" class="btn-tag-action btn-tag-action-red"
+                                                onclick="toggleExcludedBulkPaste('scraper')">
                                                 <i class="fa-solid fa-paste"></i> Bulk Paste Exclusions
                                             </button>
                                         </div>
                                         <!-- Inline Bulk Paste container -->
-                                        <div class="keyword-bulk-paste-container hidden" id="scraper-excluded-bulk-paste-box" style="margin-top: 10px;">
-                                            <label for="scraper-excluded-bulk-paste-text" style="font-size: 0.8rem; color: var(--text-secondary);">Bulk Paste Exclusions (comma or newline separated):</label>
-                                            <textarea id="scraper-excluded-bulk-paste-text" placeholder="oracle&#10;postgresql&#10;db2" style="width: 100%; min-height: 80px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: 6px; padding: 10px; color: var(--text-primary); font-family: var(--font-sans); margin-top: 5px; resize: vertical; outline: none;"></textarea>
+                                        <div class="keyword-bulk-paste-container hidden"
+                                            id="scraper-excluded-bulk-paste-box" style="margin-top: 10px;">
+                                            <label for="scraper-excluded-bulk-paste-text"
+                                                style="font-size: 0.8rem; color: var(--text-secondary);">Bulk Paste
+                                                Exclusions (comma or newline separated):</label>
+                                            <textarea id="scraper-excluded-bulk-paste-text"
+                                                placeholder="oracle&#10;postgresql&#10;db2"
+                                                style="width: 100%; min-height: 80px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: 6px; padding: 10px; color: var(--text-primary); font-family: var(--font-sans); margin-top: 5px; resize: vertical; outline: none;"></textarea>
                                             <div style="display: flex; gap: 8px; margin-top: 8px;">
-                                                <button type="button" class="btn btn-danger" onclick="applyExcludedBulkKeywords('scraper')" style="padding: 6px 12px; font-size: 0.8rem;">Apply</button>
-                                                <button type="button" class="btn btn-secondary" onclick="toggleExcludedBulkPaste('scraper')" style="padding: 6px 12px; font-size: 0.8rem;">Cancel</button>
+                                                <button type="button" class="btn btn-danger"
+                                                    onclick="applyExcludedBulkKeywords('scraper')"
+                                                    style="padding: 6px 12px; font-size: 0.8rem;">Apply</button>
+                                                <button type="button" class="btn btn-secondary"
+                                                    onclick="toggleExcludedBulkPaste('scraper')"
+                                                    style="padding: 6px 12px; font-size: 0.8rem;">Cancel</button>
                                             </div>
                                         </div>
                                     </div>
@@ -1136,38 +1225,52 @@
 
                                 <!-- ROW 3, COL 2-3: Candidate Match Filters -->
                                 <div class="settings-card card-glass grid-span-2">
-                                    <h3><i class="fa-solid fa-filter glow-icon-blue"></i> Candidate Match Filters <span style="font-size: 0.75rem; font-weight: 400; color: var(--text-secondary); margin-left: 6px;">(Optional)</span></h3>
-                                    <p class="card-subtitle">Restrict outreach based on experience range or target locations</p>
+                                    <h3><i class="fa-solid fa-filter glow-icon-blue"></i> Candidate Match Filters <span
+                                            style="font-size: 0.75rem; font-weight: 400; color: var(--text-secondary); margin-left: 6px;">(Optional)</span>
+                                    </h3>
+                                    <p class="card-subtitle">Restrict outreach based on experience range or target
+                                        locations</p>
 
                                     <!-- Experience | Location — 2 equal columns -->
-                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 4px;">
+                                    <div
+                                        style="display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 4px;">
 
                                         <!-- Experience Filter column -->
                                         <div>
                                             <div class="form-group toggle-group" style="margin-bottom: 12px;">
-                                                <label for="scraper-filter-exp-enabled" style="font-weight: 600; font-size: 0.9rem; margin-bottom: 0;">Filter by Experience</label>
+                                                <label for="scraper-filter-exp-enabled"
+                                                    style="font-weight: 600; font-size: 0.9rem; margin-bottom: 0;">Filter
+                                                    by Experience</label>
                                                 <label class="switch">
-                                                    <input type="checkbox" id="scraper-filter-exp-enabled" onchange="toggleFilterInputs()">
+                                                    <input type="checkbox" id="scraper-filter-exp-enabled"
+                                                        onchange="toggleFilterInputs()">
                                                     <span class="slider"></span>
                                                 </label>
                                             </div>
                                             <div id="scraper-exp-options-container">
-                                                <label style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 10px; display: block;">Acceptable experience ranges:</label>
+                                                <label
+                                                    style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 10px; display: block;">Acceptable
+                                                    experience ranges:</label>
                                                 <div class="exp-chip-group">
                                                     <label class="exp-chip-label">
-                                                        <input type="checkbox" class="scraper-exp-range-checkbox" value="fresher"> Fresher / Entry Level
+                                                        <input type="checkbox" class="scraper-exp-range-checkbox"
+                                                            value="fresher"> Fresher / Entry Level
                                                     </label>
                                                     <label class="exp-chip-label">
-                                                        <input type="checkbox" class="scraper-exp-range-checkbox" value="0-1"> 0–1 Years
+                                                        <input type="checkbox" class="scraper-exp-range-checkbox"
+                                                            value="0-1"> 0–1 Years
                                                     </label>
                                                     <label class="exp-chip-label">
-                                                        <input type="checkbox" class="scraper-exp-range-checkbox" value="1-3"> 1–3 Years
+                                                        <input type="checkbox" class="scraper-exp-range-checkbox"
+                                                            value="1-3"> 1–3 Years
                                                     </label>
                                                     <label class="exp-chip-label">
-                                                        <input type="checkbox" class="scraper-exp-range-checkbox" value="3-5"> 3–5 Years
+                                                        <input type="checkbox" class="scraper-exp-range-checkbox"
+                                                            value="3-5"> 3–5 Years
                                                     </label>
                                                     <label class="exp-chip-label">
-                                                        <input type="checkbox" class="scraper-exp-range-checkbox" value="5+"> 5+ Years
+                                                        <input type="checkbox" class="scraper-exp-range-checkbox"
+                                                            value="5+"> 5+ Years
                                                     </label>
                                                 </div>
                                             </div>
@@ -1176,17 +1279,26 @@
                                         <!-- Location Filter column -->
                                         <div>
                                             <div class="form-group toggle-group" style="margin-bottom: 12px;">
-                                                <label for="scraper-filter-loc-enabled" style="font-weight: 600; font-size: 0.9rem; margin-bottom: 0;">Filter by Location</label>
+                                                <label for="scraper-filter-loc-enabled"
+                                                    style="font-weight: 600; font-size: 0.9rem; margin-bottom: 0;">Filter
+                                                    by Location</label>
                                                 <label class="switch">
-                                                    <input type="checkbox" id="scraper-filter-loc-enabled" onchange="toggleFilterInputs()">
+                                                    <input type="checkbox" id="scraper-filter-loc-enabled"
+                                                        onchange="toggleFilterInputs()">
                                                     <span class="slider"></span>
                                                 </label>
                                             </div>
                                             <div id="scraper-loc-options-container">
-                                                <label style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px; display: block;">Target locations:</label>
-                                                <div class="tags-input-container tags-input-location" id="scraper-filter-loc-keywords-container" style="min-height: 110px;">
+                                                <label
+                                                    style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px; display: block;">Target
+                                                    locations:</label>
+                                                <div class="tags-input-container tags-input-location"
+                                                    id="scraper-filter-loc-keywords-container"
+                                                    style="min-height: 110px;">
                                                     <!-- Location filter tags rendered dynamically by JS -->
-                                                    <input type="text" class="tag-input-field" id="scraper-filter-loc-tag-input" placeholder="Add target location (press Enter)...">
+                                                    <input type="text" class="tag-input-field"
+                                                        id="scraper-filter-loc-tag-input"
+                                                        placeholder="Add target location (press Enter)...">
                                                 </div>
                                             </div>
                                         </div>
@@ -1199,7 +1311,8 @@
 
                             <div style="margin-top: 20px;">
                                 <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8px;">
+                                    <div
+                                        style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8px;">
                                         <div>
                                             <label style="margin-bottom: 2px;">Outreach Email Template Studio</label>
                                             <p style="font-size:0.8rem;color:var(--text-secondary);">
@@ -1210,44 +1323,76 @@
 
                                     <!-- Variable tokens reference -->
                                     <div class="template-var-legend" style="flex-wrap: wrap; gap: 6px;">
-                                        <span class="tvar-title"><i class="fa-solid fa-brackets-curly"></i> Click to Insert:</span>
-                                        <span class="tvar-badge" onclick="insertToken('scraper', '{FIRST_NAME}')" title="Click to insert">{FIRST_NAME}</span>
-                                        <span class="tvar-badge" onclick="insertToken('scraper', '{LAST_NAME}')" title="Click to insert">{LAST_NAME}</span>
-                                        <span class="tvar-badge" onclick="insertToken('scraper', '{EMAIL}')" title="Click to insert">{EMAIL}</span>
-                                        <span class="tvar-badge" onclick="insertToken('scraper', '{PHONE_NUMBER}')" title="Click to insert">{PHONE_NUMBER}</span>
-                                        <span class="tvar-badge" onclick="insertToken('scraper', '{EXPERIENCE}')" title="Click to insert">{EXPERIENCE}</span>
-                                        <span class="tvar-badge" onclick="insertToken('scraper', '{LINKEDIN_PROFILE_URL}')" title="Click to insert">{LINKEDIN_PROFILE_URL}</span>
-                                        <span class="tvar-badge" onclick="insertToken('scraper', '{CURRENT_LOCATION}')" title="Click to insert">{CURRENT_LOCATION}</span>
-                                        <span class="tvar-badge" onclick="insertToken('scraper', '{PREFERRED_LOCATIONS}')" title="Click to insert">{PREFERRED_LOCATIONS}</span>
-                                        <span class="tvar-badge" onclick="insertToken('scraper', '{CURRENT_CTC}')" title="Click to insert">{CURRENT_CTC}</span>
-                                        <span class="tvar-badge" onclick="insertToken('scraper', '{EXPECTED_CTC}')" title="Click to insert">{EXPECTED_CTC}</span>
-                                        <span class="tvar-badge" onclick="insertToken('scraper', '{COMPANY}')" title="Click to insert">{COMPANY}</span>
-                                        <span class="tvar-badge" onclick="insertToken('scraper', '{JOB_URL}')" title="Click to insert">{JOB_URL}</span>
-                                        <span class="tvar-badge" onclick="insertToken('scraper', '{POST_URL}')" title="LinkedIn post URL that sourced this lead">{POST_URL}</span>
-                                        <span class="tvar-badge" onclick="insertToken('scraper', '{RESUME}')" title="Click to insert">{RESUME}</span>
-                                        <span class="tvar-badge" onclick="insertToken('scraper', '{RECEIVER_NAME}')" title="Click to insert">{RECEIVER_NAME}</span>
-                                        <span class="tvar-badge" onclick="insertToken('scraper', '{NOTICE_PERIOD}')" title="Click to insert">{NOTICE_PERIOD}</span>
-                                        <span class="tvar-badge" onclick="insertToken('scraper', '{LAST_WORKING_DAY}')" title="Click to insert">{LAST_WORKING_DAY}</span>
+                                        <span class="tvar-title"><i class="fa-solid fa-brackets-curly"></i> Click to
+                                            Insert:</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{FIRST_NAME}')"
+                                            title="Click to insert">{FIRST_NAME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{LAST_NAME}')"
+                                            title="Click to insert">{LAST_NAME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{EMAIL}')"
+                                            title="Click to insert">{EMAIL}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{PHONE_NUMBER}')"
+                                            title="Click to insert">{PHONE_NUMBER}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{EXPERIENCE}')"
+                                            title="Click to insert">{EXPERIENCE}</span>
+                                        <span class="tvar-badge"
+                                            onclick="insertToken('scraper', '{LINKEDIN_PROFILE_URL}')"
+                                            title="Click to insert">{LINKEDIN_PROFILE_URL}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{CURRENT_LOCATION}')"
+                                            title="Click to insert">{CURRENT_LOCATION}</span>
+                                        <span class="tvar-badge"
+                                            onclick="insertToken('scraper', '{PREFERRED_LOCATIONS}')"
+                                            title="Click to insert">{PREFERRED_LOCATIONS}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{CURRENT_CTC}')"
+                                            title="Click to insert">{CURRENT_CTC}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{EXPECTED_CTC}')"
+                                            title="Click to insert">{EXPECTED_CTC}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{COMPANY}')"
+                                            title="Click to insert">{COMPANY}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{JOB_URL}')"
+                                            title="Click to insert">{JOB_URL}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{POST_URL}')"
+                                            title="LinkedIn post URL that sourced this lead">{POST_URL}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{RESUME}')"
+                                            title="Click to insert">{RESUME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{RECEIVER_NAME}')"
+                                            title="Click to insert">{RECEIVER_NAME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{NOTICE_PERIOD}')"
+                                            title="Click to insert">{NOTICE_PERIOD}</span>
+                                        <span class="tvar-badge" onclick="insertToken('scraper', '{LAST_WORKING_DAY}')"
+                                            title="Click to insert">{LAST_WORKING_DAY}</span>
                                     </div>
 
                                     <div class="template-editor-container">
                                         <div class="template-editor-header">
-                                            <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;"><i class="fa-solid fa-pen-nib"></i> Draft Editor Mode</span>
+                                            <span
+                                                style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;"><i
+                                                    class="fa-solid fa-pen-nib"></i> Draft Editor Mode</span>
                                             <div class="template-modes">
-                                                <button type="button" class="template-mode-btn active" id="btn-mode-edit-scraper" onclick="switchTemplateMode('scraper', 'edit')">Draft Editor</button>
-                                                <button type="button" class="template-mode-btn" id="btn-mode-preview-scraper" onclick="switchTemplateMode('scraper', 'preview')">Real-time Preview</button>
-                                            </div>
-                                        </div>
-                                        
-                                        <div id="scraper-subject-container" class="subject-input-wrapper">
-                                            <div class="subject-input-group">
-                                                <span class="subject-input-label">Subject:</span>
-                                                <input type="text" id="scraper-email-subject" class="subject-input-field" placeholder="e.g. Referral Request – {FIRST_NAME} Opportunity" autocomplete="off">
+                                                <button type="button" class="template-mode-btn active"
+                                                    id="btn-mode-edit-scraper"
+                                                    onclick="switchTemplateMode('scraper', 'edit')">Draft
+                                                    Editor</button>
+                                                <button type="button" class="template-mode-btn"
+                                                    id="btn-mode-preview-scraper"
+                                                    onclick="switchTemplateMode('scraper', 'preview')">Real-time
+                                                    Preview</button>
                                             </div>
                                         </div>
 
-                                        <textarea id="scraper-email-template" class="template-textarea" placeholder="Outreach email template content..."></textarea>
-                                        
+                                        <div id="scraper-subject-container" class="subject-input-wrapper">
+                                            <div class="subject-input-group">
+                                                <span class="subject-input-label">Subject:</span>
+                                                <input type="text" id="scraper-email-subject"
+                                                    class="subject-input-field"
+                                                    placeholder="e.g. Referral Request – {FIRST_NAME} Opportunity"
+                                                    autocomplete="off">
+                                            </div>
+                                        </div>
+
+                                        <textarea id="scraper-email-template" class="template-textarea"
+                                            placeholder="Outreach email template content..."></textarea>
+
                                         <!-- Mock Email Window Mockup -->
                                         <div id="scraper-template-preview" class="email-mockup-window hidden">
                                             <div class="email-mockup-header">
@@ -1260,7 +1405,8 @@
                                             </div>
                                             <div class="email-mockup-meta">
                                                 <div><span>To:</span> hiring.manager@company.com</div>
-                                                <div><span>Subject:</span> <span id="scraper-preview-subject-content"></span></div>
+                                                <div><span>Subject:</span> <span
+                                                        id="scraper-preview-subject-content"></span></div>
                                             </div>
                                             <div class="email-mockup-body" id="scraper-preview-body-content">
                                                 <!-- Preview content gets rendered dynamically -->
@@ -1270,7 +1416,8 @@
                                 </div>
                             </div>
                             <div class="settings-actions" style="margin-top: 20px;">
-                                <button type="button" class="btn btn-success btn-glow-success" onclick="saveConfiguration('scraper')">
+                                <button type="button" class="btn btn-success btn-glow-success"
+                                    onclick="saveConfiguration('scraper')">
                                     <i class="fa-solid fa-floppy-disk"></i> Save Outreach Engine Configuration
                                 </button>
                                 <span id="save-status-scraper" class="save-status"></span>
@@ -1282,7 +1429,8 @@
                         <div class="settings-tab-pane" id="subtab-linkedin-connect">
                             <div class="settings-grid">
                                 <div class="settings-card card-glass">
-                                    <h3><i class="fa-solid fa-sliders glow-icon-teal"></i> Connection Automation Control</h3>
+                                    <h3><i class="fa-solid fa-sliders glow-icon-teal"></i> Connection Automation Control
+                                    </h3>
                                     <p class="card-subtitle">Configure connection limits and pipeline gates</p>
                                     <div class="form-group">
                                         <label for="connect-search-pages">No. of Pages</label>
@@ -1296,67 +1444,97 @@
                                     </div>
                                     <div class="form-group" style="margin-bottom: 16px;">
                                         <label for="connect-max-connections">Target Connections per Company</label>
-                                        <input type="number" id="connect-max-connections" min="1" max="100" value="5" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--glass-border); background:rgba(0,0,0,0.4); color:var(--text-primary);">
+                                        <input type="number" id="connect-max-connections" min="1" max="100" value="5"
+                                            style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--glass-border); background:rgba(0,0,0,0.4); color:var(--text-primary);">
                                     </div>
                                     <div class="form-group toggle-group" style="margin-bottom: 8px;">
                                         <span class="info-icon-wrapper">
-                                            <label for="connect-review-mode" style="margin-bottom: 0;">Send Automatic Connection</label>
-                                            <i class="fa-solid fa-circle-info info-tooltip-trigger" data-tooltip="Send Automatic Connection ON:&#10;Connection invites are delivered automatically.&#10;&#10;Send Automatic Connection OFF:&#10;You review connection invites in the referrals database tab before they are sent."></i>
+                                            <label for="connect-review-mode" style="margin-bottom: 0;">Send Automatic
+                                                Connection</label>
+                                            <i class="fa-solid fa-circle-info info-tooltip-trigger"
+                                                data-tooltip="Send Automatic Connection ON:&#10;Connection invites are delivered automatically.&#10;&#10;Send Automatic Connection OFF:&#10;You review connection invites in the referrals database tab before they are sent."></i>
                                         </span>
                                         <label class="switch">
                                             <input type="checkbox" id="connect-review-mode">
                                             <span class="slider"></span>
                                         </label>
                                     </div>
-                                    <div style="font-size: 12px; color: var(--text-secondary); margin-top: -4px; margin-bottom: 16px; line-height: 1.4;">
-                                        Note: Turning this option ON sends connection invites automatically. If turned OFF, you must review them in the referrals database.
+                                    <div
+                                        style="font-size: 12px; color: var(--text-secondary); margin-top: -4px; margin-bottom: 16px; line-height: 1.4;">
+                                        Note: Turning this option ON sends connection invites automatically. If turned
+                                        OFF, you must review them in the referrals database.
                                     </div>
                                 </div>
                                 <div class="settings-card card-glass grid-span-2">
-                                    <h3><i class="fa-solid fa-address-book glow-icon-teal"></i> LinkedIn Search Keywords</h3>
+                                    <h3><i class="fa-solid fa-address-book glow-icon-teal"></i> LinkedIn Search Keywords
+                                    </h3>
                                     <p class="card-subtitle">Manage terms used to search for jobs on LinkedIn</p>
                                     <div class="form-group">
                                         <div class="tags-input-container" id="connect-search-keywords-container">
                                             <!-- Keywords tags rendered by JS -->
-                                            <input type="text" class="tag-input-field" id="connect-search-tag-input" placeholder="Add keyword (press Enter)...">
+                                            <input type="text" class="tag-input-field" id="connect-search-tag-input"
+                                                placeholder="Add keyword (press Enter)...">
                                         </div>
                                         <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
-                                            <button type="button" class="btn-tag-action" onclick="toggleBulkPaste('connect-search')">
+                                            <button type="button" class="btn-tag-action"
+                                                onclick="toggleBulkPaste('connect-search')">
                                                 <i class="fa-solid fa-paste"></i> Bulk Paste Keywords
                                             </button>
                                         </div>
                                         <!-- Inline Bulk Paste container -->
-                                        <div class="keyword-bulk-paste-container hidden" id="connect-search-bulk-paste-box" style="margin-top: 10px;">
-                                            <label for="connect-search-bulk-paste-text" style="font-size: 0.8rem; color: var(--text-secondary);">Bulk Paste Keywords (comma or newline separated):</label>
-                                            <textarea id="connect-search-bulk-paste-text" placeholder="SQL DBA&#10;SQL Server DBA&#10;Azure DBA" style="width: 100%; min-height: 80px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: 6px; padding: 10px; color: var(--text-primary); font-family: var(--font-sans); margin-top: 5px; resize: vertical; outline: none;"></textarea>
+                                        <div class="keyword-bulk-paste-container hidden"
+                                            id="connect-search-bulk-paste-box" style="margin-top: 10px;">
+                                            <label for="connect-search-bulk-paste-text"
+                                                style="font-size: 0.8rem; color: var(--text-secondary);">Bulk Paste
+                                                Keywords (comma or newline separated):</label>
+                                            <textarea id="connect-search-bulk-paste-text"
+                                                placeholder="SQL DBA&#10;SQL Server DBA&#10;Azure DBA"
+                                                style="width: 100%; min-height: 80px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: 6px; padding: 10px; color: var(--text-primary); font-family: var(--font-sans); margin-top: 5px; resize: vertical; outline: none;"></textarea>
                                             <div style="display: flex; gap: 8px; margin-top: 8px;">
-                                                <button type="button" class="btn btn-primary" onclick="applyBulkKeywords('connect-search')" style="padding: 6px 12px; font-size: 0.8rem;">Apply</button>
-                                                <button type="button" class="btn btn-secondary" onclick="toggleBulkPaste('connect-search')" style="padding: 6px 12px; font-size: 0.8rem;">Cancel</button>
+                                                <button type="button" class="btn btn-primary"
+                                                    onclick="applyBulkKeywords('connect-search')"
+                                                    style="padding: 6px 12px; font-size: 0.8rem;">Apply</button>
+                                                <button type="button" class="btn btn-secondary"
+                                                    onclick="toggleBulkPaste('connect-search')"
+                                                    style="padding: 6px 12px; font-size: 0.8rem;">Cancel</button>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div class="settings-card card-glass grid-span-3">
-                                    <h3><i class="fa-solid fa-square-check glow-icon-teal"></i> Job Title Match Keywords</h3>
-                                    <p class="card-subtitle">Manage terms matched against job titles to verify suitability</p>
+                                    <h3><i class="fa-solid fa-square-check glow-icon-teal"></i> Job Title Match Keywords
+                                    </h3>
+                                    <p class="card-subtitle">Manage terms matched against job titles to verify
+                                        suitability</p>
                                     <div class="form-group">
                                         <div class="tags-input-container" id="connect-title-keywords-container">
                                             <!-- Keywords tags rendered by JS -->
-                                            <input type="text" class="tag-input-field" id="connect-title-tag-input" placeholder="Add keyword (press Enter)...">
+                                            <input type="text" class="tag-input-field" id="connect-title-tag-input"
+                                                placeholder="Add keyword (press Enter)...">
                                         </div>
                                         <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
-                                            <button type="button" class="btn-tag-action" onclick="toggleBulkPaste('connect-title')">
+                                            <button type="button" class="btn-tag-action"
+                                                onclick="toggleBulkPaste('connect-title')">
                                                 <i class="fa-solid fa-paste"></i> Bulk Paste Keywords
                                             </button>
                                         </div>
                                         <!-- Inline Bulk Paste container -->
-                                        <div class="keyword-bulk-paste-container hidden" id="connect-title-bulk-paste-box" style="margin-top: 10px;">
-                                            <label for="connect-title-bulk-paste-text" style="font-size: 0.8rem; color: var(--text-secondary);">Bulk Paste Keywords (comma or newline separated):</label>
-                                            <textarea id="connect-title-bulk-paste-text" placeholder="SQL DBA&#10;SQL Server DBA&#10;Azure DBA" style="width: 100%; min-height: 80px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: 6px; padding: 10px; color: var(--text-primary); font-family: var(--font-sans); margin-top: 5px; resize: vertical; outline: none;"></textarea>
+                                        <div class="keyword-bulk-paste-container hidden"
+                                            id="connect-title-bulk-paste-box" style="margin-top: 10px;">
+                                            <label for="connect-title-bulk-paste-text"
+                                                style="font-size: 0.8rem; color: var(--text-secondary);">Bulk Paste
+                                                Keywords (comma or newline separated):</label>
+                                            <textarea id="connect-title-bulk-paste-text"
+                                                placeholder="SQL DBA&#10;SQL Server DBA&#10;Azure DBA"
+                                                style="width: 100%; min-height: 80px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: 6px; padding: 10px; color: var(--text-primary); font-family: var(--font-sans); margin-top: 5px; resize: vertical; outline: none;"></textarea>
                                             <div style="display: flex; gap: 8px; margin-top: 8px;">
-                                                <button type="button" class="btn btn-primary" onclick="applyBulkKeywords('connect-title')" style="padding: 6px 12px; font-size: 0.8rem;">Apply</button>
-                                                <button type="button" class="btn btn-secondary" onclick="toggleBulkPaste('connect-title')" style="padding: 6px 12px; font-size: 0.8rem;">Cancel</button>
+                                                <button type="button" class="btn btn-primary"
+                                                    onclick="applyBulkKeywords('connect-title')"
+                                                    style="padding: 6px 12px; font-size: 0.8rem;">Apply</button>
+                                                <button type="button" class="btn btn-secondary"
+                                                    onclick="toggleBulkPaste('connect-title')"
+                                                    style="padding: 6px 12px; font-size: 0.8rem;">Cancel</button>
                                             </div>
                                         </div>
                                     </div>
@@ -1364,24 +1542,37 @@
 
                                 <div class="settings-card card-glass grid-span-3 exclusion-keywords-card">
                                     <h3><i class="fa-solid fa-ban glow-icon-red"></i> Exclusion Filters</h3>
-                                    <p class="card-subtitle">Jobs matching any exclusion keyword will be skipped entirely — not saved or processed</p>
+                                    <p class="card-subtitle">Jobs matching any exclusion keyword will be skipped
+                                        entirely — not saved or processed</p>
                                     <div class="form-group">
-                                        <div class="tags-input-container tags-input-excluded" id="connect-excluded-keywords-container">
+                                        <div class="tags-input-container tags-input-excluded"
+                                            id="connect-excluded-keywords-container">
                                             <!-- Exclusion keyword tags rendered by JS -->
-                                            <input type="text" class="tag-input-field" id="connect-excluded-tag-input" placeholder="Add exclusion keyword (press Enter)...">
+                                            <input type="text" class="tag-input-field" id="connect-excluded-tag-input"
+                                                placeholder="Add exclusion keyword (press Enter)...">
                                         </div>
                                         <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
-                                            <button type="button" class="btn-tag-action btn-tag-action-red" onclick="toggleExcludedBulkPaste('connect')">
+                                            <button type="button" class="btn-tag-action btn-tag-action-red"
+                                                onclick="toggleExcludedBulkPaste('connect')">
                                                 <i class="fa-solid fa-paste"></i> Bulk Paste Exclusions
                                             </button>
                                         </div>
                                         <!-- Inline Bulk Paste container -->
-                                        <div class="keyword-bulk-paste-container hidden" id="connect-excluded-bulk-paste-box" style="margin-top: 10px;">
-                                            <label for="connect-excluded-bulk-paste-text" style="font-size: 0.8rem; color: var(--text-secondary);">Bulk Paste Exclusions (comma or newline separated):</label>
-                                            <textarea id="connect-excluded-bulk-paste-text" placeholder="oracle&#10;postgresql&#10;db2" style="width: 100%; min-height: 80px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: 6px; padding: 10px; color: var(--text-primary); font-family: var(--font-sans); margin-top: 5px; resize: vertical; outline: none;"></textarea>
+                                        <div class="keyword-bulk-paste-container hidden"
+                                            id="connect-excluded-bulk-paste-box" style="margin-top: 10px;">
+                                            <label for="connect-excluded-bulk-paste-text"
+                                                style="font-size: 0.8rem; color: var(--text-secondary);">Bulk Paste
+                                                Exclusions (comma or newline separated):</label>
+                                            <textarea id="connect-excluded-bulk-paste-text"
+                                                placeholder="oracle&#10;postgresql&#10;db2"
+                                                style="width: 100%; min-height: 80px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: 6px; padding: 10px; color: var(--text-primary); font-family: var(--font-sans); margin-top: 5px; resize: vertical; outline: none;"></textarea>
                                             <div style="display: flex; gap: 8px; margin-top: 8px;">
-                                                <button type="button" class="btn btn-danger" onclick="applyExcludedBulkKeywords('connect')" style="padding: 6px 12px; font-size: 0.8rem;">Apply</button>
-                                                <button type="button" class="btn btn-secondary" onclick="toggleExcludedBulkPaste('connect')" style="padding: 6px 12px; font-size: 0.8rem;">Cancel</button>
+                                                <button type="button" class="btn btn-danger"
+                                                    onclick="applyExcludedBulkKeywords('connect')"
+                                                    style="padding: 6px 12px; font-size: 0.8rem;">Apply</button>
+                                                <button type="button" class="btn btn-secondary"
+                                                    onclick="toggleExcludedBulkPaste('connect')"
+                                                    style="padding: 6px 12px; font-size: 0.8rem;">Cancel</button>
                                             </div>
                                         </div>
                                     </div>
@@ -1391,48 +1582,80 @@
                             <!-- Referral Message Studio -->
                             <div style="margin-top: 20px;">
                                 <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8px;">
+                                    <div
+                                        style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8px;">
                                         <div>
                                             <label style="margin-bottom: 2px;">LinkedIn Referral Message Studio</label>
                                             <p style="font-size:0.8rem;color:var(--text-secondary);">
-                                                Referral messages are delivered to existing 1st-degree connections — you can write a longer, detailed request.
+                                                Referral messages are delivered to existing 1st-degree connections — you
+                                                can write a longer, detailed request.
                                             </p>
                                         </div>
                                     </div>
 
-                                    <div class="template-var-legend" style="flex-wrap: wrap; gap: 6px; margin-bottom: 10px;">
-                                        <span class="tvar-title"><i class="fa-solid fa-brackets-curly"></i> Click to Insert Referral Token:</span>
-                                        <span class="tvar-badge" onclick="insertToken('referral', '{FIRST_NAME}')" title="Your first name">{FIRST_NAME}</span>
-                                        <span class="tvar-badge" onclick="insertToken('referral', '{LAST_NAME}')" title="Your last name">{LAST_NAME}</span>
-                                        <span class="tvar-badge" onclick="insertToken('referral', '{EMAIL}')" title="Your email">{EMAIL}</span>
-                                        <span class="tvar-badge" onclick="insertToken('referral', '{PHONE_NUMBER}')" title="Your phone number">{PHONE_NUMBER}</span>
-                                        <span class="tvar-badge" onclick="insertToken('referral', '{EXPERIENCE}')" title="Your experience">{EXPERIENCE}</span>
-                                        <span class="tvar-badge" onclick="insertToken('referral', '{LINKEDIN_PROFILE_URL}')" title="Your LinkedIn profile URL">{LINKEDIN_PROFILE_URL}</span>
-                                        <span class="tvar-badge" onclick="insertToken('referral', '{CURRENT_LOCATION}')" title="Your current location">{CURRENT_LOCATION}</span>
-                                        <span class="tvar-badge" onclick="insertToken('referral', '{PREFERRED_LOCATIONS}')" title="Your preferred locations">{PREFERRED_LOCATIONS}</span>
-                                        <span class="tvar-badge" onclick="insertToken('referral', '{CURRENT_CTC}')" title="Your current CTC">{CURRENT_CTC}</span>
-                                        <span class="tvar-badge" onclick="insertToken('referral', '{EXPECTED_CTC}')" title="Your expected CTC">{EXPECTED_CTC}</span>
-                                        <span class="tvar-badge" onclick="insertToken('referral', '{COMPANY}')" title="Target company name">{COMPANY}</span>
-                                        <span class="tvar-badge" onclick="insertToken('referral', '{JOB_URL}')" title="Target job apply URL">{JOB_URL}</span>
-                                        <span class="tvar-badge" onclick="insertToken('referral', '{RESUME}')" title="Your resume link">{RESUME}</span>
-                                        <span class="tvar-badge" onclick="insertToken('referral', '{RECEIVER_NAME}')" title="Recipient's first name">{RECEIVER_NAME}</span>
-                                        <span class="tvar-badge" onclick="insertToken('referral', '{NOTICE_PERIOD}')" title="Your notice period">{NOTICE_PERIOD}</span>
-                                        <span class="tvar-badge" onclick="insertToken('referral', '{LAST_WORKING_DAY}')" title="Your last working day">{LAST_WORKING_DAY}</span>
+                                    <div class="template-var-legend"
+                                        style="flex-wrap: wrap; gap: 6px; margin-bottom: 10px;">
+                                        <span class="tvar-title"><i class="fa-solid fa-brackets-curly"></i> Click to
+                                            Insert Referral Token:</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{FIRST_NAME}')"
+                                            title="Your first name">{FIRST_NAME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{LAST_NAME}')"
+                                            title="Your last name">{LAST_NAME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{EMAIL}')"
+                                            title="Your email">{EMAIL}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{PHONE_NUMBER}')"
+                                            title="Your phone number">{PHONE_NUMBER}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{EXPERIENCE}')"
+                                            title="Your experience">{EXPERIENCE}</span>
+                                        <span class="tvar-badge"
+                                            onclick="insertToken('referral', '{LINKEDIN_PROFILE_URL}')"
+                                            title="Your LinkedIn profile URL">{LINKEDIN_PROFILE_URL}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{CURRENT_LOCATION}')"
+                                            title="Your current location">{CURRENT_LOCATION}</span>
+                                        <span class="tvar-badge"
+                                            onclick="insertToken('referral', '{PREFERRED_LOCATIONS}')"
+                                            title="Your preferred locations">{PREFERRED_LOCATIONS}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{CURRENT_CTC}')"
+                                            title="Your current CTC">{CURRENT_CTC}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{EXPECTED_CTC}')"
+                                            title="Your expected CTC">{EXPECTED_CTC}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{COMPANY}')"
+                                            title="Target company name">{COMPANY}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{JOB_URL}')"
+                                            title="Target job apply URL">{JOB_URL}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{RESUME}')"
+                                            title="Your resume link">{RESUME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{RECEIVER_NAME}')"
+                                            title="Recipient's first name">{RECEIVER_NAME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{NOTICE_PERIOD}')"
+                                            title="Your notice period">{NOTICE_PERIOD}</span>
+                                        <span class="tvar-badge" onclick="insertToken('referral', '{LAST_WORKING_DAY}')"
+                                            title="Your last working day">{LAST_WORKING_DAY}</span>
                                     </div>
 
                                     <div class="template-editor-container">
                                         <div class="template-editor-header">
-                                            <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;"><i class="fa-solid fa-comment-dots"></i> Referral Message Studio</span>
+                                            <span
+                                                style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;"><i
+                                                    class="fa-solid fa-comment-dots"></i> Referral Message Studio</span>
                                             <div style="display:flex;align-items:center;gap:12px;">
                                                 <span id="referral-char-count" class="char-count-pill">0 / 2000</span>
                                                 <div class="template-modes">
-                                                    <button type="button" class="template-mode-btn active" id="btn-mode-edit-referral" onclick="switchTemplateMode('referral', 'edit')">Draft Editor</button>
-                                                    <button type="button" class="template-mode-btn" id="btn-mode-preview-referral" onclick="switchTemplateMode('referral', 'preview')">Real-time Preview</button>
+                                                    <button type="button" class="template-mode-btn active"
+                                                        id="btn-mode-edit-referral"
+                                                        onclick="switchTemplateMode('referral', 'edit')">Draft
+                                                        Editor</button>
+                                                    <button type="button" class="template-mode-btn"
+                                                        id="btn-mode-preview-referral"
+                                                        onclick="switchTemplateMode('referral', 'preview')">Real-time
+                                                        Preview</button>
                                                 </div>
                                             </div>
                                         </div>
-                                        <textarea id="referral-message-template" class="template-textarea" placeholder="Referral request message..." maxlength="2000" oninput="updateReferralCharCount()"></textarea>
-                                        
+                                        <textarea id="referral-message-template" class="template-textarea"
+                                            placeholder="Referral request message..." maxlength="2000"
+                                            oninput="updateReferralCharCount()"></textarea>
+
                                         <!-- Mock LinkedIn Messaging Window -->
                                         <div id="referral-template-preview" class="linkedin-mockup-window hidden">
                                             <div class="linkedin-mockup-header">
@@ -1447,7 +1670,8 @@
                                                 </div>
                                                 <div class="linkedin-invite-card">
                                                     <p class="invite-header-text">Referral Message:</p>
-                                                    <div class="linkedin-invite-bubble" id="referral-preview-body-content">
+                                                    <div class="linkedin-invite-bubble"
+                                                        id="referral-preview-body-content">
                                                         <!-- Preview content gets rendered dynamically -->
                                                     </div>
                                                 </div>
@@ -1463,48 +1687,81 @@
 
                             <div style="margin-top: 20px;">
                                 <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8px;">
+                                    <div
+                                        style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8px;">
                                         <div>
                                             <label style="margin-bottom: 2px;">LinkedIn Invite Note Studio</label>
                                             <p style="font-size:0.8rem;color:var(--text-secondary);">
-                                                LinkedIn restricts invitations notes to <strong style="color:var(--accent-yellow)">300 characters</strong> — keep your note highly concise.
+                                                LinkedIn restricts invitations notes to <strong
+                                                    style="color:var(--accent-yellow)">300 characters</strong> — keep
+                                                your note highly concise.
                                             </p>
                                         </div>
                                     </div>
 
-                                    <div class="template-var-legend" style="flex-wrap: wrap; gap: 6px; margin-bottom: 10px;">
-                                        <span class="tvar-title"><i class="fa-solid fa-brackets-curly"></i> Click to Insert Invite Note Token:</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{FIRST_NAME}')" title="Your first name">{FIRST_NAME}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{LAST_NAME}')" title="Your last name">{LAST_NAME}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{EMAIL}')" title="Your email">{EMAIL}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{PHONE_NUMBER}')" title="Your phone number">{PHONE_NUMBER}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{EXPERIENCE}')" title="Your experience">{EXPERIENCE}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{LINKEDIN_PROFILE_URL}')" title="Your LinkedIn profile URL">{LINKEDIN_PROFILE_URL}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{CURRENT_LOCATION}')" title="Your current location">{CURRENT_LOCATION}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{PREFERRED_LOCATIONS}')" title="Your preferred locations">{PREFERRED_LOCATIONS}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{CURRENT_CTC}')" title="Your current CTC">{CURRENT_CTC}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{EXPECTED_CTC}')" title="Your expected CTC">{EXPECTED_CTC}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{COMPANY}')" title="Target company name">{COMPANY}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{JOB_URL}')" title="Target job apply URL">{JOB_URL}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{RESUME}')" title="Your resume link">{RESUME}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{RECEIVER_NAME}')" title="Recipient's first name">{RECEIVER_NAME}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{NOTICE_PERIOD}')" title="Your notice period">{NOTICE_PERIOD}</span>
-                                        <span class="tvar-badge" onclick="insertToken('connect', '{LAST_WORKING_DAY}')" title="Your last working day">{LAST_WORKING_DAY}</span>
+                                    <div class="template-var-legend"
+                                        style="flex-wrap: wrap; gap: 6px; margin-bottom: 10px;">
+                                        <span class="tvar-title"><i class="fa-solid fa-brackets-curly"></i> Click to
+                                            Insert Invite Note Token:</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{FIRST_NAME}')"
+                                            title="Your first name">{FIRST_NAME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{LAST_NAME}')"
+                                            title="Your last name">{LAST_NAME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{EMAIL}')"
+                                            title="Your email">{EMAIL}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{PHONE_NUMBER}')"
+                                            title="Your phone number">{PHONE_NUMBER}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{EXPERIENCE}')"
+                                            title="Your experience">{EXPERIENCE}</span>
+                                        <span class="tvar-badge"
+                                            onclick="insertToken('connect', '{LINKEDIN_PROFILE_URL}')"
+                                            title="Your LinkedIn profile URL">{LINKEDIN_PROFILE_URL}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{CURRENT_LOCATION}')"
+                                            title="Your current location">{CURRENT_LOCATION}</span>
+                                        <span class="tvar-badge"
+                                            onclick="insertToken('connect', '{PREFERRED_LOCATIONS}')"
+                                            title="Your preferred locations">{PREFERRED_LOCATIONS}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{CURRENT_CTC}')"
+                                            title="Your current CTC">{CURRENT_CTC}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{EXPECTED_CTC}')"
+                                            title="Your expected CTC">{EXPECTED_CTC}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{COMPANY}')"
+                                            title="Target company name">{COMPANY}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{JOB_URL}')"
+                                            title="Target job apply URL">{JOB_URL}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{RESUME}')"
+                                            title="Your resume link">{RESUME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{RECEIVER_NAME}')"
+                                            title="Recipient's first name">{RECEIVER_NAME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{NOTICE_PERIOD}')"
+                                            title="Your notice period">{NOTICE_PERIOD}</span>
+                                        <span class="tvar-badge" onclick="insertToken('connect', '{LAST_WORKING_DAY}')"
+                                            title="Your last working day">{LAST_WORKING_DAY}</span>
                                     </div>
 
                                     <div class="template-editor-container">
                                         <div class="template-editor-header">
-                                            <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;"><i class="fa-solid fa-comment-dots"></i> Invitation Note Studio</span>
+                                            <span
+                                                style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;"><i
+                                                    class="fa-solid fa-comment-dots"></i> Invitation Note Studio</span>
                                             <div style="display:flex;align-items:center;gap:12px;">
                                                 <span id="connect-char-count" class="char-count-pill">0 / 300</span>
                                                 <div class="template-modes">
-                                                    <button type="button" class="template-mode-btn active" id="btn-mode-edit-connect" onclick="switchTemplateMode('connect', 'edit')">Draft Editor</button>
-                                                    <button type="button" class="template-mode-btn" id="btn-mode-preview-connect" onclick="switchTemplateMode('connect', 'preview')">Real-time Preview</button>
+                                                    <button type="button" class="template-mode-btn active"
+                                                        id="btn-mode-edit-connect"
+                                                        onclick="switchTemplateMode('connect', 'edit')">Draft
+                                                        Editor</button>
+                                                    <button type="button" class="template-mode-btn"
+                                                        id="btn-mode-preview-connect"
+                                                        onclick="switchTemplateMode('connect', 'preview')">Real-time
+                                                        Preview</button>
                                                 </div>
                                             </div>
                                         </div>
-                                        <textarea id="connect-message-template" class="template-textarea" placeholder="Connection request message..." maxlength="300" oninput="updateConnectCharCount()"></textarea>
-                                        
+                                        <textarea id="connect-message-template" class="template-textarea"
+                                            placeholder="Connection request message..." maxlength="300"
+                                            oninput="updateConnectCharCount()"></textarea>
+
                                         <!-- Mock LinkedIn Invitation Window -->
                                         <div id="connect-template-preview" class="linkedin-mockup-window hidden">
                                             <div class="linkedin-mockup-header">
@@ -1518,8 +1775,10 @@
                                                     <div class="title">Talent Specialist &amp; Technical Recruiter</div>
                                                 </div>
                                                 <div class="linkedin-invite-card">
-                                                    <p class="invite-header-text">You can include a personal note to introduce yourself:</p>
-                                                    <div class="linkedin-invite-bubble" id="connect-preview-body-content">
+                                                    <p class="invite-header-text">You can include a personal note to
+                                                        introduce yourself:</p>
+                                                    <div class="linkedin-invite-bubble"
+                                                        id="connect-preview-body-content">
                                                         <!-- Preview content gets rendered dynamically -->
                                                     </div>
                                                 </div>
@@ -1533,7 +1792,8 @@
                                 </div>
                             </div>
                             <div class="settings-actions" style="margin-top: 20px;">
-                                <button type="button" class="btn btn-success btn-glow-success" onclick="saveConfiguration('connect')">
+                                <button type="button" class="btn btn-success btn-glow-success"
+                                    onclick="saveConfiguration('connect')">
                                     <i class="fa-solid fa-floppy-disk"></i> Save LinkedIn Automator Configuration
                                 </button>
                                 <span id="save-status-connect" class="save-status"></span>
@@ -1545,162 +1805,256 @@
                             <div class="settings-column">
                                 <!-- Row 1: Recruiter Automation Control Card -->
                                 <div class="settings-card card-glass">
-                                     <h3><i class="fa-solid fa-user-plus glow-icon-teal"></i> Recruiter Automation Control</h3>
-                                     <p class="card-subtitle">Configure connection intervals, limits, target recruiters, and pipeline gates</p>
-                                     
-                                     <div class="form-group" style="margin-bottom: 16px;">
-                                          <label for="recruiter-target-count">Target Recruiters per Company</label>
-                                          <input type="number" id="recruiter-target-count" min="1" max="100" value="2" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--glass-border); background:rgba(0,0,0,0.4); color:var(--text-primary);">
-                                      </div>
-                                      <div class="form-group toggle-group" style="margin-bottom: 8px;">
-                                          <span class="info-icon-wrapper">
-                                              <label for="recruiter-review-mode" style="margin-bottom: 0;">Send Automatic Connection</label>
-                                              <i class="fa-solid fa-circle-info info-tooltip-trigger" data-tooltip="Send Automatic Connection ON:&#10;Recruiter connection invites are delivered automatically.&#10;&#10;Send Automatic Connection OFF:&#10;You review recruiter outreach connection invites in the console overlay before they are sent."></i>
-                                          </span>
-                                          <label class="switch">
-                                              <input type="checkbox" id="recruiter-review-mode">
-                                              <span class="slider"></span>
-                                          </label>
-                                      </div>
-                                      <div style="font-size: 12px; color: var(--text-secondary); margin-top: -4px; margin-bottom: 16px; line-height: 1.4;">
-                                          Note: Turning this option ON delivers recruiter invites automatically. If turned OFF, they are prompted for manual review.
-                                      </div>
-                                 </div>
+                                    <h3><i class="fa-solid fa-user-plus glow-icon-teal"></i> Recruiter Automation
+                                        Control</h3>
+                                    <p class="card-subtitle">Configure connection intervals, limits, target recruiters,
+                                        and pipeline gates</p>
 
-                                 <!-- Row 2: LinkedIn Recruiter Message Studio Card -->
-                                 <div class="settings-card card-glass">
-                                      <h3><i class="fa-solid fa-comment-dots glow-icon-teal"></i> LinkedIn Recruiter Message Studio</h3>
-                                      <p class="card-subtitle">Recruiter messages are delivered to existing 1st-degree recruiter connections — you can write a longer, detailed request up to <strong style="color:var(--accent-yellow)">1000 characters</strong>.</p>
-                                      
-                                      <div class="template-var-legend" style="flex-wrap: wrap; gap: 6px; margin-top: 10px; margin-bottom: 15px;">
-                                          <span class="tvar-title"><i class="fa-solid fa-brackets-curly"></i> Click to Insert:</span>
-                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{FIRST_NAME}')" title="Click to insert">{FIRST_NAME}</span>
-                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{LAST_NAME}')" title="Click to insert">{LAST_NAME}</span>
-                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{EMAIL}')" title="Click to insert">{EMAIL}</span>
-                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{PHONE_NUMBER}')" title="Click to insert">{PHONE_NUMBER}</span>
-                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{EXPERIENCE}')" title="Click to insert">{EXPERIENCE}</span>
-                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{LINKEDIN_PROFILE_URL}')" title="Click to insert">{LINKEDIN_PROFILE_URL}</span>
-                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{CURRENT_LOCATION}')" title="Click to insert">{CURRENT_LOCATION}</span>
-                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{PREFERRED_LOCATIONS}')" title="Click to insert">{PREFERRED_LOCATIONS}</span>
-                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{CURRENT_CTC}')" title="Click to insert">{CURRENT_CTC}</span>
-                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{EXPECTED_CTC}')" title="Click to insert">{EXPECTED_CTC}</span>
-                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{COMPANY}')" title="Click to insert">{COMPANY}</span>
-                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{JOB_URL}')" title="Click to insert">{JOB_URL}</span>
-                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{RESUME}')" title="Click to insert">{RESUME}</span>
-                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{RECEIVER_NAME}')" title="Click to insert">{RECEIVER_NAME}</span>
-                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{NOTICE_PERIOD}')" title="Click to insert">{NOTICE_PERIOD}</span>
-                                          <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{LAST_WORKING_DAY}')" title="Click to insert">{LAST_WORKING_DAY}</span>
-                                      </div>
+                                    <div class="form-group" style="margin-bottom: 16px;">
+                                        <label for="recruiter-target-count">Target Recruiters per Company</label>
+                                        <input type="number" id="recruiter-target-count" min="1" max="100" value="2"
+                                            style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--glass-border); background:rgba(0,0,0,0.4); color:var(--text-primary);">
+                                    </div>
+                                    <div class="form-group toggle-group" style="margin-bottom: 8px;">
+                                        <span class="info-icon-wrapper">
+                                            <label for="recruiter-review-mode" style="margin-bottom: 0;">Send Automatic
+                                                Connection</label>
+                                            <i class="fa-solid fa-circle-info info-tooltip-trigger"
+                                                data-tooltip="Send Automatic Connection ON:&#10;Recruiter connection invites are delivered automatically.&#10;&#10;Send Automatic Connection OFF:&#10;You review recruiter outreach connection invites in the console overlay before they are sent."></i>
+                                        </span>
+                                        <label class="switch">
+                                            <input type="checkbox" id="recruiter-review-mode">
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                    <div
+                                        style="font-size: 12px; color: var(--text-secondary); margin-top: -4px; margin-bottom: 16px; line-height: 1.4;">
+                                        Note: Turning this option ON delivers recruiter invites automatically. If turned
+                                        OFF, they are prompted for manual review.
+                                    </div>
+                                </div>
 
-                                      <div class="template-editor-container">
-                                          <div class="template-editor-header">
-                                              <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;"><i class="fa-solid fa-comment-dots"></i> Recruiter Message Studio</span>
-                                              <div style="display:flex;align-items:center;gap:12px;">
-                                                  <span id="recruiter-direct-char-count" class="char-count-pill">0 / 1000</span>
-                                                  <div class="template-modes">
-                                                      <button type="button" class="template-mode-btn active" id="btn-mode-edit-recruiter-direct" onclick="switchTemplateMode('recruiter-direct', 'edit')">Draft Editor</button>
-                                                      <button type="button" class="template-mode-btn" id="btn-mode-preview-recruiter-direct" onclick="switchTemplateMode('recruiter-direct', 'preview')">Real-time Preview</button>
-                                                  </div>
-                                              </div>
-                                          </div>
-                                          <textarea id="recruiter-direct-message-template" class="template-textarea" placeholder="Recruiter direct message..." maxlength="1000" oninput="updateRecruiterDirectCharCount()"></textarea>
-                                          
-                                          <!-- Mock Recruiter Message Window -->
-                                          <div id="recruiter-direct-template-preview" class="linkedin-mockup-window hidden">
-                                              <div class="linkedin-mockup-header">
-                                                  <span>Message to Recruiter</span>
-                                                  <i class="fa-solid fa-xmark"></i>
-                                              </div>
-                                              <div class="linkedin-mockup-body">
-                                                  <div class="linkedin-manager-avatar" style="background: var(--accent-teal); color: white;">TA</div>
-                                                  <div class="linkedin-manager-info">
-                                                      <div class="name">Recruiter Contact</div>
-                                                      <div class="title">Talent Acquisition Partner</div>
-                                                  </div>
-                                                  <div class="linkedin-invite-card">
-                                                      <p class="invite-header-text">Recruiter Message:</p>
-                                                      <div class="linkedin-invite-bubble" id="recruiter-direct-preview-body-content">
-                                                          <!-- Preview content gets rendered dynamically -->
-                                                      </div>
-                                                  </div>
-                                              </div>
-                                              <div class="linkedin-mockup-footer">
-                                                  <button type="button" class="btn-mock-cancel">Close</button>
-                                                  <button type="button" class="btn-mock-send">Send Message</button>
-                                              </div>
-                                          </div>
-                                      </div>
-                                  </div>
+                                <!-- Row 2: LinkedIn Recruiter Message Studio Card -->
+                                <div class="settings-card card-glass">
+                                    <h3><i class="fa-solid fa-comment-dots glow-icon-teal"></i> LinkedIn Recruiter
+                                        Message Studio</h3>
+                                    <p class="card-subtitle">Recruiter messages are delivered to existing 1st-degree
+                                        recruiter connections — you can write a longer, detailed request up to <strong
+                                            style="color:var(--accent-yellow)">1000 characters</strong>.</p>
 
-                                 <!-- Row 3: LinkedIn Recruiter Invite Note Studio Card -->
-                                 <div class="settings-card card-glass">
-                                     <h3><i class="fa-solid fa-comment-dots glow-icon-blue"></i> LinkedIn Recruiter Invite Note Studio</h3>
-                                     <p class="card-subtitle">LinkedIn restricts invitations notes to <strong style="color:var(--accent-yellow)">300 characters</strong>.</p>
-                                     
-                                     <div class="template-var-legend" style="flex-wrap: wrap; gap: 6px; margin-top: 10px; margin-bottom: 10px;">
-                                         <span class="tvar-title"><i class="fa-solid fa-brackets-curly"></i> Click to Insert:</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{FIRST_NAME}')" title="Click to insert">{FIRST_NAME}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{LAST_NAME}')" title="Click to insert">{LAST_NAME}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{EMAIL}')" title="Click to insert">{EMAIL}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{PHONE_NUMBER}')" title="Click to insert">{PHONE_NUMBER}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{EXPERIENCE}')" title="Click to insert">{EXPERIENCE}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{LINKEDIN_PROFILE_URL}')" title="Click to insert">{LINKEDIN_PROFILE_URL}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{CURRENT_LOCATION}')" title="Click to insert">{CURRENT_LOCATION}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{PREFERRED_LOCATIONS}')" title="Click to insert">{PREFERRED_LOCATIONS}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{CURRENT_CTC}')" title="Click to insert">{CURRENT_CTC}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{EXPECTED_CTC}')" title="Click to insert">{EXPECTED_CTC}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{COMPANY}')" title="Click to insert">{COMPANY}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{JOB_URL}')" title="Click to insert">{JOB_URL}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{RESUME}')" title="Click to insert">{RESUME}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{RECEIVER_NAME}')" title="Click to insert">{RECEIVER_NAME}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{NOTICE_PERIOD}')" title="Click to insert">{NOTICE_PERIOD}</span>
-                                         <span class="tvar-badge" onclick="insertToken('recruiter', '{LAST_WORKING_DAY}')" title="Click to insert">{LAST_WORKING_DAY}</span>
-                                     </div>
+                                    <div class="template-var-legend"
+                                        style="flex-wrap: wrap; gap: 6px; margin-top: 10px; margin-bottom: 15px;">
+                                        <span class="tvar-title"><i class="fa-solid fa-brackets-curly"></i> Click to
+                                            Insert:</span>
+                                        <span class="tvar-badge"
+                                            onclick="insertToken('recruiter-direct', '{FIRST_NAME}')"
+                                            title="Click to insert">{FIRST_NAME}</span>
+                                        <span class="tvar-badge"
+                                            onclick="insertToken('recruiter-direct', '{LAST_NAME}')"
+                                            title="Click to insert">{LAST_NAME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{EMAIL}')"
+                                            title="Click to insert">{EMAIL}</span>
+                                        <span class="tvar-badge"
+                                            onclick="insertToken('recruiter-direct', '{PHONE_NUMBER}')"
+                                            title="Click to insert">{PHONE_NUMBER}</span>
+                                        <span class="tvar-badge"
+                                            onclick="insertToken('recruiter-direct', '{EXPERIENCE}')"
+                                            title="Click to insert">{EXPERIENCE}</span>
+                                        <span class="tvar-badge"
+                                            onclick="insertToken('recruiter-direct', '{LINKEDIN_PROFILE_URL}')"
+                                            title="Click to insert">{LINKEDIN_PROFILE_URL}</span>
+                                        <span class="tvar-badge"
+                                            onclick="insertToken('recruiter-direct', '{CURRENT_LOCATION}')"
+                                            title="Click to insert">{CURRENT_LOCATION}</span>
+                                        <span class="tvar-badge"
+                                            onclick="insertToken('recruiter-direct', '{PREFERRED_LOCATIONS}')"
+                                            title="Click to insert">{PREFERRED_LOCATIONS}</span>
+                                        <span class="tvar-badge"
+                                            onclick="insertToken('recruiter-direct', '{CURRENT_CTC}')"
+                                            title="Click to insert">{CURRENT_CTC}</span>
+                                        <span class="tvar-badge"
+                                            onclick="insertToken('recruiter-direct', '{EXPECTED_CTC}')"
+                                            title="Click to insert">{EXPECTED_CTC}</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{COMPANY}')"
+                                            title="Click to insert">{COMPANY}</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{JOB_URL}')"
+                                            title="Click to insert">{JOB_URL}</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter-direct', '{RESUME}')"
+                                            title="Click to insert">{RESUME}</span>
+                                        <span class="tvar-badge"
+                                            onclick="insertToken('recruiter-direct', '{RECEIVER_NAME}')"
+                                            title="Click to insert">{RECEIVER_NAME}</span>
+                                        <span class="tvar-badge"
+                                            onclick="insertToken('recruiter-direct', '{NOTICE_PERIOD}')"
+                                            title="Click to insert">{NOTICE_PERIOD}</span>
+                                        <span class="tvar-badge"
+                                            onclick="insertToken('recruiter-direct', '{LAST_WORKING_DAY}')"
+                                            title="Click to insert">{LAST_WORKING_DAY}</span>
+                                    </div>
 
-                                     <div class="template-editor-container" style="margin-top: 10px;">
-                                         <div class="template-editor-header">
-                                             <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;"><i class="fa-solid fa-comment-dots"></i> Recruiter Note Studio</span>
-                                             <div style="display:flex;align-items:center;gap:12px;">
-                                                 <span id="recruiter-char-count" class="char-count-pill">0 / 300</span>
-                                                 <div class="template-modes">
-                                                     <button type="button" class="template-mode-btn active" id="btn-mode-edit-recruiter" onclick="switchTemplateMode('recruiter', 'edit')">Draft Editor</button>
-                                                     <button type="button" class="template-mode-btn" id="btn-mode-preview-recruiter" onclick="switchTemplateMode('recruiter', 'preview')">Real-time Preview</button>
-                                                 </div>
-                                             </div>
-                                         </div>
-                                         <textarea id="recruiter-message-template" class="template-textarea" placeholder="Recruiter connection request message..." maxlength="300" oninput="updateRecruiterCharCount()"></textarea>
-                                         
-                                         <!-- Mock Recruiter Invitation Window -->
-                                         <div id="recruiter-template-preview" class="linkedin-mockup-window hidden">
-                                             <div class="linkedin-mockup-header">
-                                                 <span>Connect with Recruiter</span>
-                                                 <i class="fa-solid fa-xmark"></i>
-                                             </div>
-                                             <div class="linkedin-mockup-body">
-                                                 <div class="linkedin-manager-avatar" style="background: var(--accent-purple); color: white;">TA</div>
-                                                 <div class="linkedin-manager-info">
-                                                     <div class="name">Recruiting Contact</div>
-                                                     <div class="title">Talent Acquisition &amp; Technical Recruiter</div>
-                                                 </div>
-                                                 <div class="linkedin-invite-card">
-                                                     <p class="invite-header-text">You can include a personal note to introduce yourself:</p>
-                                                     <div class="linkedin-invite-bubble" id="recruiter-preview-body-content">
-                                                         <!-- Preview content gets rendered dynamically -->
-                                                     </div>
-                                                 </div>
-                                             </div>
-                                             <div class="linkedin-mockup-footer">
-                                                 <button type="button" class="btn-mock-cancel">Cancel</button>
-                                                 <button type="button" class="btn-mock-send">Send Invitation</button>
-                                             </div>
-                                         </div>
-                                     </div>
-                                 </div>
-                             </div>
+                                    <div class="template-editor-container">
+                                        <div class="template-editor-header">
+                                            <span
+                                                style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;"><i
+                                                    class="fa-solid fa-comment-dots"></i> Recruiter Message
+                                                Studio</span>
+                                            <div style="display:flex;align-items:center;gap:12px;">
+                                                <span id="recruiter-direct-char-count" class="char-count-pill">0 /
+                                                    1000</span>
+                                                <div class="template-modes">
+                                                    <button type="button" class="template-mode-btn active"
+                                                        id="btn-mode-edit-recruiter-direct"
+                                                        onclick="switchTemplateMode('recruiter-direct', 'edit')">Draft
+                                                        Editor</button>
+                                                    <button type="button" class="template-mode-btn"
+                                                        id="btn-mode-preview-recruiter-direct"
+                                                        onclick="switchTemplateMode('recruiter-direct', 'preview')">Real-time
+                                                        Preview</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <textarea id="recruiter-direct-message-template" class="template-textarea"
+                                            placeholder="Recruiter direct message..." maxlength="1000"
+                                            oninput="updateRecruiterDirectCharCount()"></textarea>
+
+                                        <!-- Mock Recruiter Message Window -->
+                                        <div id="recruiter-direct-template-preview"
+                                            class="linkedin-mockup-window hidden">
+                                            <div class="linkedin-mockup-header">
+                                                <span>Message to Recruiter</span>
+                                                <i class="fa-solid fa-xmark"></i>
+                                            </div>
+                                            <div class="linkedin-mockup-body">
+                                                <div class="linkedin-manager-avatar"
+                                                    style="background: var(--accent-teal); color: white;">TA</div>
+                                                <div class="linkedin-manager-info">
+                                                    <div class="name">Recruiter Contact</div>
+                                                    <div class="title">Talent Acquisition Partner</div>
+                                                </div>
+                                                <div class="linkedin-invite-card">
+                                                    <p class="invite-header-text">Recruiter Message:</p>
+                                                    <div class="linkedin-invite-bubble"
+                                                        id="recruiter-direct-preview-body-content">
+                                                        <!-- Preview content gets rendered dynamically -->
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="linkedin-mockup-footer">
+                                                <button type="button" class="btn-mock-cancel">Close</button>
+                                                <button type="button" class="btn-mock-send">Send Message</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Row 3: LinkedIn Recruiter Invite Note Studio Card -->
+                                <div class="settings-card card-glass">
+                                    <h3><i class="fa-solid fa-comment-dots glow-icon-blue"></i> LinkedIn Recruiter
+                                        Invite Note Studio</h3>
+                                    <p class="card-subtitle">LinkedIn restricts invitations notes to <strong
+                                            style="color:var(--accent-yellow)">300 characters</strong>.</p>
+
+                                    <div class="template-var-legend"
+                                        style="flex-wrap: wrap; gap: 6px; margin-top: 10px; margin-bottom: 10px;">
+                                        <span class="tvar-title"><i class="fa-solid fa-brackets-curly"></i> Click to
+                                            Insert:</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{FIRST_NAME}')"
+                                            title="Click to insert">{FIRST_NAME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{LAST_NAME}')"
+                                            title="Click to insert">{LAST_NAME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{EMAIL}')"
+                                            title="Click to insert">{EMAIL}</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{PHONE_NUMBER}')"
+                                            title="Click to insert">{PHONE_NUMBER}</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{EXPERIENCE}')"
+                                            title="Click to insert">{EXPERIENCE}</span>
+                                        <span class="tvar-badge"
+                                            onclick="insertToken('recruiter', '{LINKEDIN_PROFILE_URL}')"
+                                            title="Click to insert">{LINKEDIN_PROFILE_URL}</span>
+                                        <span class="tvar-badge"
+                                            onclick="insertToken('recruiter', '{CURRENT_LOCATION}')"
+                                            title="Click to insert">{CURRENT_LOCATION}</span>
+                                        <span class="tvar-badge"
+                                            onclick="insertToken('recruiter', '{PREFERRED_LOCATIONS}')"
+                                            title="Click to insert">{PREFERRED_LOCATIONS}</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{CURRENT_CTC}')"
+                                            title="Click to insert">{CURRENT_CTC}</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{EXPECTED_CTC}')"
+                                            title="Click to insert">{EXPECTED_CTC}</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{COMPANY}')"
+                                            title="Click to insert">{COMPANY}</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{JOB_URL}')"
+                                            title="Click to insert">{JOB_URL}</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{RESUME}')"
+                                            title="Click to insert">{RESUME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{RECEIVER_NAME}')"
+                                            title="Click to insert">{RECEIVER_NAME}</span>
+                                        <span class="tvar-badge" onclick="insertToken('recruiter', '{NOTICE_PERIOD}')"
+                                            title="Click to insert">{NOTICE_PERIOD}</span>
+                                        <span class="tvar-badge"
+                                            onclick="insertToken('recruiter', '{LAST_WORKING_DAY}')"
+                                            title="Click to insert">{LAST_WORKING_DAY}</span>
+                                    </div>
+
+                                    <div class="template-editor-container" style="margin-top: 10px;">
+                                        <div class="template-editor-header">
+                                            <span
+                                                style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;"><i
+                                                    class="fa-solid fa-comment-dots"></i> Recruiter Note Studio</span>
+                                            <div style="display:flex;align-items:center;gap:12px;">
+                                                <span id="recruiter-char-count" class="char-count-pill">0 / 300</span>
+                                                <div class="template-modes">
+                                                    <button type="button" class="template-mode-btn active"
+                                                        id="btn-mode-edit-recruiter"
+                                                        onclick="switchTemplateMode('recruiter', 'edit')">Draft
+                                                        Editor</button>
+                                                    <button type="button" class="template-mode-btn"
+                                                        id="btn-mode-preview-recruiter"
+                                                        onclick="switchTemplateMode('recruiter', 'preview')">Real-time
+                                                        Preview</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <textarea id="recruiter-message-template" class="template-textarea"
+                                            placeholder="Recruiter connection request message..." maxlength="300"
+                                            oninput="updateRecruiterCharCount()"></textarea>
+
+                                        <!-- Mock Recruiter Invitation Window -->
+                                        <div id="recruiter-template-preview" class="linkedin-mockup-window hidden">
+                                            <div class="linkedin-mockup-header">
+                                                <span>Connect with Recruiter</span>
+                                                <i class="fa-solid fa-xmark"></i>
+                                            </div>
+                                            <div class="linkedin-mockup-body">
+                                                <div class="linkedin-manager-avatar"
+                                                    style="background: var(--accent-purple); color: white;">TA</div>
+                                                <div class="linkedin-manager-info">
+                                                    <div class="name">Recruiting Contact</div>
+                                                    <div class="title">Talent Acquisition &amp; Technical Recruiter
+                                                    </div>
+                                                </div>
+                                                <div class="linkedin-invite-card">
+                                                    <p class="invite-header-text">You can include a personal note to
+                                                        introduce yourself:</p>
+                                                    <div class="linkedin-invite-bubble"
+                                                        id="recruiter-preview-body-content">
+                                                        <!-- Preview content gets rendered dynamically -->
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="linkedin-mockup-footer">
+                                                <button type="button" class="btn-mock-cancel">Cancel</button>
+                                                <button type="button" class="btn-mock-send">Send Invitation</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
 
                             <div class="settings-actions" style="margin-top: 20px;">
-                                <button type="button" class="btn btn-success btn-glow-success" onclick="saveConfiguration('recruiter')">
+                                <button type="button" class="btn btn-success btn-glow-success"
+                                    onclick="saveConfiguration('recruiter')">
                                     <i class="fa-solid fa-floppy-disk"></i> Save Recruiter Outreach Configuration
                                 </button>
                                 <span id="save-status-recruiter" class="save-status"></span>
@@ -1711,12 +2065,15 @@
                         <div class="settings-tab-pane" id="subtab-cloud-db">
                             <div class="settings-grid">
                                 <div class="settings-card card-glass grid-span-3">
-                                    <h3><i class="fa-solid fa-database glow-icon-teal" style="color: var(--accent-teal);"></i> Database Storage Configuration</h3>
-                                    <p class="card-subtitle">Choose between local file storage and a centralized Google Sheets database</p>
-                                    
+                                    <h3><i class="fa-solid fa-database glow-icon-teal"
+                                            style="color: var(--accent-teal);"></i> Database Storage Configuration</h3>
+                                    <p class="card-subtitle">Choose between local file storage and a centralized Google
+                                        Sheets database</p>
+
                                     <div class="form-group" style="margin-top: 15px;">
                                         <label for="setting-database-type">Database Storage Type</label>
-                                        <select id="setting-database-type" onchange="toggleGoogleSheetsFields()" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--glass-border); background:rgba(0,0,0,0.4); color:var(--text-primary);">
+                                        <select id="setting-database-type" onchange="toggleGoogleSheetsFields()"
+                                            style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--glass-border); background:rgba(0,0,0,0.4); color:var(--text-primary);">
                                             <option value="local">Local Excel Workbooks (Default)</option>
                                             <option value="google_sheets">Centralized Google Sheets</option>
                                         </select>
@@ -1724,50 +2081,81 @@
 
                                     <div id="google-sheets-config-group" style="display: none; margin-top: 15px;">
                                         <!-- Step-by-step Setup Guide -->
-                                        <div class="setup-guide-box" style="background: rgba(255, 255, 255, 0.03); border: 1px dashed var(--glass-border); border-radius: 8px; padding: 15px; margin-bottom: 20px; font-size: 0.82rem; line-height: 1.5; color: var(--text-secondary);">
-                                            <h4 style="color: var(--accent-cyan); margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
-                                                <i class="fa-solid fa-circle-info"></i> Guided Google Sheets Setup Steps:
+                                        <div class="setup-guide-box"
+                                            style="background: rgba(255, 255, 255, 0.03); border: 1px dashed var(--glass-border); border-radius: 8px; padding: 15px; margin-bottom: 20px; font-size: 0.82rem; line-height: 1.5; color: var(--text-secondary);">
+                                            <h4
+                                                style="color: var(--accent-cyan); margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                                                <i class="fa-solid fa-circle-info"></i> Guided Google Sheets Setup
+                                                Steps:
                                             </h4>
                                             <ol style="margin-left: 20px; margin-top: 5px;">
-                                                <li>Create a new spreadsheet in your personal Google Drive (e.g. name it <strong>Connectify Database - Lalit</strong>).</li>
-                                                <li>Copy the full spreadsheet URL from your browser's address bar and paste it into the <strong>Google Sheet URL</strong> field below.</li>
-                                                <li>Paste your Google Service Account Credentials JSON key content into the <strong>Google Service Account Credentials</strong> text box.
-                                                    <br><small style="color: var(--text-muted);">If you do not have a key, create one at the <a href="https://console.cloud.google.com/" target="_blank" style="color: var(--accent-cyan); text-decoration: underline;">Google Cloud Console</a> by enabling the <em>Google Sheets</em> and <em>Google Drive</em> APIs, creating a <em>Service Account</em>, and downloading a JSON key file.</small>
+                                                <li>Create a new spreadsheet in your personal Google Drive (e.g. name it
+                                                    <strong>Connectify Database - Lalit</strong>).</li>
+                                                <li>Copy the full spreadsheet URL from your browser's address bar and
+                                                    paste it into the <strong>Google Sheet URL</strong> field below.
                                                 </li>
-                                                <li>Click the <strong>Share</strong> button on your Google Sheet, and share it with the service account email (found in your credentials JSON file, usually ending in <code>.gserviceaccount.com</code>) with <strong>Editor</strong> permissions.</li>
-                                                <li>Click <strong>Test Cloud Connection</strong> below to verify the configuration.</li>
-                                                <li>Save configuration and optionally run the <code>python migrate_to_google_sheets.py</code> command in your terminal to sync your existing local Excel data!</li>
+                                                <li>Paste your Google Service Account Credentials JSON key content into
+                                                    the <strong>Google Service Account Credentials</strong> text box.
+                                                    <br><small style="color: var(--text-muted);">If you do not have a
+                                                        key, create one at the <a
+                                                            href="https://console.cloud.google.com/" target="_blank"
+                                                            style="color: var(--accent-cyan); text-decoration: underline;">Google
+                                                            Cloud Console</a> by enabling the <em>Google Sheets</em> and
+                                                        <em>Google Drive</em> APIs, creating a <em>Service Account</em>,
+                                                        and downloading a JSON key file.</small>
+                                                </li>
+                                                <li>Click the <strong>Share</strong> button on your Google Sheet, and
+                                                    share it with the service account email (found in your credentials
+                                                    JSON file, usually ending in <code>.gserviceaccount.com</code>) with
+                                                    <strong>Editor</strong> permissions.</li>
+                                                <li>Click <strong>Test Cloud Connection</strong> below to verify the
+                                                    configuration.</li>
+                                                <li>Save configuration and optionally run the
+                                                    <code>python migrate_to_google_sheets.py</code> command in your
+                                                    terminal to sync your existing local Excel data!</li>
                                             </ol>
                                         </div>
 
                                         <div class="form-group">
                                             <label for="setting-google-sheet-url">Google Sheet URL</label>
-                                            <input type="url" id="setting-google-sheet-url" placeholder="https://docs.google.com/spreadsheets/d/.../edit" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--glass-border); background:rgba(0,0,0,0.4); color:var(--text-primary);">
-                                            <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px; display: block;">
-                                                Create a Google Sheet and share it with Editor permissions to your Google Service Account email address.
+                                            <input type="url" id="setting-google-sheet-url"
+                                                placeholder="https://docs.google.com/spreadsheets/d/.../edit"
+                                                style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--glass-border); background:rgba(0,0,0,0.4); color:var(--text-primary);">
+                                            <small
+                                                style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px; display: block;">
+                                                Create a Google Sheet and share it with Editor permissions to your
+                                                Google Service Account email address.
                                             </small>
                                         </div>
-                                        
+
                                         <div class="form-group" style="margin-top: 12px;">
-                                            <label for="setting-google-credentials-json">Google Service Account Credentials (JSON content)</label>
-                                            <textarea id="setting-google-credentials-json" rows="6" placeholder='{ "type": "service_account", ... }' style="width: 100%; min-height: 120px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: 6px; padding: 10px; color: var(--text-primary); font-family: monospace; font-size: 0.8rem; resize: vertical; outline: none;"></textarea>
-                                            <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px; display: block;">
-                                                Paste the full content of your Google Cloud Service Account JSON credentials key file.
+                                            <label for="setting-google-credentials-json">Google Service Account
+                                                Credentials (JSON content)</label>
+                                            <textarea id="setting-google-credentials-json" rows="6"
+                                                placeholder='{ "type": "service_account", ... }'
+                                                style="width: 100%; min-height: 120px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: 6px; padding: 10px; color: var(--text-primary); font-family: monospace; font-size: 0.8rem; resize: vertical; outline: none;"></textarea>
+                                            <small
+                                                style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px; display: block;">
+                                                Paste the full content of your Google Cloud Service Account JSON
+                                                credentials key file.
                                             </small>
                                         </div>
 
                                         <div style="display: flex; gap: 10px; align-items: center; margin-top: 15px;">
-                                            <button type="button" class="btn btn-secondary" onclick="testSheetsConnection()" style="height: 38px;">
+                                            <button type="button" class="btn btn-secondary"
+                                                onclick="testSheetsConnection()" style="height: 38px;">
                                                 <i class="fa-solid fa-plug"></i> Test Cloud Connection
                                             </button>
-                                            <span id="sheets-test-status" style="font-size: 0.85rem; font-weight: 500;"></span>
+                                            <span id="sheets-test-status"
+                                                style="font-size: 0.85rem; font-weight: 500;"></span>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <div class="settings-actions" style="margin-top: 20px;">
-                                <button type="button" class="btn btn-success btn-glow-success" onclick="saveConfiguration('cloud-db')">
+                                <button type="button" class="btn btn-success btn-glow-success"
+                                    onclick="saveConfiguration('cloud-db')">
                                     <i class="fa-solid fa-floppy-disk"></i> Save Database Configuration
                                 </button>
                                 <span id="save-status-cloud-db" class="save-status"></span>
@@ -1884,7 +2272,8 @@
                     <input type="text" id="edit-scraper-location" placeholder="e.g. Remote, New York, Bangalore">
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" id="btn-cancel-edit-scraper" onclick="hideEditScraperModal()">Cancel</button>
+                    <button type="button" class="btn btn-secondary" id="btn-cancel-edit-scraper"
+                        onclick="hideEditScraperModal()">Cancel</button>
                     <button type="submit" class="btn btn-success">Save Changes</button>
                 </div>
             </form>
@@ -1963,7 +2352,8 @@
                         <div class="modal-form-grid">
                             <div class="modal-form-group">
                                 <label for="edit-referral-contact-name">Full Name</label>
-                                <input type="text" id="edit-referral-contact-name" placeholder="e.g. John Smith" required>
+                                <input type="text" id="edit-referral-contact-name" placeholder="e.g. John Smith"
+                                    required>
                             </div>
                             <div class="modal-form-group">
                                 <label for="edit-referral-contact-email">Email Address</label>
@@ -1971,7 +2361,8 @@
                             </div>
                             <div class="modal-form-group form-group-full">
                                 <label for="edit-referral-contact-url">LinkedIn Profile URL</label>
-                                <input type="text" id="edit-referral-contact-url" placeholder="https://linkedin.com/in/..." required>
+                                <input type="text" id="edit-referral-contact-url"
+                                    placeholder="https://linkedin.com/in/..." required>
                             </div>
                         </div>
                     </div>
@@ -1984,11 +2375,13 @@
                         <div class="modal-form-grid">
                             <div class="modal-form-group">
                                 <label for="edit-referral-contact-company">Company Name</label>
-                                <input type="text" id="edit-referral-contact-company" placeholder="e.g. 66degrees" required>
+                                <input type="text" id="edit-referral-contact-company" placeholder="e.g. 66degrees"
+                                    required>
                             </div>
                             <div class="modal-form-group">
                                 <label for="edit-referral-contact-job-url">Job URL</label>
-                                <input type="text" id="edit-referral-contact-job-url" placeholder="https://linkedin.com/jobs/view/... or short URL">
+                                <input type="text" id="edit-referral-contact-job-url"
+                                    placeholder="https://linkedin.com/jobs/view/... or short URL">
                             </div>
                         </div>
                     </div>
@@ -2010,7 +2403,8 @@
                             </div>
                             <div class="modal-form-group">
                                 <label for="edit-referral-contact-status">Referral Status</label>
-                                <select id="edit-referral-contact-status" required onchange="updateStatusSelectColor(this)">
+                                <select id="edit-referral-contact-status" required
+                                    onchange="updateStatusSelectColor(this)">
                                     <option value="Pending">Pending</option>
                                     <option value="Sent">Sent</option>
                                     <option value="Replied">Replied</option>
@@ -2029,7 +2423,8 @@
                             </div>
                             <div class="modal-form-group form-group-full">
                                 <label for="edit-referral-contact-notes">Notes / Error Reason</label>
-                                <textarea id="edit-referral-contact-notes" rows="3" placeholder="Any notes or error details..."></textarea>
+                                <textarea id="edit-referral-contact-notes" rows="3"
+                                    placeholder="Any notes or error details..."></textarea>
                             </div>
                         </div>
                     </div>
@@ -2057,4 +2452,5 @@
     <!-- Dashboard Analytics -->
     <script src="/static/js/dashboard.js"></script>
 </body>
+
 </html>

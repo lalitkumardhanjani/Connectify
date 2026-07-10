@@ -411,12 +411,25 @@ def wait_for_search_results(driver, timeout=30):
 
 def build_search_url(keyword, search_location, search_time_range):
     quoted = urllib.parse.quote_plus(keyword)
-    quoted_loc = urllib.parse.quote_plus(search_location)
-    return (
-        f"https://www.linkedin.com/jobs/search/?keywords={quoted}"
-        f"&location={quoted_loc}&f_TPR={search_time_range}"
-        f"&trk=public_jobs_jobs-search-bar_search-submit&position=1&pageNum=0"
-    )
+    if search_location.lower() == "remote":
+        return (
+            f"https://www.linkedin.com/jobs/search/?keywords={quoted}"
+            f"&f_WT=2&f_TPR={search_time_range}"
+            f"&trk=public_jobs_jobs-search-bar_search-submit&position=1&pageNum=0"
+        )
+    elif not search_location:
+        return (
+            f"https://www.linkedin.com/jobs/search/?keywords={quoted}"
+            f"&f_TPR={search_time_range}"
+            f"&trk=public_jobs_jobs-search-bar_search-submit&position=1&pageNum=0"
+        )
+    else:
+        quoted_loc = urllib.parse.quote_plus(search_location)
+        return (
+            f"https://www.linkedin.com/jobs/search/?keywords={quoted}"
+            f"&location={quoted_loc}&f_TPR={search_time_range}"
+            f"&trk=public_jobs_jobs-search-bar_search-submit&position=1&pageNum=0"
+        )
 
 def wait_until_logged_in(driver, timeout_seconds=300):
     logger.info("\nLogin required.")
@@ -501,12 +514,22 @@ def run_job_finder(target_url=None):
         profile = user_conf.get("profile", {})
         pref_location_str = profile.get("preferred_locations", "")
         locations = parse_preferred_locations(pref_location_str)
+        
+        # Fallback to current location if preferred locations are empty
         if not locations:
-            # Fallback to global search location
-            global_loc = global_conf.get("search_location", "Bangalore, Karnataka, India")
-            locations = parse_preferred_locations(global_loc)
-            if not locations:
-                locations = ["Bangalore, Karnataka, India"]
+            current_loc = profile.get("current_location", "").strip()
+            if current_loc:
+                locations = parse_preferred_locations(current_loc)
+                
+        # If still empty, fall back to global search location (only if not India fallback)
+        if not locations:
+            global_loc = global_conf.get("search_location", "").strip()
+            if global_loc and "india" not in global_loc.lower():
+                locations = parse_preferred_locations(global_loc)
+                
+        # If absolutely no locations are configured, search nationwide (represented by "")
+        if not locations:
+            locations = [""]
         
         search_combinations = []
         for loc in locations:

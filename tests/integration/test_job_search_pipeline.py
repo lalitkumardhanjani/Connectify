@@ -113,6 +113,26 @@ class TestJobSearchLocal:
         referral_jobs = load_jobs_for_referral(status_filter="NEW")
         assert all(j["Status"] != "Not Interested" for j in referral_jobs)
 
+    def test_build_search_url_locations(self):
+        """build_search_url should correctly output url for standard, remote, and empty locations."""
+        from pipelines.linkedin_outreach.services.job_finder import build_search_url
+        
+        # Standard location
+        url1 = build_search_url("Data Engineer", "Jaipur", "r604800")
+        assert "location=Jaipur" in url1
+        assert "keywords=Data+Engineer" in url1
+        assert "f_WT=2" not in url1
+        
+        # Remote location
+        url2 = build_search_url("Data Engineer", "Remote", "r604800")
+        assert "location=" not in url2
+        assert "f_WT=2" in url2
+        
+        # Empty location
+        url3 = build_search_url("Data Engineer", "", "r604800")
+        assert "location=" not in url3
+        assert "f_WT=2" not in url3
+
 
 class TestJobSearchSheets:
     def test_job_saved_to_sheets_backend(self, sheets_user, mock_driver):

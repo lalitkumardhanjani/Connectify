@@ -389,24 +389,25 @@ class LocalStorageProvider(BaseStorageProvider):
                 for er in existing_rows:
                     er_url = normalize_external_url(er.get("CompanyURL") or "")
                     er_comp_url = normalize_external_url(er.get("LinkedIn_Company_URL") or "")
-                    if er_url and er_url == new_url:
-                        is_duplicate = True
-                        break
-                    if er_comp_url and er_comp_url == new_comp_url and er_url == new_url:
+                    if er_comp_url == new_comp_url and er_url == new_url:
                         is_duplicate = True
                         break
             elif table_key == "emails":
                 new_email = str(row.get("Email") or "").strip().lower()
+                new_post_url = str(row.get("PostURL") or "").strip().lower()
                 for er in existing_rows:
-                    if str(er.get("Email") or "").strip().lower() == new_email:
+                    if str(er.get("Email") or "").strip().lower() == new_email and str(er.get("PostURL") or "").strip().lower() == new_post_url:
                         is_duplicate = True
                         break
             elif table_key == "referrals":
-                new_comp = str(row.get("CompanyName") or "").strip().lower()
-                new_member = normalize_external_url(row.get("MemberProfileUrl") or "")
-                new_job = str(row.get("JobID") or "").strip()
+                new_profile = normalize_external_url(row.get("Referral_Person_Profile_URL") or "")
+                new_job_url = normalize_external_url(row.get("Company_URL") or "")
+                new_job_id = str(row.get("JobID") or "").strip()
                 for er in existing_rows:
-                    if str(er.get("CompanyName") or "").strip().lower() == new_comp and normalize_external_url(er.get("MemberProfileUrl") or "") == new_member and str(er.get("JobID") or "").strip() == new_job:
+                    er_profile = normalize_external_url(er.get("Referral_Person_Profile_URL") or "")
+                    er_job_url = normalize_external_url(er.get("Company_URL") or "")
+                    er_job_id = str(er.get("JobID") or "").strip()
+                    if er_profile == new_profile and (er_job_url == new_job_url or (new_job_id and er_job_id == new_job_id)):
                         is_duplicate = True
                         break
                         
@@ -881,24 +882,25 @@ class GoogleSheetsStorageProvider(BaseStorageProvider):
                 for er in existing_rows:
                     er_url = normalize_external_url(er.get("CompanyURL") or "")
                     er_comp_url = normalize_external_url(er.get("LinkedIn_Company_URL") or "")
-                    if er_url and er_url == new_url:
-                        is_duplicate = True
-                        break
-                    if er_comp_url and er_comp_url == new_comp_url and er_url == new_url:
+                    if er_comp_url == new_comp_url and er_url == new_url:
                         is_duplicate = True
                         break
             elif table_key == "emails":
                 new_email = str(row.get("Email") or "").strip().lower()
+                new_post_url = str(row.get("PostURL") or "").strip().lower()
                 for er in existing_rows:
-                    if str(er.get("Email") or "").strip().lower() == new_email:
+                    if str(er.get("Email") or "").strip().lower() == new_email and str(er.get("PostURL") or "").strip().lower() == new_post_url:
                         is_duplicate = True
                         break
             elif table_key == "referrals":
-                new_comp = str(row.get("CompanyName") or "").strip().lower()
-                new_member = normalize_external_url(row.get("MemberProfileUrl") or "")
-                new_job = str(row.get("JobID") or "").strip()
+                new_profile = normalize_external_url(row.get("Referral_Person_Profile_URL") or "")
+                new_job_url = normalize_external_url(row.get("Company_URL") or "")
+                new_job_id = str(row.get("JobID") or "").strip()
                 for er in existing_rows:
-                    if str(er.get("CompanyName") or "").strip().lower() == new_comp and normalize_external_url(er.get("MemberProfileUrl") or "") == new_member and str(er.get("JobID") or "").strip() == new_job:
+                    er_profile = normalize_external_url(er.get("Referral_Person_Profile_URL") or "")
+                    er_job_url = normalize_external_url(er.get("Company_URL") or "")
+                    er_job_id = str(er.get("JobID") or "").strip()
+                    if er_profile == new_profile and (er_job_url == new_job_url or (new_job_id and er_job_id == new_job_id)):
                         is_duplicate = True
                         break
                         
@@ -1009,7 +1011,7 @@ def read_database_rows(table_key: str, username: str = None, bypass_cache: bool 
         cached = _get_cached_rows(username, table_key)
         if cached is not None:
             return cached
-    data = StorageManager().providers["local"].read_rows(username, table_key, bypass_cache=bypass_cache)
+    data = StorageManager().providers["local"].read_rows(username, table_key)
     if not bypass_cache:
         _set_cached_rows(username, table_key, data)
     return data
