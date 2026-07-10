@@ -30,6 +30,62 @@ class LDJSONParser(HTMLParser):
         if self.in_script and self.script_type == "application/ld+json":
             self.ld_json_contents.append(data)
 
+def is_valid_location(loc):
+    if not loc or not isinstance(loc, str):
+        return False
+    loc = loc.strip()
+    loc_lower = loc.lower()
+    
+    # Common UI keywords, forms, footer terms that get mistakenly extracted
+    invalid_keywords = [
+        "not specified", "n/a", "none", "null", "undefined", "unknown",
+        "type", "input,", "input", "description", "count", "document", "support", 
+        "search", "te", "view", "results", "apply", "careers", "job", "post",
+        "cookie", "privacy", "terms", "submit", "login", "register", "signup",
+        "discrimination", "illegal", "discuss", "dedicated", "policy", "browser",
+        "javascript", "error", "website", "content", "page", "form", "select",
+        "button", "click", "required", "optional", "details", "contact", "home"
+    ]
+    
+    if loc_lower in invalid_keywords:
+        return False
+        
+    if len(loc) > 40 or len(loc) < 2:
+        return False
+        
+    # Check if contains any invalid phrases
+    for keyword in ["illegal", "discrimination", "discuss", "dedicated", "cookie", "policy", "browser", "javascript", "unsupported"]:
+        if keyword in loc_lower:
+            return False
+            
+    return True
+
+def is_valid_job_id(jid):
+    if not jid or not isinstance(jid, str):
+        return False
+    jid = jid.strip()
+    jid_lower = jid.lower()
+    
+    invalid_job_ids = [
+        "n/a", "none", "null", "undefined", "unknown", "order", "view", "results", 
+        "manila", "hyderabad", "bengaluru-ka", "apply", "job", "post", "careers", 
+        "details", "page", "application", "input", "select", "button", "div", 
+        "span", "class", "id", "href", "url", "http", "https", "error", "required",
+        "submit", "form", "search", "document", "count", "support", "type"
+    ]
+    
+    if jid_lower in invalid_job_ids:
+        return False
+        
+    if len(jid) > 50 or len(jid) < 3:
+        return False
+        
+    # If it contains spaces or symbols that aren't common in IDs
+    if " " in jid or len(re.findall(r'[a-zA-Z0-9_\-]', jid)) < len(jid) * 0.8:
+        return False
+        
+    return True
+
 def extract_details_from_html(html_text, url):
     """
     Parses Job ID, Location, and Experience from the job posting HTML.
@@ -94,7 +150,7 @@ def extract_details_from_html(html_text, url):
 
     # 2. Fallbacks and enhancements
     # Try to extract Job ID from URL path or query parameters
-    if not job_id:
+    if not is_valid_job_id(job_id):
         parsed_url = urlparse(url)
         # Search query params (e.g. opportunityId, job_id, reqId, role)
         qs = parse_qs(parsed_url.query)
@@ -104,13 +160,13 @@ def extract_details_from_html(html_text, url):
                 break
         
         # Search URL path segments (e.g. jobs/8576246002, post/e756352a...)
-        if not job_id:
+        if not is_valid_job_id(job_id):
             path_segments = [seg for seg in parsed_url.path.split("/") if seg]
             for i, seg in enumerate(path_segments):
                 if seg in ["jobs", "job", "post", "role"] and i + 1 < len(path_segments):
                     job_id = path_segments[i + 1]
                     break
-            if not job_id and path_segments:
+            if not is_valid_job_id(job_id) and path_segments:
                 # If there's a segment with a mix of digits and characters, it could be the ID
                 for seg in reversed(path_segments):
                     if re.match(r'^[a-f0-9\-]{24,}$', seg) or re.search(r'\d+', seg):
@@ -118,7 +174,7 @@ def extract_details_from_html(html_text, url):
                         break
 
     # Requisition ID pattern from text
-    if not job_id:
+    if not is_valid_job_id(job_id):
         id_patterns = [
             r'(?:job|req|reference|posting|requisition)\s*(?:id|number|no|#)?\s*[:\-#]?\s*([A-Za-z0-9_\-]+)',
             r'JR\d+',
@@ -128,12 +184,12 @@ def extract_details_from_html(html_text, url):
             matches = re.findall(pat, html_text, re.IGNORECASE)
             if matches:
                 cand = matches[0].strip()
-                if len(cand) > 3 and len(cand) < 40:
+                if is_valid_job_id(cand):
                     job_id = cand
                     break
 
     # Location pattern from text
-    if not location:
+    if not is_valid_location(location):
         loc_patterns = [
             r'(?:location|workplace|office|based in)\s*[:\-#]?\s*([A-Z][a-zA-Z\s,]{2,30})',
             r'([A-Z][a-zA-Z\s,]{2,30})\s*\|\s*(?:Remote|Hybrid|On-site)',
@@ -142,8 +198,10 @@ def extract_details_from_html(html_text, url):
         for pat in loc_patterns:
             matches = re.findall(pat, html_text, re.IGNORECASE)
             if matches:
-                location = matches[0].strip()
-                break
+                cand = matches[0].strip()
+                if is_valid_location(cand):
+                    location = cand
+                    break
 
     # Experience requirement pattern from text
     exp_patterns = [
@@ -169,8 +227,8 @@ def extract_details_from_html(html_text, url):
         experience = re.sub(r'\s+', ' ', experience).strip()
 
     return {
-        "job_id": job_id or "N/A",
-        "location": location or "Remote / India",
+        "job_id": job_id if is_valid_job_id(job_id) else "N/A",
+        "location": location if is_valid_location(location) else "Not Specified",
         "experience": experience or "Not Specified"
     }
 
@@ -216,4 +274,4 @@ def scrape_job_details(url):
             except Exception:
                 pass
                 
-    return {"job_id": "N/A", "location": "Remote / India", "experience": "Not Specified"}
+    return {"job_id": "N/A", "location": "Not Specified", "experience": "Not Specified"}
