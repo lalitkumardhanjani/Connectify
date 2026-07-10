@@ -1011,12 +1011,7 @@ def read_database_rows(table_key: str, username: str = None, bypass_cache: bool 
         cached = _get_cached_rows(username, table_key)
         if cached is not None:
             return cached
-            
-    config = get_user_config(username, bypass_cache=True)
-    db_type = config.get("global_settings", {}).get("database_type", "local")
-    provider_key = "google_sheets" if db_type == "google_sheets" else "local"
-    
-    data = StorageManager().providers[provider_key].read_rows(username, table_key, bypass_cache=bypass_cache)
+    data = StorageManager().providers["local"].read_rows(username, table_key)
     if not bypass_cache:
         _set_cached_rows(username, table_key, data)
     return data

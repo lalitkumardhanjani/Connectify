@@ -307,27 +307,6 @@ class SubprocessRunner:
 
 
 def get_excel_data(file_path):
-    from core.storage.database import get_sheets_config
-    sheets_conf = get_sheets_config()
-    if sheets_conf:
-        url, creds = sheets_conf
-        from core.storage.sheets import read_rows
-        from config.settings import get_job_tracker_file, get_job_leads_file, get_referrals_file
-        
-        worksheet_name = None
-        if str(file_path) == str(get_job_tracker_file()):
-            worksheet_name = "Scraped Emails"
-        elif str(file_path) == str(get_job_leads_file()):
-            worksheet_name = "Job Leads"
-        elif str(file_path) == str(get_referrals_file()):
-            worksheet_name = "Referrals & Connections"
-            
-        if worksheet_name:
-            try:
-                return read_rows(url, creds, worksheet_name)
-            except Exception as e:
-                print(f"Error reading Google Sheets worksheet '{worksheet_name}': {e}")
-
     if not os.path.exists(file_path):
         return []
     try:

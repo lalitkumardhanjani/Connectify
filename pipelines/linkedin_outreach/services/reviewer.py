@@ -7,20 +7,6 @@ from core.logging.config import logger
 
 def load_job_data_excel(filename):
     """Load job data from the Excel tracker and return rows, workbook, sheet, headers."""
-    from core.storage.database import get_sheets_config
-    sheets_conf = get_sheets_config()
-    if sheets_conf:
-        url, creds = sheets_conf
-        from core.storage.sheets import read_rows
-        try:
-            rows = read_rows(url, creds, "Job Leads")
-            from config.constants import GOOGLE_SHEET_WORKSHEETS
-            headers = GOOGLE_SHEET_WORKSHEETS["jobs"]["headers"]
-            return rows, None, None, headers
-        except Exception as e:
-            logger.error(f"Error loading job leads from Google Sheets: {e}")
-            return [], None, None, []
-
     if not os.path.exists(filename):
         logger.error(f"Excel file '{filename}' not found!")
         return [], None, None, []

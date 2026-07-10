@@ -6,20 +6,6 @@ from core.integrations.url_shortener import shorten_url
 from core.logging.config import logger
 
 def load_job_data_excel(filename):
-    from core.storage.database import get_sheets_config
-    sheets_conf = get_sheets_config()
-    if sheets_conf:
-        url, creds = sheets_conf
-        from core.storage.sheets import read_rows
-        try:
-            rows = read_rows(url, creds, "Job Leads")
-            from config.constants import GOOGLE_SHEET_WORKSHEETS
-            headers = GOOGLE_SHEET_WORKSHEETS["jobs"]["headers"]
-            return rows, None, None, headers
-        except Exception as e:
-            logger.error(f"Error loading job leads from Google Sheets: {e}")
-            return [], None, None, []
-
     if not os.path.exists(filename):
         logger.error(f"Excel file '{filename}' not found.")
         return [], None, None, []
@@ -36,6 +22,18 @@ def load_job_data_excel(filename):
         return [], None, None, []
 
 def save_job_data_excel(wb, ws, headers, rows, filename):
+    # 1. ALWAYS write locally first
+    if ws is not None and wb is not None:
+        try:
+            ws.delete_rows(2, ws.max_row)
+            for row_dict in rows:
+                ws.append([row_dict.get(h, "") for h in headers])
+            wb.save(filename)
+            logger.info(f"Successfully saved updated job data to '{filename}'.")
+        except Exception as e:
+            logger.error(f"Error saving '{filename}': {e}")
+
+    # 2. Update Google Sheets backup if configured
     from core.storage.database import get_sheets_config
     sheets_conf = get_sheets_config()
     if sheets_conf:
@@ -43,19 +41,9 @@ def save_job_data_excel(wb, ws, headers, rows, filename):
         from core.storage.sheets import write_rows
         try:
             write_rows(url, creds, "Job Leads", rows)
-            logger.info("Successfully saved updated job data to Google Sheets.")
+            logger.info("Successfully saved updated job data to Google Sheets backup.")
         except Exception as e:
             logger.error(f"Error saving job leads to Google Sheets: {e}")
-        return
-
-    try:
-        ws.delete_rows(2, ws.max_row)
-        for row_dict in rows:
-            ws.append([row_dict.get(h, "") for h in headers])
-        wb.save(filename)
-        logger.info(f"Successfully saved updated job data to '{filename}'.")
-    except Exception as e:
-        logger.error(f"Error saving '{filename}': {e}")
 
 def run_url_shortener():
     """Runs the URL shortener workflow to process long Company URLs using TinyURL."""
