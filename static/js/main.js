@@ -449,8 +449,16 @@ function createSubTerminalDOM(taskId, label) {
     if (oldTerm) {
         const logContainer = document.getElementById(`logs-${safeId}`);
         if (logContainer) logContainer.innerHTML = '<div class="log-line system">Process restarted. Waiting for logs...</div>';
+        if (polledTasks[taskId]) {
+            polledTasks[taskId].lastLogLength = 0;
+        }
         updateSubTerminalStatusDOM(taskId, 'running');
         return;
+    }
+    
+    // Reset lastLogLength so the next poll downloads the entire history into this new DOM terminal
+    if (polledTasks[taskId]) {
+        polledTasks[taskId].lastLogLength = 0;
     }
     
     const term = document.createElement('div');
