@@ -327,10 +327,7 @@ async function loadEmailDashboard() {
     document.getElementById('email-pending').textContent = fmt(d.pending);
     document.getElementById('email-today').textContent = fmt(d.added_today);
 
-    const successRateEl = document.getElementById('email-success-rate');
-    if (successRateEl) {
-        successRateEl.textContent = (d.send_success_rate !== undefined ? d.send_success_rate : 0) + '% rate';
-    }
+
 
     // Leaderboard
     const kwEntries = Object.entries(d.keyword_counts || {}).sort((a, b) => b[1] - a[1]);
