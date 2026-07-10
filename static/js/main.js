@@ -414,11 +414,16 @@ async function pollAllLogs() {
         if (hasRunningTask) {
             pollCyclesCount++;
             if (pollCyclesCount >= 2) {
-                pollCyclesCount = 0;
                 loadTableData('scraper');
                 loadTableData('referral');
                 loadTableData('referrals');
                 if (typeof loadStats === 'function') loadStats();
+            }
+            // Refresh dashboard analytics every 5 poll cycles (~7.5s) so
+            // KPI cards and charts update in real-time while a pipeline runs.
+            if (pollCyclesCount >= 5) {
+                pollCyclesCount = 0;
+                if (typeof loadDashboardAnalytics === 'function') loadDashboardAnalytics();
             }
         } else {
             pollCyclesCount = 0;
@@ -1053,14 +1058,18 @@ async function sendStdin(choice) {
         if (data.status === 'success') {
             document.getElementById('stdin-overlay').classList.add('hidden');
             
-            // Instantly refresh the UI database table and the dashboard stats after a short delay to account for write timing
+            // Refresh UI after a delay to give the subprocess time to write the
+            // status update to disk before the dashboard reads the metrics back.
             setTimeout(() => {
                 loadTableData('scraper');
                 loadTableData('referral');
                 loadTableData('referrals');
                 if (typeof loadStats === 'function') loadStats();
-                if (typeof loadDashboardAnalytics === 'function') loadDashboardAnalytics();
             }, 800);
+            // Dashboard analytics (heavier fetch) given extra breathing room.
+            setTimeout(() => {
+                if (typeof loadDashboardAnalytics === 'function') loadDashboardAnalytics();
+            }, 2000);
         }
     } catch (e) {
         console.error("Failed to pipe stdin:", e);

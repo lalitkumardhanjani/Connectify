@@ -178,7 +178,7 @@
                     </div>
 
                     <!-- Charts Row -->
-                    <div class="charts-grid-equal">
+                    <div class="charts-grid">
                         <div class="chart-card card-glass">
                             <h3 class="chart-title"><i class="fa-solid fa-chart-pie"></i> Email Status</h3>
                             <div class="chart-wrap">
@@ -187,41 +187,67 @@
                             <div class="chart-legend" id="email-status-legend"></div>
                         </div>
                         <div class="chart-card card-glass">
-                            <h3 class="chart-title"><i class="fa-solid fa-chart-bar"></i> Keyword Analysis</h3>
+                            <h3 class="chart-title"><i class="fa-solid fa-chart-bar"></i> Search Keyword Analysis</h3>
                             <div class="chart-wrap">
                                 <canvas id="emailKeywordChart"></canvas>
                             </div>
                         </div>
-                        <div class="chart-card card-glass chart-card-wide" style="grid-column: span 2;">
-                            <h3 class="chart-title"><i class="fa-solid fa-chart-line"></i> Emails Generated Per Day</h3>
+                        <div class="chart-card card-glass">
+                            <h3 class="chart-title"><i class="fa-solid fa-chart-bar"></i> Job Title Analysis</h3>
                             <div class="chart-wrap">
+                                <canvas id="emailTitleChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="chart-card card-glass chart-card-wide" style="grid-column: span 3;">
+                            <h3 class="chart-title"><i class="fa-solid fa-chart-line"></i> Emails Generated Per Day</h3>
+                            <div class="chart-wrap-lg">
                                 <canvas id="emailDailyChart"></canvas>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Keyword Effectiveness Table -->
-                    <div class="analytics-table-section card-glass">
-                        <div class="table-section-header">
-                            <h3><i class="fa-solid fa-ranking-star"></i> Keyword Effectiveness</h3>
-                            <span class="table-badge">Email Scraper Performance</span>
+                    <!-- Tables Row -->
+                    <div class="charts-grid-equal" style="margin-top: 1.2rem;">
+                        <!-- Keyword Effectiveness Table -->
+                        <div class="analytics-table-section card-glass" style="margin-bottom:0;">
+                            <div class="table-section-header">
+                                <h3><i class="fa-solid fa-ranking-star"></i> Search Keyword Analysis</h3>
+                                <span class="table-badge">Emails Per Search Keyword</span>
+                            </div>
+                            <div class="table-wrap">
+                                <table class="analytics-table" id="email-keyword-table">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Search Keyword</th>
+                                            <th>Total Emails</th>
+                                            <th>Share</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody><tr><td colspan="4" class="table-empty">Loading...</td></tr></tbody>
+                                </table>
+                            </div>
                         </div>
-                        <div class="table-wrap">
-                            <table class="analytics-table" id="email-keyword-table">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Keyword</th>
-                                        <th>Total Emails</th>
-                                        <th>Share</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td colspan="4" class="table-empty">Loading...</td>
-                                    </tr>
-                                </tbody>
-                            </table>
+
+                        <!-- Title Effectiveness Table -->
+                        <div class="analytics-table-section card-glass" style="margin-bottom:0;">
+                            <div class="table-section-header">
+                                <h3><i class="fa-solid fa-ranking-star"></i> Job Title Analysis</h3>
+                                <span class="table-badge">Emails Per Job Title</span>
+                            </div>
+                            <div class="table-wrap">
+                                <table class="analytics-table" id="email-title-table">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Job Title / Experience</th>
+                                            <th>Total Emails</th>
+                                            <th>Share</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody><tr><td colspan="4" class="table-empty">Loading...</td></tr></tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
 
@@ -283,10 +309,9 @@
                     </div>
 
                     <!-- Charts Row -->
-                    <div class="charts-grid-equal">
+                    <div class="charts-grid">
                         <div class="chart-card card-glass">
-                            <h3 class="chart-title"><i class="fa-solid fa-chart-pie"></i> Company Status Distribution
-                            </h3>
+                            <h3 class="chart-title"><i class="fa-solid fa-chart-pie"></i> Company Status Distribution</h3>
                             <div class="chart-wrap">
                                 <canvas id="coStatusChart"></canvas>
                             </div>
@@ -298,30 +323,56 @@
                                 <canvas id="coKeywordChart"></canvas>
                             </div>
                         </div>
+                        <div class="chart-card card-glass">
+                            <h3 class="chart-title"><i class="fa-solid fa-chart-bar"></i> Job Title Analysis</h3>
+                            <div class="chart-wrap">
+                                <canvas id="coTitleChart"></canvas>
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- Keyword Analysis Table -->
-                    <div class="analytics-table-section card-glass">
-                        <div class="table-section-header">
-                            <h3><i class="fa-solid fa-magnifying-glass-chart"></i> Search Keyword Analysis</h3>
-                            <span class="table-badge">Companies Found Per Keyword</span>
+                    <!-- Tables Row -->
+                    <div class="charts-grid-equal" style="margin-top: 1.2rem;">
+                        <!-- Keyword Analysis Table -->
+                        <div class="analytics-table-section card-glass" style="margin-bottom:0;">
+                            <div class="table-section-header">
+                                <h3><i class="fa-solid fa-magnifying-glass-chart"></i> Search Keyword Analysis</h3>
+                                <span class="table-badge">Companies Found Per Keyword</span>
+                            </div>
+                            <div class="table-wrap">
+                                <table class="analytics-table" id="co-keyword-table">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Search Keyword</th>
+                                            <th>Companies Found</th>
+                                            <th>Share</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody><tr><td colspan="4" class="table-empty">Loading...</td></tr></tbody>
+                                </table>
+                            </div>
                         </div>
-                        <div class="table-wrap">
-                            <table class="analytics-table" id="co-keyword-table">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Keyword</th>
-                                        <th>Companies Found</th>
-                                        <th>Share</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td colspan="4" class="table-empty">Loading...</td>
-                                    </tr>
-                                </tbody>
-                            </table>
+
+                        <!-- Title Analysis Table -->
+                        <div class="analytics-table-section card-glass" style="margin-bottom:0;">
+                            <div class="table-section-header">
+                                <h3><i class="fa-solid fa-magnifying-glass-chart"></i> Job Title Analysis</h3>
+                                <span class="table-badge">Companies Found Per Job Title</span>
+                            </div>
+                            <div class="table-wrap">
+                                <table class="analytics-table" id="co-title-table">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Job Title</th>
+                                            <th>Companies Found</th>
+                                            <th>Share</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody><tr><td colspan="4" class="table-empty">Loading...</td></tr></tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
 
@@ -2090,7 +2141,8 @@
                                             </h4>
                                             <ol style="margin-left: 20px; margin-top: 5px;">
                                                 <li>Create a new spreadsheet in your personal Google Drive (e.g. name it
-                                                    <strong>Connectify Database - Lalit</strong>).</li>
+                                                    <strong>Connectify Database - Lalit</strong>).
+                                                </li>
                                                 <li>Copy the full spreadsheet URL from your browser's address bar and
                                                     paste it into the <strong>Google Sheet URL</strong> field below.
                                                 </li>
@@ -2107,12 +2159,14 @@
                                                 <li>Click the <strong>Share</strong> button on your Google Sheet, and
                                                     share it with the service account email (found in your credentials
                                                     JSON file, usually ending in <code>.gserviceaccount.com</code>) with
-                                                    <strong>Editor</strong> permissions.</li>
+                                                    <strong>Editor</strong> permissions.
+                                                </li>
                                                 <li>Click <strong>Test Cloud Connection</strong> below to verify the
                                                     configuration.</li>
                                                 <li>Save configuration and optionally run the
                                                     <code>python migrate_to_google_sheets.py</code> command in your
-                                                    terminal to sync your existing local Excel data!</li>
+                                                    terminal to sync your existing local Excel data!
+                                                </li>
                                             </ol>
                                         </div>
 

@@ -51,6 +51,7 @@ def get_email_metrics():
         "sent_today": 0,
         "status_distribution": {"sent": 0, "pending": 0, "new": 0, "skipped": 0},
         "keyword_counts": {},
+        "title_counts": {},
         "daily_counts": [],
         "pending_queue": [],
         "new_queue": []
@@ -64,6 +65,7 @@ def get_email_metrics():
     keyword_col   = _find_col(df, 'Keyword')
     timestamp_col = _find_col(df, 'Timestamp')
     email_col     = _find_col(df, 'Email')
+    experience_col = _find_col(df, 'Experience')
 
     if not status_col:
         return empty_result
@@ -101,6 +103,14 @@ def get_email_metrics():
         kw_series = kw_series[kw_series != '' ].str.title()
         if not kw_series.empty:
             keyword_counts = kw_series.value_counts().to_dict()
+
+    # Job Title (Experience) counts
+    title_counts = {}
+    if experience_col:
+        title_series = df[experience_col].dropna().astype(str).str.strip()
+        title_series = title_series[title_series != ''].str.title()
+        if not title_series.empty:
+            title_counts = title_series.value_counts().to_dict()
 
     # Daily email counts (last 30 days)
     daily_counts = []
@@ -199,6 +209,7 @@ def get_email_metrics():
         "status_distribution": status_distribution,
         "domain_distribution": domain_distribution,
         "keyword_counts":      keyword_counts,
+        "title_counts":        title_counts,
         "daily_counts":        daily_counts,
         "pending_queue":       new_queue,
         "new_queue":           new_queue,
@@ -220,6 +231,7 @@ def get_company_metrics():
         "referral_outreach": 0,
         "status_distribution": {},
         "keyword_counts": {},
+        "title_counts": {},
         "keyword_status": {}
     }
 
@@ -230,6 +242,7 @@ def get_company_metrics():
     status_col  = _find_col(df, 'Status')
     keyword_col = _find_col(df, 'SearchKeyword', 'Search Keyword', 'Keyword')
     company_col = _find_col(df, 'CompanyName', 'Company Name', 'Company')
+    title_col   = _find_col(df, 'JobTitle', 'Job Title', 'Title')
 
     if not status_col:
         return empty_result
@@ -258,6 +271,14 @@ def get_company_metrics():
         kw_series = kw_series[kw_series != '']
         if not kw_series.empty:
             keyword_counts = kw_series.value_counts().to_dict()
+
+    # Job Title counts
+    title_counts = {}
+    if title_col:
+        title_series = df[title_col].dropna().astype(str).str.strip()
+        title_series = title_series[title_series != ''].str.title()
+        if not title_series.empty:
+            title_counts = title_series.value_counts().to_dict()
 
     # Keyword vs Status breakdown
     keyword_status = {}
@@ -289,6 +310,7 @@ def get_company_metrics():
         "referral_outreach":  referral_outreach,
         "status_distribution": status_distribution,
         "keyword_counts":     keyword_counts,
+        "title_counts":       title_counts,
         "keyword_status":     keyword_status,
         "top_hiring_companies": top_hiring_companies,
     }

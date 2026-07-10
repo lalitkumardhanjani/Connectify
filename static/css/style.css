@@ -2748,6 +2748,11 @@ details[open] > * {
     position: relative;
 }
 
+.chart-wrap-lg {
+    height: 350px;
+    position: relative;
+}
+
 .chart-legend {
     margin-top: 1rem;
     display: flex;
