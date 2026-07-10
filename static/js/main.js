@@ -1327,7 +1327,7 @@ function renderTable(type, data) {
             <td><span style="color:${row.Referral_Remaining > 0 ? 'var(--accent-yellow)' : 'var(--text-secondary)'};">${row.Referral_Remaining ?? 5}</span></td>
             <td>
                 <div class="status-select-wrapper ${cleanStatus}">
-                    <select class="status-inline-select" onchange="updateStatus('referral', ${row.JobID}, this.value)">
+                    <select class="status-inline-select" onchange="updateStatus('referral', '${row.JobID}', this.value)">
                         ${statusOptionsHtml}
                     </select>
                 </div>
@@ -1335,10 +1335,10 @@ function renderTable(type, data) {
             <td>${row.CreatedDateTime || ""}</td>
             <td style="text-align: center;">
                 <div style="display: flex; gap: 8px; justify-content: center;">
-                    <button class="table-action-btn btn-edit" onclick="showEditReferralModal(${row.JobID}, '${encCompany}', '${encUrl}', '${encShorten}', '${encKeyword}', '${encPosition}', '${encStatus}')" title="Edit record">
+                    <button class="table-action-btn btn-edit" onclick="showEditReferralModal('${row.JobID}', '${encCompany}', '${encUrl}', '${encShorten}', '${encKeyword}', '${encPosition}', '${encStatus}')" title="Edit record">
                         <i class="fa-solid fa-pen-to-square"></i>
                     </button>
-                    <button class="table-action-btn btn-delete" onclick="deleteRow('referral', ${row.JobID})" title="Delete job">
+                    <button class="table-action-btn btn-delete" onclick="deleteRow('referral', '${row.JobID}')" title="Delete job">
                         <i class="fa-solid fa-trash-can"></i>
                     </button>
                 </div>

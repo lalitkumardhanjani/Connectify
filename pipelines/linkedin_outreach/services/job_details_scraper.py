@@ -30,6 +30,26 @@ class LDJSONParser(HTMLParser):
         if self.in_script and self.script_type == "application/ld+json":
             self.ld_json_contents.append(data)
 
+def get_clean_text(html):
+    """
+    Strips script, style, comments, and HTML tags to get clean visible text.
+    Collapses multiple whitespaces and handles common entities.
+    """
+    if not html:
+        return ""
+    # Remove script and style elements
+    text = re.sub(r'<script\b[^>]*>([\s\S]*?)</script>', ' ', html, flags=re.IGNORECASE)
+    text = re.sub(r'<style\b[^>]*>([\s\S]*?)</style>', ' ', text, flags=re.IGNORECASE)
+    # Remove HTML comments
+    text = re.sub(r'<!--([\s\S]*?)-->', ' ', text)
+    # Replace HTML entity codes
+    text = text.replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", '"')
+    # Strip HTML tags
+    text = re.sub(r'<[^>]*>', ' ', text)
+    # Collapse multiple whitespaces
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
+
 def is_valid_location(loc):
     if not loc or not isinstance(loc, str):
         return False
@@ -93,6 +113,9 @@ def extract_details_from_html(html_text, url):
     job_id = ""
     location = ""
     experience = ""
+
+    # Get clean visible text
+    clean_text = get_clean_text(html_text)
 
     # 1. Parse JSON-LD JobPosting schema
     parser = LDJSONParser()
@@ -181,7 +204,7 @@ def extract_details_from_html(html_text, url):
             r'NTT\d+[A-Z0-9]+'
         ]
         for pat in id_patterns:
-            matches = re.findall(pat, html_text, re.IGNORECASE)
+            matches = re.findall(pat, clean_text, re.IGNORECASE)
             if matches:
                 cand = matches[0].strip()
                 if is_valid_job_id(cand):
@@ -194,9 +217,10 @@ def extract_details_from_html(html_text, url):
             r'(?:location|workplace|office|based in)\s*[:\-#]?\s*([A-Z][a-zA-Z\s,]{2,30})',
             r'([A-Z][a-zA-Z\s,]{2,30})\s*\|\s*(?:Remote|Hybrid|On-site)',
             r'(?:Remote\s*-\s*India|Remote\s*,\s*India|India\s*-\s*Remote|India\s*,\s*Remote)',
+            r'\b(Remote|Hybrid|On-site)\b'
         ]
         for pat in loc_patterns:
-            matches = re.findall(pat, html_text, re.IGNORECASE)
+            matches = re.findall(pat, clean_text, re.IGNORECASE)
             if matches:
                 cand = matches[0].strip()
                 if is_valid_location(cand):
@@ -208,9 +232,10 @@ def extract_details_from_html(html_text, url):
         r'(\d+(?:\s*-\s*\d+)?\s*\+?\s*years?)\s*(?:of)?\s*experience',
         r'experience\s*(?:of)?\s*(\d+(?:\s*-\s*\d+)?\s*\+?\s*years?)',
         r'(\d+\+?\s*yrs?)',
+        r'\b(\d+(?:\s*-\s*\d+)?\s*\+?\s*(?:years?|yrs?))\b'
     ]
     for pat in exp_patterns:
-        matches = re.findall(pat, html_text, re.IGNORECASE)
+        matches = re.findall(pat, clean_text, re.IGNORECASE)
         if matches:
             experience = matches[0].strip()
             break
@@ -239,39 +264,51 @@ def scrape_job_details(url):
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
+    details = {"job_id": "N/A", "location": "Not Specified", "experience": "Not Specified"}
+    
     try:
         # Avoid heavy assets, fetch just the HTML text
         res = requests.get(url, headers=headers, timeout=10)
         if res.status_code == 200:
-            return extract_details_from_html(res.text, url)
+            details = extract_details_from_html(res.text, url)
     except Exception as e:
         logger.warning(f"Error requesting {url} directly: {e}")
         
-    # Fallback to headless selenium if requests fail or returns empty details
-    driver = None
-    try:
-        from selenium.webdriver.chrome.options import Options
-        # Patch chrome options for headless mode dynamically
-        original_add_argument = Options.add_argument
-        def patched_add_argument(self, arg):
-            original_add_argument(self, arg)
-            if arg == "--no-sandbox":
-                original_add_argument(self, "--headless=new")
-        Options.add_argument = patched_add_argument
-        
-        from core.integrations.selenium_driver import get_driver
-        driver = get_driver("chrome-profile-details-extractor")
-        driver.get(url)
-        time.sleep(3)
-        html = driver.page_source
-        return extract_details_from_html(html, url)
-    except Exception as se:
-        logger.error(f"Headless browser scraper fallback failed for {url}: {se}")
-    finally:
-        if driver:
-            try:
-                driver.quit()
-            except Exception:
-                pass
+    # Fallback to headless selenium if requests fail or return incomplete details
+    if details["location"] == "Not Specified" or details["job_id"] == "N/A" or details["experience"] == "Not Specified":
+        logger.info(f"Requests returned incomplete details for {url}. Falling back to Selenium headless Chrome...")
+        driver = None
+        try:
+            from selenium.webdriver.chrome.options import Options
+            # Patch chrome options for headless mode dynamically
+            original_add_argument = Options.add_argument
+            def patched_add_argument(self, arg):
+                original_add_argument(self, arg)
+                if arg == "--no-sandbox":
+                    original_add_argument(self, "--headless=new")
+            Options.add_argument = patched_add_argument
+            
+            from core.integrations.selenium_driver import get_driver
+            driver = get_driver("chrome-profile-details-extractor")
+            driver.get(url)
+            time.sleep(4)
+            html = driver.page_source
+            selenium_details = extract_details_from_html(html, url)
+            
+            # Keep whichever details are better
+            if selenium_details["location"] != "Not Specified":
+                details["location"] = selenium_details["location"]
+            if selenium_details["job_id"] != "N/A":
+                details["job_id"] = selenium_details["job_id"]
+            if selenium_details["experience"] != "Not Specified":
+                details["experience"] = selenium_details["experience"]
+        except Exception as se:
+            logger.error(f"Headless browser scraper fallback failed for {url}: {se}")
+        finally:
+            if driver:
+                try:
+                    driver.quit()
+                except Exception:
+                    pass
                 
-    return {"job_id": "N/A", "location": "Not Specified", "experience": "Not Specified"}
+    return details
