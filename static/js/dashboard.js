@@ -37,11 +37,11 @@ const BAR_COLORS = [
 // Active chart instances (so we can destroy and re-create cleanly)
 let emailStatusChartInst = null;
 let emailKeywordChartInst = null;
-let emailTitleChartInst = null;
+let emailDomainChartInst = null;
 let emailDailyChartInst = null;
 let coStatusChartInst = null;
 let coKeywordChartInst = null;
-let coTitleChartInst = null;
+let coHiringChartInst = null;
 let outreachStatusChartInst = null;
 let outreachSourceChartInst = null;
 let outreachDailyChartInst = null;
@@ -360,15 +360,19 @@ async function loadEmailDashboard() {
         topKws.map(([, v]) => v)
     );
 
-    // Job Title Bar Chart (top 8)
-    const titleEntries = Object.entries(d.title_counts || {}).sort((a, b) => b[1] - a[1]);
-    const topTitles = titleEntries.slice(0, 8);
-    if (emailTitleChartInst) emailTitleChartInst.destroy();
-    emailTitleChartInst = makeBarChart(
-        'emailTitleChart',
-        topTitles.map(([k]) => k),
-        topTitles.map(([, v]) => v)
-    );
+    // Domain Doughnut Chart
+    const domains = Object.entries(d.domain_distribution || {}).sort((a, b) => b[1] - a[1]);
+    const topDomains = domains.slice(0, 7);
+    const otherDomainsCount = domains.slice(7).reduce((sum, [, v]) => sum + v, 0);
+    const domainLabels = topDomains.map(([k]) => k.startsWith('.') ? k : '@' + k);
+    const domainData = topDomains.map(([, v]) => v);
+    if (otherDomainsCount > 0) {
+        domainLabels.push('Other corporate');
+        domainData.push(otherDomainsCount);
+    }
+
+    if (emailDomainChartInst) emailDomainChartInst.destroy();
+    emailDomainChartInst = makePieChart('emailDomainChart', domainLabels, domainData, BAR_COLORS);
 
     // Daily Line Chart
     const daily = d.daily_counts || [];
@@ -380,7 +384,7 @@ async function loadEmailDashboard() {
         daily.map(r => r.sent || 0)
     );
 
-    // Search Keyword Effectiveness Table
+    // Keyword Effectiveness Table
     const kwTbody = document.querySelector('#email-keyword-table tbody');
     if (kwTbody) {
         if (kwEntries.length === 0) {
@@ -394,25 +398,6 @@ async function loadEmailDashboard() {
                     kw,
                     `<span class="count-value">${fmt(count)}</span>`,
                     progressBar(count, maxKw)
-                ));
-            });
-        }
-    }
-
-    // Job Title Effectiveness Table
-    const titleTbody = document.querySelector('#email-title-table tbody');
-    if (titleTbody) {
-        if (titleEntries.length === 0) {
-            titleTbody.innerHTML = emptyRow(4);
-        } else {
-            const maxTitle = titleEntries[0][1];
-            titleTbody.innerHTML = '';
-            titleEntries.slice(0, 15).forEach(([title, count], i) => {
-                titleTbody.appendChild(mkRow(
-                    `<span class="rank-num ${rankClass(i)}">${i + 1}</span>`,
-                    title,
-                    `<span class="count-value">${fmt(count)}</span>`,
-                    progressBar(count, maxTitle)
                 ));
             });
         }
@@ -490,7 +475,7 @@ async function loadCompanyDashboard() {
     coStatusChartInst = makePieChart('coStatusChart', coStatusLabels, coStatusData, coStatusColors);
     renderLegend('co-status-legend', coStatusLabels, coStatusColors, coStatusData);
 
-    // Search Keyword Bar Chart (top 8)
+    // Keyword Bar Chart (top 8)
     const topCoKws = coKwEntries.slice(0, 8);
     if (coKeywordChartInst) coKeywordChartInst.destroy();
     coKeywordChartInst = makeBarChart(
@@ -499,17 +484,7 @@ async function loadCompanyDashboard() {
         topCoKws.map(([, v]) => v)
     );
 
-    // Job Title Bar Chart (top 8)
-    const coTitleEntries = Object.entries(d.title_counts || {}).sort((a, b) => b[1] - a[1]);
-    const topCoTitles = coTitleEntries.slice(0, 8);
-    if (coTitleChartInst) coTitleChartInst.destroy();
-    coTitleChartInst = makeBarChart(
-        'coTitleChart',
-        topCoTitles.map(([k]) => k),
-        topCoTitles.map(([, v]) => v)
-    );
-
-    // Search Keyword Analysis Table
+    // Keyword Analysis Table
     const coKwTbody = document.querySelector('#co-keyword-table tbody');
     if (coKwTbody) {
         if (coKwEntries.length === 0) {
@@ -527,28 +502,7 @@ async function loadCompanyDashboard() {
             });
         }
     }
-
-    // Job Title Analysis Table
-    const coTitleTbody = document.querySelector('#co-title-table tbody');
-    if (coTitleTbody) {
-        if (coTitleEntries.length === 0) {
-            coTitleTbody.innerHTML = emptyRow(4);
-        } else {
-            const maxCoTitle = coTitleEntries[0][1];
-            coTitleTbody.innerHTML = '';
-            coTitleEntries.slice(0, 15).forEach(([title, count], i) => {
-                coTitleTbody.appendChild(mkRow(
-                    `<span class="rank-num ${rankClass(i)}">${i + 1}</span>`,
-                    title,
-                    `<span class="count-value">${fmt(count)}</span>`,
-                    progressBar(count, maxCoTitle)
-                ));
-            });
-        }
-    }
-
-
-
+}
 // ─────────────────────────────────────────────────────────
 //  Bootstrap — run when dashboard tab is active
 // ─────────────────────────────────────────────────────────
