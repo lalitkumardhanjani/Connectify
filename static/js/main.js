@@ -1274,7 +1274,7 @@ function renderTable(type, data) {
     tbody.innerHTML = '';
 
     if (data.length === 0) {
-        const cols = type === 'scraper' ? 6 : 8;
+        const cols = type === 'scraper' ? 10 : 14;
         tbody.innerHTML = `<tr><td colspan="${cols}" class="table-empty">No records found.</td></tr>`;
         return;
     }
@@ -1318,6 +1318,8 @@ function renderTable(type, data) {
             <td><strong>${row.CompanyName || ""}</strong></td>
             <td>${lUrlHtml}</td>
             <td>${companyLinkHtml}</td>
+            <td><span style="font-size: 0.8rem; font-weight: 500;">${row.Location || "Remote / India"}</span></td>
+            <td><span style="font-size: 0.8rem; font-weight: 500;">${row.Experience || "Not Specified"}</span></td>
             <td>${shortenLinkHtml}</td>
             <td>${row.SearchKeyword || ""}</td>
             <td><strong>${row.Referral_Target || 5}</strong></td>
