@@ -202,10 +202,13 @@ async function pollAllLogs() {
                     lastLogLength: 0,
                     status: t.status,
                     label: getFriendlyTaskLabel(tid),
-                    isFinished: (t.status === 'success' || t.status === 'failed')
+                    isFinished: false // Start as false to fetch logs at least once
                 };
             } else {
                 polledTasks[tid].status = t.status;
+                if (t.status === 'running' || t.status === 'queued') {
+                    polledTasks[tid].isFinished = false; // Resume polling if restarted
+                }
             }
         });
         
