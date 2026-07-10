@@ -37,7 +37,6 @@ const BAR_COLORS = [
 // Active chart instances (so we can destroy and re-create cleanly)
 let emailStatusChartInst = null;
 let emailKeywordChartInst = null;
-let emailDomainChartInst = null;
 let emailDailyChartInst = null;
 let coStatusChartInst = null;
 let coKeywordChartInst = null;
@@ -359,20 +358,6 @@ async function loadEmailDashboard() {
         topKws.map(([k]) => k),
         topKws.map(([, v]) => v)
     );
-
-    // Domain Doughnut Chart
-    const domains = Object.entries(d.domain_distribution || {}).sort((a, b) => b[1] - a[1]);
-    const topDomains = domains.slice(0, 7);
-    const otherDomainsCount = domains.slice(7).reduce((sum, [, v]) => sum + v, 0);
-    const domainLabels = topDomains.map(([k]) => k.startsWith('.') ? k : '@' + k);
-    const domainData = topDomains.map(([, v]) => v);
-    if (otherDomainsCount > 0) {
-        domainLabels.push('Other corporate');
-        domainData.push(otherDomainsCount);
-    }
-
-    if (emailDomainChartInst) emailDomainChartInst.destroy();
-    emailDomainChartInst = makePieChart('emailDomainChart', domainLabels, domainData, BAR_COLORS);
 
     // Daily Line Chart
     const daily = d.daily_counts || [];
