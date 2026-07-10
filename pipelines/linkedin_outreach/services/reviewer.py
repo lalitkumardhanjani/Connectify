@@ -48,13 +48,26 @@ def save_job_data_excel(wb, ws, headers, rows, filename):
             logger.info("Saved progress to Google Sheets.")
         except Exception as e:
             logger.error(f"Error saving job leads to Google Sheets: {e}")
-        return
 
-    ws.delete_rows(2, ws.max_row)
-    for row_dict in rows:
-        ws.append([row_dict.get(h, "") for h in headers])
-    wb.save(filename)
-    logger.info(f"Excel file '{filename}' saved.")
+    if ws is None or wb is None:
+        if os.path.exists(filename):
+            try:
+                import openpyxl
+                wb = openpyxl.load_workbook(filename)
+                ws = wb.active
+            except Exception as e:
+                logger.error(f"Error loading local workbook for backup: {e}")
+                return
+
+    if ws is not None and wb is not None:
+        try:
+            ws.delete_rows(2, ws.max_row)
+            for row_dict in rows:
+                ws.append([row_dict.get(h, "") for h in headers])
+            wb.save(filename)
+            logger.info(f"Excel file '{filename}' saved.")
+        except Exception as e:
+            logger.error(f"Error saving local excel copy: {e}")
 
 def run_reviewer():
     """Runs the terminal CLI reviewer interface."""
