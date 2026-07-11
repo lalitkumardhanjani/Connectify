@@ -172,7 +172,15 @@ def save_job(data, path=None):
             logger.info(f"Skipping duplicate job saving: (Company URL: {linkedin_company_url}, Apply URL: {apply_url}) already matched in database.")
             return False
 
-    max_id = max([int(float(r.get('JobID') or 0)) for r in rows]) if rows else 0
+    max_id = 0
+    if rows:
+        for r in rows:
+            try:
+                val = int(float(r.get('JobID') or 0))
+                if val > max_id:
+                    max_id = val
+            except (ValueError, TypeError):
+                pass
     new_job = {
         'JobID': int(max_id + 1),
         'JobTitle': data.get('JobTitle', ''),
@@ -273,7 +281,15 @@ def add_or_update_referral(referral_data, path=None):
             break
             
     if not updated:
-        max_id = max([int(float(r.get('ReferralID') or 0)) for r in rows]) if rows else 0
+        max_id = 0
+        if rows:
+            for r in rows:
+                try:
+                    val = int(float(r.get('ReferralID') or 0))
+                    if val > max_id:
+                        max_id = val
+                except (ValueError, TypeError):
+                    pass
         new_ref = {
             'ReferralID': max_id + 1,
             'JobID': referral_data.get('JobID', ''),
