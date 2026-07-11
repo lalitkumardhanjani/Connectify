@@ -1257,85 +1257,134 @@
                                 </div>
 
                                 <!-- ROW 3, COL 2-3: Candidate Match Filters -->
-                                <div class="settings-card card-glass grid-span-2">
-                                    <h3><i class="fa-solid fa-filter glow-icon-blue"></i> Candidate Match Filters <span
-                                            style="font-size: 0.75rem; font-weight: 400; color: var(--text-secondary); margin-left: 6px;">(Optional)</span>
-                                    </h3>
-                                    <p class="card-subtitle">Restrict outreach based on experience range or target
-                                        locations</p>
-
-                                    <!-- Experience | Location — 2 equal columns -->
-                                    <div
-                                        style="display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 4px;">
-
-                                        <!-- Experience Filter column -->
-                                        <div>
-                                            <div class="form-group toggle-group" style="margin-bottom: 12px;">
-                                                <label for="scraper-filter-exp-enabled"
-                                                    style="font-weight: 600; font-size: 0.9rem; margin-bottom: 0;">Filter
-                                                    by Experience</label>
-                                                <label class="switch">
-                                                    <input type="checkbox" id="scraper-filter-exp-enabled"
-                                                        onchange="toggleFilterInputs()">
-                                                    <span class="slider"></span>
-                                                </label>
+                                <div class="settings-card card-glass grid-span-2 cmf-card">
+                                    <!-- Card header -->
+                                    <div class="cmf-header">
+                                        <div class="cmf-header-left">
+                                            <div class="cmf-icon-wrap">
+                                                <i class="fa-solid fa-sliders"></i>
                                             </div>
-                                            <div id="scraper-exp-options-container">
-                                                <label
-                                                    style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 10px; display: block;">Acceptable
-                                                    experience ranges:</label>
-                                                <div class="exp-chip-group">
-                                                    <label class="exp-chip-label">
-                                                        <input type="checkbox" class="scraper-exp-range-checkbox"
-                                                            value="fresher"> Fresher / Entry Level
-                                                    </label>
-                                                    <label class="exp-chip-label">
-                                                        <input type="checkbox" class="scraper-exp-range-checkbox"
-                                                            value="0-1"> 0–1 Years
-                                                    </label>
-                                                    <label class="exp-chip-label">
-                                                        <input type="checkbox" class="scraper-exp-range-checkbox"
-                                                            value="1-3"> 1–3 Years
-                                                    </label>
-                                                    <label class="exp-chip-label">
-                                                        <input type="checkbox" class="scraper-exp-range-checkbox"
-                                                            value="3-5"> 3–5 Years
-                                                    </label>
-                                                    <label class="exp-chip-label">
-                                                        <input type="checkbox" class="scraper-exp-range-checkbox"
-                                                            value="5+"> 5+ Years
-                                                    </label>
+                                            <div>
+                                                <div class="cmf-title-row">
+                                                    <h3 class="cmf-title">Candidate Match Filters</h3>
+                                                    <span class="cmf-optional-badge">
+                                                        <i class="fa-solid fa-circle-dot"></i> Optional
+                                                    </span>
                                                 </div>
-                                            </div>
-                                        </div>
-
-                                        <!-- Location Filter column -->
-                                        <div>
-                                            <div class="form-group toggle-group" style="margin-bottom: 12px;">
-                                                <label for="scraper-filter-loc-enabled"
-                                                    style="font-weight: 600; font-size: 0.9rem; margin-bottom: 0;">Filter
-                                                    by Location</label>
-                                                <label class="switch">
-                                                    <input type="checkbox" id="scraper-filter-loc-enabled"
-                                                        onchange="toggleFilterInputs()">
-                                                    <span class="slider"></span>
-                                                </label>
-                                            </div>
-                                            <div id="scraper-loc-options-container">
-                                                <label
-                                                    style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px; display: block;">Target
-                                                    locations:</label>
-                                                <div class="tags-input-container tags-input-location"
-                                                    id="scraper-filter-loc-keywords-container"
-                                                    style="min-height: 110px;">
-                                                    <!-- Location filter tags rendered dynamically by JS -->
-                                                    <input type="text" class="tag-input-field"
-                                                        id="scraper-filter-loc-tag-input"
-                                                        placeholder="Add target location (press Enter)...">
-                                                </div>
+                                                <p class="cmf-subtitle">Restrict outreach based on experience range or target locations</p>
                                             </div>
                                         </div>
                                     </div>
+
+                                    <!-- Filter panels: 2-col grid -->
+                                    <div class="cmf-panels">
+
+                                        <!-- ── Experience Filter Panel ── -->
+                                        <div class="cmf-panel">
+                                            <div class="cmf-panel-header">
+                                                <div class="cmf-panel-icon exp-icon">
+                                                    <i class="fa-solid fa-briefcase-clock"></i>
+                                                </div>
+                                                <div class="cmf-panel-title-wrap">
+                                                    <span class="cmf-panel-title">Experience Range</span>
+                                                    <span class="cmf-panel-desc">Select acceptable experience levels</span>
+                                                </div>
+                                                <label class="cmf-toggle-switch">
+                                                    <input type="checkbox" id="scraper-filter-exp-enabled" onchange="toggleFilterInputs()">
+                                                    <span class="cmf-toggle-track">
+                                                        <span class="cmf-toggle-thumb"></span>
+                                                    </span>
+                                                </label>
+                                            </div>
+
+                                            <div id="scraper-exp-options-container" class="cmf-panel-body">
+                                                <p class="cmf-helper-text">
+                                                    <i class="fa-solid fa-circle-info"></i>
+                                                    Select one or more acceptable experience levels:
+                                                </p>
+                                                <div class="exp-chip-group">
+                                                    <label class="exp-chip-label">
+                                                        <input type="checkbox" class="scraper-exp-range-checkbox" value="fresher">
+                                                        <span class="exp-chip-icon"><i class="fa-solid fa-seedling"></i></span>
+                                                        <span class="exp-chip-text">
+                                                            <span class="exp-chip-name">Fresher</span>
+                                                            <span class="exp-chip-range">Entry Level</span>
+                                                        </span>
+                                                    </label>
+                                                    <label class="exp-chip-label">
+                                                        <input type="checkbox" class="scraper-exp-range-checkbox" value="0-1">
+                                                        <span class="exp-chip-icon"><i class="fa-solid fa-star-half-stroke"></i></span>
+                                                        <span class="exp-chip-text">
+                                                            <span class="exp-chip-name">0–1 Years</span>
+                                                            <span class="exp-chip-range">Junior</span>
+                                                        </span>
+                                                    </label>
+                                                    <label class="exp-chip-label">
+                                                        <input type="checkbox" class="scraper-exp-range-checkbox" value="1-3">
+                                                        <span class="exp-chip-icon"><i class="fa-solid fa-star"></i></span>
+                                                        <span class="exp-chip-text">
+                                                            <span class="exp-chip-name">1–3 Years</span>
+                                                            <span class="exp-chip-range">Mid-Junior</span>
+                                                        </span>
+                                                    </label>
+                                                    <label class="exp-chip-label">
+                                                        <input type="checkbox" class="scraper-exp-range-checkbox" value="3-5">
+                                                        <span class="exp-chip-icon"><i class="fa-solid fa-award"></i></span>
+                                                        <span class="exp-chip-text">
+                                                            <span class="exp-chip-name">3–5 Years</span>
+                                                            <span class="exp-chip-range">Mid-Level</span>
+                                                        </span>
+                                                    </label>
+                                                    <label class="exp-chip-label">
+                                                        <input type="checkbox" class="scraper-exp-range-checkbox" value="5+">
+                                                        <span class="exp-chip-icon"><i class="fa-solid fa-crown"></i></span>
+                                                        <span class="exp-chip-text">
+                                                            <span class="exp-chip-name">5+ Years</span>
+                                                            <span class="exp-chip-range">Senior</span>
+                                                        </span>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- ── Location Filter Panel ── -->
+                                        <div class="cmf-panel">
+                                            <div class="cmf-panel-header">
+                                                <div class="cmf-panel-icon loc-icon">
+                                                    <i class="fa-solid fa-location-dot"></i>
+                                                </div>
+                                                <div class="cmf-panel-title-wrap">
+                                                    <span class="cmf-panel-title">Target Locations</span>
+                                                    <span class="cmf-panel-desc">Filter by geographic area</span>
+                                                </div>
+                                                <label class="cmf-toggle-switch">
+                                                    <input type="checkbox" id="scraper-filter-loc-enabled" onchange="toggleFilterInputs()">
+                                                    <span class="cmf-toggle-track">
+                                                        <span class="cmf-toggle-thumb"></span>
+                                                    </span>
+                                                </label>
+                                            </div>
+
+                                            <div id="scraper-loc-options-container" class="cmf-panel-body">
+                                                <p class="cmf-helper-text">
+                                                    <i class="fa-solid fa-circle-info"></i>
+                                                    Type a location and press <kbd>Enter</kbd> to add it:
+                                                </p>
+                                                <div class="tags-input-container tags-input-location cmf-loc-tags"
+                                                    id="scraper-filter-loc-keywords-container">
+                                                    <!-- Location filter tags rendered dynamically by JS -->
+                                                    <input type="text" class="tag-input-field"
+                                                        id="scraper-filter-loc-tag-input"
+                                                        placeholder="e.g. Bangalore, Remote, Mumbai…">
+                                                </div>
+                                                <p class="cmf-loc-hint">
+                                                    <i class="fa-solid fa-lightbulb"></i>
+                                                    Common: Bangalore &bull; Mumbai &bull; Hyderabad &bull; Remote
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                    </div><!-- end cmf-panels -->
                                 </div>
 
 

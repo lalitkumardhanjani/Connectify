@@ -1,4 +1,4 @@
-﻿:root {
+:root {
     --bg-primary: #0a0813;
     --bg-secondary: #120e24;
     --glass-bg: rgba(20, 16, 38, 0.55);
@@ -3994,103 +3994,546 @@ details[open] > * {
 }
 
 /* =========================================================================
-   Candidate Match Filters Premium Custom Styling
+   Candidate Match Filters — Premium Redesign
    ========================================================================= */
-.exp-chip-group {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-top: 8px;
+
+/* ── Card container ───────────────────────────────────────────────────── */
+.cmf-card {
+    padding: 0 !important;
+    overflow: hidden;
 }
 
+/* ── Card header bar ──────────────────────────────────────────────────── */
+.cmf-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px 18px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.02);
+}
+
+.cmf-header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.cmf-icon-wrap {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(0,176,255,0.18) 0%, rgba(127,90,240,0.14) 100%);
+    border: 1px solid rgba(0,176,255,0.20);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    color: #00b0ff;
+    flex-shrink: 0;
+}
+
+.cmf-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 3px;
+}
+
+.cmf-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.cmf-optional-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 9px;
+    border-radius: 20px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: rgba(127,90,240,0.12);
+    border: 1px solid rgba(127,90,240,0.25);
+    color: #a78bfa;
+}
+
+.cmf-subtitle {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+/* ── Two-panel grid ───────────────────────────────────────────────────── */
+.cmf-panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+}
+
+/* ── Individual filter panel ──────────────────────────────────────────── */
+.cmf-panel {
+    padding: 20px 24px 20px;
+    border-right: 1px solid rgba(255,255,255,0.05);
+    transition: background 0.2s;
+}
+
+.cmf-panel:last-child {
+    border-right: none;
+}
+
+/* ── Panel header row ─────────────────────────────────────────────────── */
+.cmf-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.cmf-panel-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+    flex-shrink: 0;
+}
+
+.cmf-panel-icon.exp-icon {
+    background: rgba(127,90,240,0.14);
+    border: 1px solid rgba(127,90,240,0.22);
+    color: #a78bfa;
+}
+
+.cmf-panel-icon.loc-icon {
+    background: rgba(0,176,255,0.14);
+    border: 1px solid rgba(0,176,255,0.22);
+    color: #38bdf8;
+}
+
+.cmf-panel-title-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.cmf-panel-title {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.cmf-panel-desc {
+    font-size: 0.74rem;
+    color: var(--text-secondary);
+}
+
+/* ── Custom toggle switch (inside panels) ─────────────────────────────── */
+.cmf-toggle-switch {
+    position: relative;
+    display: inline-block;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.cmf-toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+}
+
+.cmf-toggle-track {
+    display: block;
+    width: 42px;
+    height: 22px;
+    background: rgba(255,255,255,0.07);
+    border: 1.5px solid rgba(255,255,255,0.12);
+    border-radius: 11px;
+    position: relative;
+    transition: background 0.3s, border-color 0.3s;
+}
+
+.cmf-toggle-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.35);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+    transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), background 0.3s;
+}
+
+.cmf-toggle-switch input:checked + .cmf-toggle-track {
+    background: rgba(44,182,125,0.22);
+    border-color: rgba(44,182,125,0.55);
+}
+
+.cmf-toggle-switch input:checked + .cmf-toggle-track .cmf-toggle-thumb {
+    transform: translateX(20px);
+    background: #2cb67d;
+    box-shadow: 0 0 8px rgba(44,182,125,0.50);
+}
+
+/* ── Panel body ───────────────────────────────────────────────────────── */
+.cmf-panel-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* ── Helper text ──────────────────────────────────────────────────────── */
+.cmf-helper-text {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.cmf-helper-text i {
+    color: var(--accent-cyan);
+    font-size: 0.75rem;
+}
+
+kbd {
+    display: inline-block;
+    padding: 1px 5px;
+    font-size: 0.68rem;
+    font-family: var(--font-mono);
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 4px;
+    color: var(--text-secondary);
+}
+
+/* ── Experience chip group ────────────────────────────────────────────── */
+.exp-chip-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 2px;
+}
+
+/* ── Individual experience chip ───────────────────────────────────────── */
 .exp-chip-label {
     display: flex;
     align-items: center;
-    justify-content: flex-start;
     gap: 10px;
-    padding: 10px 14px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--glass-border);
-    border-radius: 8px;
+    padding: 10px 12px;
+    background: rgba(255,255,255,0.03);
+    border: 1.5px solid rgba(255,255,255,0.07);
+    border-radius: 10px;
     cursor: pointer;
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: var(--text-secondary);
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     user-select: none;
-    flex: 1 1 calc(50% - 10px);
-    min-width: 130px;
-    box-sizing: border-box;
+    transition: all 0.22s cubic-bezier(0.4,0,0.2,1);
+    position: relative;
+    overflow: hidden;
+}
+
+.exp-chip-label::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    opacity: 0;
+    background: linear-gradient(135deg, rgba(127,90,240,0.08), rgba(0,176,255,0.05));
+    transition: opacity 0.22s;
 }
 
 .exp-chip-label:hover {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(0, 191, 255, 0.3);
-    color: var(--text-primary);
+    border-color: rgba(127,90,240,0.35);
+    background: rgba(127,90,240,0.06);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(127,90,240,0.12);
+}
+
+.exp-chip-label:hover::after {
+    opacity: 1;
+}
+
+/* Hide native checkbox */
+.exp-chip-label input[type="checkbox"] {
+    display: none;
+}
+
+/* Chip icon block */
+.exp-chip-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    transition: all 0.22s;
+}
+
+/* Chip text block */
+.exp-chip-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.exp-chip-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    transition: color 0.2s;
+}
+
+.exp-chip-range {
+    font-size: 0.68rem;
+    color: rgba(155,162,190,0.70);
+    font-weight: 400;
+}
+
+/* ── Checked state — experience chip ──────────────────────────────────── */
+.exp-chip-label:has(input[type="checkbox"]:checked) {
+    background: linear-gradient(135deg, rgba(127,90,240,0.16), rgba(0,176,255,0.10));
+    border-color: rgba(127,90,240,0.55);
+    box-shadow: 0 0 16px rgba(127,90,240,0.18), inset 0 1px 0 rgba(255,255,255,0.06);
     transform: translateY(-1px);
 }
 
-.exp-chip-label input[type="checkbox"] {
-    display: none; /* Hide default ugly checkboxes */
+.exp-chip-label:has(input[type="checkbox"]:checked) .exp-chip-icon {
+    background: rgba(127,90,240,0.20);
+    border-color: rgba(127,90,240,0.40);
+    color: #a78bfa;
+    box-shadow: 0 0 8px rgba(127,90,240,0.30);
 }
 
-/* Custom glow circle indicator */
-.exp-chip-label::before {
-    content: '';
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.2);
-    transition: all 0.25s ease;
-}
-
-/* Selected state */
-.exp-chip-label:has(input[type="checkbox"]:checked) {
-    background: linear-gradient(135deg, rgba(0, 191, 255, 0.12), rgba(0, 230, 118, 0.06));
-    border-color: rgba(0, 191, 255, 0.6);
+.exp-chip-label:has(input[type="checkbox"]:checked) .exp-chip-name {
     color: var(--text-primary);
-    box-shadow: 0 0 14px rgba(0, 191, 255, 0.15);
-    font-weight: 600;
 }
 
-.exp-chip-label:has(input[type="checkbox"]:checked)::before {
-    background: #00bfff;
-    box-shadow: 0 0 8px #00bfff;
-    transform: scale(1.2);
+.exp-chip-label:has(input[type="checkbox"]:checked) .exp-chip-range {
+    color: #a78bfa;
 }
 
-/* Custom tags container for locations */
+/* ── Location tags container ──────────────────────────────────────────── */
 .tags-input-container.tags-input-location {
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid var(--glass-border);
-    border-radius: 8px;
-    padding: 10px 14px;
+    background: rgba(0,0,0,0.25);
+    border: 1.5px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 10px 12px;
+    min-height: 90px;
     transition: all 0.25s ease;
 }
 
 .tags-input-container.tags-input-location:focus-within {
-    border-color: rgba(0, 191, 255, 0.5);
-    box-shadow: 0 0 12px rgba(0, 191, 255, 0.15);
-    background: rgba(0, 0, 0, 0.4);
+    border-color: rgba(0,176,255,0.45);
+    box-shadow: 0 0 0 3px rgba(0,176,255,0.10);
+    background: rgba(0,0,0,0.32);
 }
 
 .tags-input-container.tags-input-location .tag-badge {
-    background: rgba(0, 191, 255, 0.1);
-    border: 1px solid rgba(0, 191, 255, 0.25);
-    color: #e0f7ff;
+    background: rgba(0,176,255,0.10);
+    border: 1px solid rgba(0,176,255,0.25);
+    color: #7dd3fc;
     border-radius: 6px;
     padding: 4px 10px;
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     font-weight: 500;
-    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
 }
 
 .tags-input-container.tags-input-location .tag-badge:hover {
-    border-color: rgba(0, 191, 255, 0.5);
-    background: rgba(0, 191, 255, 0.2);
-    box-shadow: 0 0 8px rgba(0, 191, 255, 0.15);
+    border-color: rgba(0,176,255,0.50);
+    background: rgba(0,176,255,0.18);
+    box-shadow: 0 0 8px rgba(0,176,255,0.15);
 }
+
+/* Location hint text */
+.cmf-loc-hint {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.73rem;
+    color: rgba(155,162,190,0.60);
+    margin: 0;
+}
+
+.cmf-loc-hint i {
+    color: rgba(251,191,36,0.65);
+    font-size: 0.7rem;
+}
+
+/* ── Light-theme overrides ────────────────────────────────────────────── */
+body.light-theme .cmf-header {
+    background: rgba(238,241,248,0.50);
+    border-bottom: 1px solid rgba(203,213,230,0.55);
+}
+
+body.light-theme .cmf-icon-wrap {
+    background: rgba(2,132,199,0.10);
+    border-color: rgba(2,132,199,0.20);
+    color: #0284c7;
+}
+
+body.light-theme .cmf-optional-badge {
+    background: rgba(92,83,226,0.08);
+    border-color: rgba(92,83,226,0.20);
+    color: #5c53e2;
+}
+
+body.light-theme .cmf-title {
+    color: var(--text-primary);
+}
+
+body.light-theme .cmf-subtitle {
+    color: var(--text-secondary);
+}
+
+body.light-theme .cmf-panel {
+    border-right: 1px solid rgba(203,213,230,0.45);
+}
+
+body.light-theme .cmf-panel-header {
+    border-bottom: 1px solid rgba(203,213,230,0.40);
+}
+
+body.light-theme .cmf-panel-icon.exp-icon {
+    background: rgba(92,83,226,0.08);
+    border-color: rgba(92,83,226,0.18);
+    color: #5c53e2;
+}
+
+body.light-theme .cmf-panel-icon.loc-icon {
+    background: rgba(2,132,199,0.08);
+    border-color: rgba(2,132,199,0.18);
+    color: #0284c7;
+}
+
+body.light-theme .cmf-panel-title {
+    color: var(--text-primary);
+}
+
+body.light-theme .cmf-panel-desc {
+    color: var(--text-secondary);
+}
+
+body.light-theme .cmf-toggle-track {
+    background: rgba(0,0,0,0.06);
+    border-color: rgba(0,0,0,0.12);
+}
+
+body.light-theme .cmf-toggle-thumb {
+    background: rgba(0,0,0,0.25);
+}
+
+body.light-theme .cmf-helper-text {
+    color: var(--text-secondary);
+}
+
+body.light-theme .cmf-helper-text i {
+    color: #0284c7;
+}
+
+body.light-theme kbd {
+    background: rgba(0,0,0,0.06);
+    border-color: rgba(0,0,0,0.12);
+    color: var(--text-secondary);
+}
+
+body.light-theme .exp-chip-label {
+    background: #ffffff;
+    border-color: rgba(203,213,230,0.70);
+}
+
+body.light-theme .exp-chip-label:hover {
+    border-color: rgba(92,83,226,0.40);
+    background: rgba(92,83,226,0.05);
+    box-shadow: 0 4px 14px rgba(92,83,226,0.10);
+}
+
+body.light-theme .exp-chip-icon {
+    background: rgba(0,0,0,0.04);
+    border-color: rgba(0,0,0,0.08);
+    color: #8890b0;
+}
+
+body.light-theme .exp-chip-name {
+    color: #3b4266;
+}
+
+body.light-theme .exp-chip-range {
+    color: #8e97b4;
+}
+
+body.light-theme .exp-chip-label:has(input[type="checkbox"]:checked) {
+    background: rgba(92,83,226,0.08);
+    border-color: rgba(92,83,226,0.45);
+    box-shadow: 0 0 0 3px rgba(92,83,226,0.08);
+}
+
+body.light-theme .exp-chip-label:has(input[type="checkbox"]:checked) .exp-chip-icon {
+    background: rgba(92,83,226,0.12);
+    border-color: rgba(92,83,226,0.30);
+    color: #5c53e2;
+    box-shadow: none;
+}
+
+body.light-theme .exp-chip-label:has(input[type="checkbox"]:checked) .exp-chip-name {
+    color: #5c53e2;
+}
+
+body.light-theme .exp-chip-label:has(input[type="checkbox"]:checked) .exp-chip-range {
+    color: #7b72e9;
+}
+
+body.light-theme .tags-input-container.tags-input-location {
+    background: #f8f9fc;
+    border-color: rgba(196,207,226,0.80);
+}
+
+body.light-theme .tags-input-container.tags-input-location:focus-within {
+    border-color: rgba(2,132,199,0.45);
+    box-shadow: 0 0 0 3px rgba(2,132,199,0.10);
+    background: #ffffff;
+}
+
+body.light-theme .tags-input-container.tags-input-location .tag-badge {
+    background: rgba(2,132,199,0.08);
+    border-color: rgba(2,132,199,0.22);
+    color: #0284c7;
+}
+
+body.light-theme .tags-input-container.tags-input-location .tag-badge:hover {
+    background: rgba(2,132,199,0.15);
+    border-color: rgba(2,132,199,0.40);
+    box-shadow: 0 2px 8px rgba(2,132,199,0.12);
+}
+
+body.light-theme .cmf-loc-hint {
+    color: rgba(90,100,130,0.60);
+}
+
+body.light-theme .cmf-loc-hint i {
+    color: rgba(180,140,0,0.70);
+}
+
+
 
 /* ==========================================================================
    LIGHT THEME OVERRIDES Ã¢â‚¬â€ Professional warm-slate palette, full component coverage
