@@ -6,13 +6,41 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, StaleElementReferenceException
-
 from config.user_profiles import get_selected_user_config, get_global_settings
 from config.constants import DBA_KEYWORDS_DEFAULT
 from core.utils.string_utils import extract_emails
 from core.utils.post_extractor import extract_all as extract_post_fields, get_company_from_email_domain
 from core.storage.database import append_email, init_scraper_store
 from core.logging.config import logger
+
+def _inject_login_banner(driver):
+    """Injects a clear red warning banner to alert the user to log in manually."""
+    try:
+        driver.execute_script(r"""
+            (function(){
+                const id = 'connectify-login-banner';
+                if (document.getElementById(id)) return;
+                const banner = document.createElement('div');
+                banner.id = id;
+                banner.style.position = 'fixed';
+                banner.style.top = '0';
+                banner.style.left = '0';
+                banner.style.width = '100%';
+                banner.style.backgroundColor = '#ef4444';
+                banner.style.color = '#ffffff';
+                banner.style.textAlign = 'center';
+                banner.style.padding = '15px';
+                banner.style.fontSize = '18px';
+                banner.style.fontWeight = 'bold';
+                banner.style.zIndex = '999999';
+                banner.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+                banner.innerText = '⚠️ Action Required: Please log in to LinkedIn now. The pipeline will resume automatically once you are logged in.';
+                document.body.appendChild(banner);
+                document.body.style.marginTop = '50px';
+            })();
+        """)
+    except Exception:
+        pass
 
 def extract_canonical_linkedin_url(text: str) -> str:
     """Extracts a valid LinkedIn post/feed update URL, preserving original formatting and URN types."""
@@ -135,6 +163,7 @@ class LinkedInScraper:
                 logger.warning("LinkedIn credentials missing in config. Waiting up to 300 seconds for manual login in the browser window...")
                 start_time = time.time()
                 while time.time() - start_time < 300:
+                    _inject_login_banner(self.driver)
                     try:
                         for selector in search_bar_selectors:
                             try:
@@ -227,6 +256,7 @@ class LinkedInScraper:
             # ── Manual login fallback (covers both: form-not-found and auto-login-failed) ──
             start_time = time.time()
             while time.time() - start_time < 300:
+                _inject_login_banner(self.driver)
                 try:
                     for selector in search_bar_selectors:
                         try:
@@ -246,6 +276,7 @@ class LinkedInScraper:
             logger.info("Waiting up to 300 seconds for manual login...")
             start_time = time.time()
             while time.time() - start_time < 300:
+                _inject_login_banner(self.driver)
                 try:
                     for selector in search_bar_selectors:
                         try:
