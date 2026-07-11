@@ -339,8 +339,9 @@ def add_header(response):
 
 @app.route('/api/stats')
 def get_stats():
-    job_tracker = get_excel_data(get_job_tracker_file())
-    job_leads = get_excel_data(get_job_leads_file())
+    from core.storage.engine import read_database_rows
+    job_tracker = read_database_rows("emails", bypass_cache=True)
+    job_leads = read_database_rows("jobs", bypass_cache=True)
 
     total_emails = len(job_tracker)
     emails_sent = sum(1 for r in job_tracker if str(r.get('Status')).strip().lower() == 'sent')
@@ -373,12 +374,8 @@ def outreach_stats():
 
 @app.route('/api/data/job_tracker')
 def job_tracker_data():
-    from core.storage.database import get_sheets_config, init_scraper_store
-    # Only initialise local file when not using Google Sheets (avoids creating
-    # unnecessary xlsx files and hitting the Sheets API on startup)
-    if not get_sheets_config():
-        init_scraper_store()
-    return jsonify(get_excel_data(get_job_tracker_file()))
+    from core.storage.engine import read_database_rows
+    return jsonify(read_database_rows("emails", bypass_cache=True))
 
 @app.route('/api/data/job_leads')
 def job_leads_data():
@@ -816,13 +813,16 @@ def switch_storage_type():
             yield from emit("log", f"Current storage: {current_type}  →  New storage: {new_type}")
 
             if current_type == new_type:
-                yield from emit("log", "Storage type unchanged. Saving config...")
-                # Still persist the rest of the settings
-                config = load_all_configs()
-                config["global_settings"] = {**config.get("global_settings", {}), **global_settings_payload, "database_type": new_type}
-                save_all_configs(config)
-                yield from emit("done", "Configuration saved. No migration needed.")
-                return
+                if new_type == "local":
+                    yield from emit("log", "Storage type unchanged (Local). Saving config...")
+                    # Still persist the rest of the settings
+                    config = load_all_configs()
+                    config["global_settings"] = {**config.get("global_settings", {}), **global_settings_payload, "database_type": new_type}
+                    save_all_configs(config)
+                    yield from emit("done", "Configuration saved. No migration needed.")
+                    return
+                else:
+                    yield from emit("log", "Storage type unchanged (Google Sheets). Initiating synchronization run...")
 
             # ---------------------------------------------------------------
             # LOCAL  →  GOOGLE SHEETS
