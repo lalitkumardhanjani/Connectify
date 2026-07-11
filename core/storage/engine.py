@@ -1002,20 +1002,8 @@ def get_user_config(username: str = None, bypass_cache: bool = False) -> dict:
         if cached is not None:
             return cached
             
-    # Load local config first to check database type configuration
-    local_config = StorageManager().providers["local"].get_config(username, bypass_cache=True)
-    db_type = local_config.get("global_settings", {}).get("database_type", "local")
-    
-    if db_type == "google_sheets":
-        try:
-            config = StorageManager().providers["google_sheets"].get_config(username, bypass_cache=bypass_cache)
-            if not bypass_cache:
-                _set_cached_config(username, config)
-            return config
-        except Exception as e:
-            logger.error(f"Failed to load user config from Google Sheets for user {username}: {e}. Falling back to Local.")
-            
-    config = local_config
+    # Load configuration directly from local storage for performance and quota safety
+    config = StorageManager().providers["local"].get_config(username, bypass_cache=bypass_cache)
     if not bypass_cache:
         _set_cached_config(username, config)
     return config
@@ -1048,22 +1036,7 @@ def read_database_rows(table_key: str, username: str = None, bypass_cache: bool 
         if cached is not None:
             return cached
             
-    # Resolve provider dynamically based on user config database_type
-    try:
-        config = get_user_config(username, bypass_cache=True)
-        db_type = config.get("global_settings", {}).get("database_type", "local")
-    except Exception:
-        db_type = "local"
-        
-    if db_type == "google_sheets":
-        try:
-            data = StorageManager().providers["google_sheets"].read_rows(username, table_key, bypass_cache=bypass_cache)
-            if not bypass_cache:
-                _set_cached_rows(username, table_key, data)
-            return data
-        except Exception as e:
-            logger.error(f"Failed to read from Google Sheets for '{table_key}': {e}. Falling back to Local.")
-            
+    # Load database rows directly from local Excel storage for performance and quota safety
     data = StorageManager().providers["local"].read_rows(username, table_key)
     if not bypass_cache:
         _set_cached_rows(username, table_key, data)
