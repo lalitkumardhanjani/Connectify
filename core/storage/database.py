@@ -513,8 +513,8 @@ def load_job_leads_with_referral_counts():
     try:
         # Run sync first to update status of completed referrals
         sync_job_lead_referral_statuses()
-        leads = read_database_rows("jobs", bypass_cache=True)
-        referrals = read_database_rows("referrals", bypass_cache=True)
+        leads = read_database_rows("jobs", bypass_cache=False)
+        referrals = read_database_rows("referrals", bypass_cache=False)
     except Exception as e:
         logger.error(f"Error reading job leads or referrals: {e}")
         return []

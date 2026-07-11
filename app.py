@@ -340,8 +340,8 @@ def add_header(response):
 @app.route('/api/stats')
 def get_stats():
     from core.storage.engine import read_database_rows
-    job_tracker = read_database_rows("emails", bypass_cache=True)
-    job_leads = read_database_rows("jobs", bypass_cache=True)
+    job_tracker = read_database_rows("emails", bypass_cache=False)
+    job_leads = read_database_rows("jobs", bypass_cache=False)
 
     total_emails = len(job_tracker)
     emails_sent = sum(1 for r in job_tracker if str(r.get('Status')).strip().lower() == 'sent')
@@ -375,7 +375,7 @@ def outreach_stats():
 @app.route('/api/data/job_tracker')
 def job_tracker_data():
     from core.storage.engine import read_database_rows
-    return jsonify(read_database_rows("emails", bypass_cache=True))
+    return jsonify(read_database_rows("emails", bypass_cache=False))
 
 @app.route('/api/data/job_leads')
 def job_leads_data():

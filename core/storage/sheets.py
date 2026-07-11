@@ -13,7 +13,7 @@ from config.constants import GOOGLE_SHEET_WORKSHEETS
 # ---------------------------------------------------------------------------
 _cache_lock = threading.Lock()
 _row_cache: dict = {}          # { worksheet_name: (fetched_at_monotonic, [rows]) }
-_CACHE_TTL_SECONDS = 60        # Re-fetch from Sheets at most once per minute per worksheet
+_CACHE_TTL_SECONDS = 15        # Re-fetch from Sheets at most once per 15s per worksheet
 
 
 def _cache_get(worksheet_name: str):
