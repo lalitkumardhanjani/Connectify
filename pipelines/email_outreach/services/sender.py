@@ -317,9 +317,7 @@ def send_email_via_gmail(driver, to_email, post_url='', review_mode=None):
 
                 current_value = _get_field_text(to_field)
                 if to_email not in current_value:
-                    chips = driver.find_elements(By.XPATH, f"//span[@email='{to_email}']")
-                    if not chips:
-                        chips = driver.find_elements(By.XPATH, f"//span[contains(@email, '{to_email}')]" )
+                    chips = driver.find_elements(By.XPATH, f"//*[contains(@email, '{to_email}') or contains(@data-hovercard-id, '{to_email}') or contains(text(), '{to_email}') or contains(@aria-label, '{to_email}')]")
                     if not chips:
                         raise Exception(f"Recipient field did not retain text after typing; current='{current_value}'")
 
@@ -425,7 +423,13 @@ def send_email_via_gmail(driver, to_email, post_url='', review_mode=None):
             try:
                 driver.execute_script("arguments[0].scrollIntoView(true);", body_field)
                 time.sleep(0.2)
-                body_field.click()
+                try:
+                    body_field.click()
+                except Exception:
+                    try:
+                        driver.execute_script("arguments[0].focus();", body_field)
+                    except Exception:
+                        pass
                 time.sleep(0.3)
                 
                 # Replace newlines with HTML line breaks for the contenteditable editor
