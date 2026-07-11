@@ -1853,7 +1853,18 @@ def start_git_autoupdater(app):
         
         while True:
             try:
-                # 1. Fetch from remote
+                # Check if there are active tasks running first to avoid disrupting user work
+                running = False
+                with task_lock:
+                    for runner in active_tasks.values():
+                        if runner.status in ("running", "queued"):
+                            running = True
+                            break
+                            
+                if running:
+                    print("[Auto-Updater] Active pipeline task detected. Postponing update check to avoid disrupting execution.")
+                else:
+                    # 1. Fetch from remote
                 fetch_res = subprocess.run(["git", "fetch", "origin"], cwd=repo_dir, capture_output=True, text=True, timeout=30)
                 if fetch_res.returncode == 0:
                     # 2. Check if local branch is behind remote tracking branch origin/main
