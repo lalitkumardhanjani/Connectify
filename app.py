@@ -1865,22 +1865,22 @@ def start_git_autoupdater(app):
                     print("[Auto-Updater] Active pipeline task detected. Postponing update check to avoid disrupting execution.")
                 else:
                     # 1. Fetch from remote
-                fetch_res = subprocess.run(["git", "fetch", "origin"], cwd=repo_dir, capture_output=True, text=True, timeout=30)
-                if fetch_res.returncode == 0:
-                    # 2. Check if local branch is behind remote tracking branch origin/main
-                    behind_log = subprocess.run(["git", "log", "HEAD..origin/main", "--oneline"], cwd=repo_dir, capture_output=True, text=True, timeout=10).stdout.strip()
-                    if behind_log:
-                        print("[Auto-Updater] Remote changes detected. Pulling updates automatically...")
-                        # 3. Pull latest changes
-                        # Stash local changes to avoid merge conflicts with system-generated files
-                        subprocess.run(["git", "stash"], cwd=repo_dir, capture_output=True, text=True, timeout=30)
-                        pull_res = subprocess.run(["git", "pull", "origin", "main"], cwd=repo_dir, capture_output=True, text=True, timeout=60)
-                        subprocess.run(["git", "stash", "pop"], cwd=repo_dir, capture_output=True, text=True, timeout=30)
-                        
-                        if pull_res.returncode == 0:
-                            print("[Auto-Updater] Code successfully updated from remote. Server should reload automatically.")
-                        else:
-                            print(f"[Auto-Updater] Git pull failed: {pull_res.stderr.strip()}", file=sys.stderr)
+                    fetch_res = subprocess.run(["git", "fetch", "origin"], cwd=repo_dir, capture_output=True, text=True, timeout=30)
+                    if fetch_res.returncode == 0:
+                        # 2. Check if local branch is behind remote tracking branch origin/main
+                        behind_log = subprocess.run(["git", "log", "HEAD..origin/main", "--oneline"], cwd=repo_dir, capture_output=True, text=True, timeout=10).stdout.strip()
+                        if behind_log:
+                            print("[Auto-Updater] Remote changes detected. Pulling updates automatically...")
+                            # 3. Pull latest changes
+                            # Stash local changes to avoid merge conflicts with system-generated files
+                            subprocess.run(["git", "stash"], cwd=repo_dir, capture_output=True, text=True, timeout=30)
+                            pull_res = subprocess.run(["git", "pull", "origin", "main"], cwd=repo_dir, capture_output=True, text=True, timeout=60)
+                            subprocess.run(["git", "stash", "pop"], cwd=repo_dir, capture_output=True, text=True, timeout=30)
+                            
+                            if pull_res.returncode == 0:
+                                print("[Auto-Updater] Code successfully updated from remote. Server should reload automatically.")
+                            else:
+                                print(f"[Auto-Updater] Git pull failed: {pull_res.stderr.strip()}", file=sys.stderr)
             except Exception as e:
                 print(f"[Auto-Updater] Error checking updates: {e}", file=sys.stderr)
             
