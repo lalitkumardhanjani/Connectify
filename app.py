@@ -1901,12 +1901,13 @@ def start_git_autoupdater(app):
 
 
 def sync_google_sheets_to_local_if_empty(username):
-    """If database_type is google_sheets and local files are empty or missing,
-    synchronize and download all data from the Google Sheet to populate local cache.
+    """If database_type is google_sheets and local files/configs are empty or out of sync,
+    synchronize and download all configuration and table data from Google Sheets.
     """
     try:
-        from core.storage.engine import get_user_config
-        config = get_user_config(username, bypass_cache=True)
+        from core.storage.engine import get_user_config, GoogleSheetsStorageProvider, LocalStorageProvider
+        # Read the current local bootstrap config
+        config = LocalStorageProvider().get_config(username)
         db_type = config.get("global_settings", {}).get("database_type", "local")
         if db_type != "google_sheets":
             return
@@ -1916,12 +1917,35 @@ def sync_google_sheets_to_local_if_empty(username):
         if not sheet_url or not creds_content:
             return
             
-        # Check if local Excel files are missing or empty
+        print(f"[Storage Sync] Pulling latest configuration settings from Google Sheets for user '{username}'...")
+        # 1. Pull settings/profile config from Google Sheets
+        try:
+            cloud_config = GoogleSheetsStorageProvider().get_config(username, bypass_cache=True)
+            if cloud_config:
+                # Merge or write cloud_config locally
+                # To prevent overwriting the local google_sheet_url/credentials bootstrap if they are missing on sheet,
+                # we preserve them
+                if "global_settings" not in cloud_config:
+                    cloud_config["global_settings"] = {}
+                cloud_config["global_settings"]["database_type"] = "google_sheets"
+                cloud_config["global_settings"]["google_sheet_url"] = sheet_url
+                cloud_config["global_settings"]["google_credentials_json"] = creds_content
+                
+                LocalStorageProvider().save_config(username, cloud_config)
+                # Invalidate in-memory caches
+                try:
+                    from core.storage.engine import _invalidate_cached_config
+                    _invalidate_cached_config(username)
+                except Exception:
+                    pass
+                print(f"[Storage Sync]   Successfully updated local config.json with profile details and settings from Google Sheets.")
+        except Exception as e:
+            print(f"[Storage Sync] Warning: Could not pull configuration from Google Sheets: {e}")
+            
+        # 2. Pull database rows from Google Sheets
         from config.settings import get_job_tracker_file, get_job_leads_file, get_referrals_file
-        # Temporarily force CONNECTIFY_USER env so setting paths resolve correctly
         orig_user = os.environ.get("CONNECTIFY_USER")
         os.environ["CONNECTIFY_USER"] = username
-        
         try:
             local_files = [get_job_tracker_file(), get_job_leads_file(), get_referrals_file()]
         finally:
@@ -1932,13 +1956,12 @@ def sync_google_sheets_to_local_if_empty(username):
                 
         needs_sync = False
         for f in local_files:
-            if not os.path.exists(f) or os.path.getsize(f) < 6000: # less than 6KB is empty template
+            if not os.path.exists(f) or os.path.getsize(f) < 6000:
                 needs_sync = True
                 break
                 
         if needs_sync:
             print(f"[Storage Sync] Local cache files for user '{username}' are empty or missing. Initializing Google Sheets pull...")
-            # Perform download sync
             import gspread, openpyxl as _xl
             from google.oauth2.service_account import Credentials
             from config.constants import GOOGLE_SHEET_WORKSHEETS
