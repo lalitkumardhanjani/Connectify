@@ -3775,19 +3775,26 @@ document.addEventListener('DOMContentLoaded', () => {
     // Periodically poll logs and update locks/markers for all active runs concurrently
     setInterval(pollAllLogs, 1500);
     
-    // Theme Switcher Initialisation
-    const btnDark = document.getElementById('theme-btn-dark');
+    // Theme Toggle Initialisation
+    const toggleCheckbox  = document.getElementById('theme-toggle-checkbox');
+    const toggleSwitch    = toggleCheckbox ? toggleCheckbox.closest('.theme-toggle-switch') : null;
+    // Keep backward-compat refs in case old buttons exist anywhere
+    const btnDark  = document.getElementById('theme-btn-dark');
     const btnLight = document.getElementById('theme-btn-light');
     const currentTheme = localStorage.getItem('theme') || 'dark';
     
     function switchTheme(theme) {
         if (theme === 'light') {
             document.body.classList.add('light-theme');
+            if (toggleCheckbox) toggleCheckbox.checked = true;
+            if (toggleSwitch)   toggleSwitch.classList.add('is-light');
             if (btnLight) btnLight.classList.add('active');
-            if (btnDark) btnDark.classList.remove('active');
+            if (btnDark)  btnDark.classList.remove('active');
         } else {
             document.body.classList.remove('light-theme');
-            if (btnDark) btnDark.classList.add('active');
+            if (toggleCheckbox) toggleCheckbox.checked = false;
+            if (toggleSwitch)   toggleSwitch.classList.remove('is-light');
+            if (btnDark)  btnDark.classList.add('active');
             if (btnLight) btnLight.classList.remove('active');
         }
         localStorage.setItem('theme', theme);
@@ -3801,7 +3808,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialise on load
     switchTheme(currentTheme);
     
-    if (btnDark) btnDark.addEventListener('click', () => switchTheme('dark'));
+    // New toggle checkbox
+    if (toggleCheckbox) {
+        toggleCheckbox.addEventListener('change', () => {
+            switchTheme(toggleCheckbox.checked ? 'light' : 'dark');
+        });
+    }
+    // Legacy button support (no-op if not in DOM)
+    if (btnDark)  btnDark.addEventListener('click',  () => switchTheme('dark'));
     if (btnLight) btnLight.addEventListener('click', () => switchTheme('light'));
 });
 

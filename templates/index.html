@@ -26,40 +26,54 @@
             <div class="logo">
                 <img src="/static/connectify_logo.png" alt="Connectify Logo" class="logo-image glow-logo">
             </div>
-
+            <div class="app-name-label">Connectify<span class="app-name-dot">.</span></div>
 
             <nav class="nav-menu">
                 <button class="nav-item active" data-tab="dashboard">
-                    <i class="fa-solid fa-chart-line"></i> Dashboard
+                    <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>
+                    <span class="nav-text">Dashboard</span>
                 </button>
                 <button class="nav-item" data-tab="user-profile">
-                    <i class="fa-solid fa-user-tie"></i> User Profile
+                    <span class="nav-icon"><i class="fa-solid fa-user-tie"></i></span>
+                    <span class="nav-text">User Profile</span>
                 </button>
                 <button class="nav-item" data-tab="pipelines">
-                    <i class="fa-solid fa-circle-play"></i> Pipelines
+                    <span class="nav-icon"><i class="fa-solid fa-circle-play"></i></span>
+                    <span class="nav-text">Pipelines</span>
                 </button>
                 <button class="nav-item" data-tab="db-scraper">
-                    <i class="fa-solid fa-address-book"></i> Outreach Leads
+                    <span class="nav-icon"><i class="fa-solid fa-address-book"></i></span>
+                    <span class="nav-text">Outreach Leads</span>
                 </button>
                 <button class="nav-item" data-tab="db-referral">
-                    <i class="fa-solid fa-briefcase"></i> Referrals Tracker
+                    <span class="nav-icon"><i class="fa-solid fa-briefcase"></i></span>
+                    <span class="nav-text">Referrals Tracker</span>
                 </button>
                 <button class="nav-item" data-tab="settings">
-                    <i class="fa-solid fa-sliders"></i> Settings
+                    <span class="nav-icon"><i class="fa-solid fa-sliders"></i></span>
+                    <span class="nav-text">Settings</span>
                 </button>
             </nav>
 
-            <!-- Theme Selector Button Group -->
-            <div class="theme-selection-container">
-                <div class="theme-label">Theme Mode</div>
-                <div class="theme-buttons">
-                    <button type="button" id="theme-btn-dark">
-                        <i class="fa-solid fa-moon"></i> Dark
-                    </button>
-                    <button type="button" id="theme-btn-light">
-                        <i class="fa-solid fa-sun"></i> Light
-                    </button>
-                </div>
+            <!-- Theme Toggle Switch -->
+            <div class="theme-toggle-wrap">
+                <span class="theme-toggle-label">
+                    <i class="fa-solid fa-moon theme-icon-dark"></i>
+                    <span class="theme-toggle-text">Dark</span>
+                </span>
+                <label class="theme-toggle-switch" title="Toggle light/dark mode">
+                    <input type="checkbox" id="theme-toggle-checkbox">
+                    <span class="theme-toggle-track">
+                        <span class="theme-toggle-thumb">
+                            <i class="fa-solid fa-moon thumb-icon-dark"></i>
+                            <i class="fa-solid fa-sun thumb-icon-light"></i>
+                        </span>
+                    </span>
+                </label>
+                <span class="theme-toggle-label">
+                    <i class="fa-solid fa-sun theme-icon-light"></i>
+                    <span class="theme-toggle-text">Light</span>
+                </span>
             </div>
         </aside>
 
