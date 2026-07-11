@@ -11,85 +11,113 @@ def get_user_config_file(username):
     from config.settings import BASE_DIR
     return os.path.join(BASE_DIR, "users", username, "config.json")
 
+def _migrate_files_for_user(username, base_dir, users_dir):
+    """Helper to migrate root data files (data, logs, resumes, chrome profiles) to a specific user folder."""
+    user_data_dir = os.path.join(users_dir, username, "data")
+    user_logs_dir = os.path.join(users_dir, username, "logs")
+    user_resumes_dir = os.path.join(users_dir, username, "resumes")
+    user_chrome_dir = os.path.join(users_dir, username, "chrome-profile")
+    
+    os.makedirs(user_data_dir, exist_ok=True)
+    os.makedirs(user_logs_dir, exist_ok=True)
+    os.makedirs(user_resumes_dir, exist_ok=True)
+    os.makedirs(user_chrome_dir, exist_ok=True)
+    
+    # Move Excel database files
+    root_data_dir = os.path.join(base_dir, "data")
+    if os.path.exists(root_data_dir):
+        for filename in os.listdir(root_data_dir):
+            src = os.path.join(root_data_dir, filename)
+            dst = os.path.join(user_data_dir, filename)
+            if os.path.isfile(src) and not os.path.exists(dst):
+                try:
+                    shutil.move(src, dst)
+                except Exception:
+                    pass
+                
+    # Move Log files
+    root_logs_dir = os.path.join(base_dir, "logs")
+    if os.path.exists(root_logs_dir):
+        for filename in os.listdir(root_logs_dir):
+            src = os.path.join(root_logs_dir, filename)
+            dst = os.path.join(user_logs_dir, filename)
+            if os.path.isfile(src) and not os.path.exists(dst):
+                try:
+                    shutil.move(src, dst)
+                except Exception:
+                    pass
+                
+    # Move Resumes
+    root_resumes_dir = os.path.join(base_dir, "resumes")
+    if os.path.exists(root_resumes_dir):
+        for filename in os.listdir(root_resumes_dir):
+            src = os.path.join(root_resumes_dir, filename)
+            dst = os.path.join(user_resumes_dir, filename)
+            if os.path.isfile(src) and not os.path.exists(dst):
+                try:
+                    shutil.copy2(src, dst)
+                except Exception:
+                    pass
+                
+    # Move Chrome Profile (.chrome-profile)
+    root_chrome_dir = os.path.join(base_dir, ".chrome-profile")
+    if os.path.exists(root_chrome_dir):
+        try:
+            shutil.copytree(root_chrome_dir, user_chrome_dir, dirs_exist_ok=True)
+        except Exception:
+            pass
+
+
 def migrate_old_monolithic_config():
-    """Migrates old monolithic users_config.json and global directories to the users/ directory structure."""
+    """Migrates old monolithic users_config.json and config.json and global directories to the users/ directory structure."""
     from config.settings import BASE_DIR
-    old_config_file = os.path.join(BASE_DIR, "users_config.json")
     users_dir = os.path.join(BASE_DIR, "users")
     
-    # If the users folder already contains any subdirectories with config.json, don't re-migrate
-    if os.path.exists(users_dir):
-        subdirs = [d for d in os.listdir(users_dir) if os.path.isdir(os.path.join(users_dir, d)) and d != "default"]
-        if subdirs:
-            return
+    # 1. Process root config.json if placed there by replicating users
+    root_config_file = os.path.join(BASE_DIR, "config.json")
+    if os.path.exists(root_config_file):
+        try:
+            with open(root_config_file, "r", encoding="utf-8") as f:
+                config_data = json.load(f)
             
+            # Determine username
+            profile = config_data.get("profile", {})
+            first_name = profile.get("first_name", "").strip()
+            username = first_name if first_name else "Lalit"
+            
+            # If config is already in nested users format
+            if "users" in config_data:
+                save_all_configs(config_data)
+                sel_user = config_data.get("selected_user") or username
+            else:
+                # Wrap inside standard users configuration structure
+                unified_config = {
+                    "users": {
+                        username: config_data
+                    },
+                    "selected_user": username,
+                    "global_settings": config_data.get("global_settings", {})
+                }
+                save_all_configs(unified_config)
+                sel_user = username
+                
+            _migrate_files_for_user(sel_user, BASE_DIR, users_dir)
+            os.rename(root_config_file, root_config_file + ".backup")
+        except Exception:
+            pass
+
+    # 2. Process old monolithic users_config.json if it exists
+    old_config_file = os.path.join(BASE_DIR, "users_config.json")
     if os.path.exists(old_config_file):
         try:
             with open(old_config_file, "r") as f:
                 old_config = json.load(f)
-                
-            # Perform migration for each user in the old config
             save_all_configs(old_config)
             
-            # Now let's migrate their Excel databases from data/ to users/<username>/data/
-            # For simplicity, if there was a selected user, migrate the root data, logs, resumes, and chrome profiles to that user!
             selected_user = old_config.get("selected_user")
             if selected_user:
-                user_data_dir = os.path.join(users_dir, selected_user, "data")
-                user_logs_dir = os.path.join(users_dir, selected_user, "logs")
-                user_resumes_dir = os.path.join(users_dir, selected_user, "resumes")
-                user_chrome_dir = os.path.join(users_dir, selected_user, "chrome-profile")
+                _migrate_files_for_user(selected_user, BASE_DIR, users_dir)
                 
-                os.makedirs(user_data_dir, exist_ok=True)
-                os.makedirs(user_logs_dir, exist_ok=True)
-                os.makedirs(user_resumes_dir, exist_ok=True)
-                os.makedirs(user_chrome_dir, exist_ok=True)
-                
-                # Move Excel database files
-                root_data_dir = os.path.join(BASE_DIR, "data")
-                if os.path.exists(root_data_dir):
-                    for filename in os.listdir(root_data_dir):
-                        src = os.path.join(root_data_dir, filename)
-                        dst = os.path.join(user_data_dir, filename)
-                        if os.path.isfile(src) and not os.path.exists(dst):
-                            try:
-                                shutil.move(src, dst)
-                            except Exception:
-                                pass
-                            
-                # Move Log files
-                root_logs_dir = os.path.join(BASE_DIR, "logs")
-                if os.path.exists(root_logs_dir):
-                    for filename in os.listdir(root_logs_dir):
-                        src = os.path.join(root_logs_dir, filename)
-                        dst = os.path.join(user_logs_dir, filename)
-                        if os.path.isfile(src) and not os.path.exists(dst):
-                            try:
-                                shutil.move(src, dst)
-                            except Exception:
-                                pass
-                            
-                # Move Resumes
-                root_resumes_dir = os.path.join(BASE_DIR, "resumes")
-                if os.path.exists(root_resumes_dir):
-                    for filename in os.listdir(root_resumes_dir):
-                        src = os.path.join(root_resumes_dir, filename)
-                        dst = os.path.join(user_resumes_dir, filename)
-                        if os.path.isfile(src) and not os.path.exists(dst):
-                            try:
-                                shutil.copy2(src, dst)
-                            except Exception:
-                                pass
-                            
-                # Move Chrome Profile (.chrome-profile)
-                root_chrome_dir = os.path.join(BASE_DIR, ".chrome-profile")
-                if os.path.exists(root_chrome_dir):
-                    try:
-                        shutil.copytree(root_chrome_dir, user_chrome_dir, dirs_exist_ok=True)
-                    except Exception:
-                        pass
-                        
-            # After migration, rename the old file to users_config.json.backup
             os.rename(old_config_file, old_config_file + ".backup")
         except Exception:
             pass
