@@ -629,6 +629,12 @@ def select_active_user():
         _invalidate_cached_config(user)
     except Exception:
         pass
+        
+    # Auto-sync sheets to local if empty/missing
+    try:
+        sync_google_sheets_to_local_if_empty(user)
+    except Exception as se:
+        print(f"[User Switch] Warning: Sheets auto-sync failed for user '{user}': {se}")
     
     return jsonify({"status": "success", "selected_user": user})
 
@@ -1894,6 +1900,107 @@ def start_git_autoupdater(app):
         print("[Auto-Updater] Background git update checker thread started.")
 
 
+def sync_google_sheets_to_local_if_empty(username):
+    """If database_type is google_sheets and local files are empty or missing,
+    synchronize and download all data from the Google Sheet to populate local cache.
+    """
+    try:
+        from core.storage.engine import get_user_config
+        config = get_user_config(username, bypass_cache=True)
+        db_type = config.get("global_settings", {}).get("database_type", "local")
+        if db_type != "google_sheets":
+            return
+            
+        sheet_url = config.get("global_settings", {}).get("google_sheet_url", "").strip()
+        creds_content = config.get("global_settings", {}).get("google_credentials_json", "").strip()
+        if not sheet_url or not creds_content:
+            return
+            
+        # Check if local Excel files are missing or empty
+        from config.settings import get_job_tracker_file, get_job_leads_file, get_referrals_file
+        # Temporarily force CONNECTIFY_USER env so setting paths resolve correctly
+        orig_user = os.environ.get("CONNECTIFY_USER")
+        os.environ["CONNECTIFY_USER"] = username
+        
+        try:
+            local_files = [get_job_tracker_file(), get_job_leads_file(), get_referrals_file()]
+        finally:
+            if orig_user:
+                os.environ["CONNECTIFY_USER"] = orig_user
+            elif "CONNECTIFY_USER" in os.environ:
+                del os.environ["CONNECTIFY_USER"]
+                
+        needs_sync = False
+        for f in local_files:
+            if not os.path.exists(f) or os.path.getsize(f) < 6000: # less than 6KB is empty template
+                needs_sync = True
+                break
+                
+        if needs_sync:
+            print(f"[Storage Sync] Local cache files for user '{username}' are empty or missing. Initializing Google Sheets pull...")
+            # Perform download sync
+            import gspread, openpyxl as _xl
+            from google.oauth2.service_account import Credentials
+            from config.constants import GOOGLE_SHEET_WORKSHEETS
+            
+            scopes = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+            import json as _json
+            creds_dict = _json.loads(creds_content)
+            credentials = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+            client = gspread.authorize(credentials)
+            sh = client.open_by_url(sheet_url)
+            
+            # Temporarily set active user env for paths resolution
+            orig_user = os.environ.get("CONNECTIFY_USER")
+            os.environ["CONNECTIFY_USER"] = username
+            try:
+                local_paths = {
+                    "Job Leads": get_job_leads_file(),
+                    "Scraped Emails": get_job_tracker_file(),
+                    "Referrals & Connections": get_referrals_file()
+                }
+            finally:
+                if orig_user:
+                    os.environ["CONNECTIFY_USER"] = orig_user
+                elif "CONNECTIFY_USER" in os.environ:
+                    del os.environ["CONNECTIFY_USER"]
+                    
+            id_cols = {
+                "Job Leads": "JobID",
+                "Scraped Emails": "ID",
+                "Referrals & Connections": "ReferralID"
+            }
+            
+            for key, info in GOOGLE_SHEET_WORKSHEETS.items():
+                if key not in ("jobs", "emails", "referrals"):
+                    continue
+                ws_name = info["name"]
+                headers = info["headers"]
+                local_file = local_paths[ws_name]
+                
+                try:
+                    ws = sh.worksheet(ws_name)
+                    cloud_rows = ws.get_all_records()
+                except Exception as e:
+                    print(f"[Storage Sync] Warning: Could not read cloud worksheet '{ws_name}': {e}")
+                    continue
+                    
+                # Rewrite local file with cloud rows to fully sync
+                try:
+                    wb = _xl.Workbook()
+                    lws = wb.active
+                    lws.title = ws_name.replace(" & ", " ")
+                    lws.append(headers)
+                    for r in cloud_rows:
+                        lws.append([str(r.get(h, "") or "") for h in headers])
+                    wb.save(local_file)
+                    print(f"[Storage Sync]   Synced {len(cloud_rows)} rows for '{ws_name}' locally.")
+                except Exception as e:
+                    print(f"[Storage Sync]   Error writing local file for '{ws_name}': {e}")
+    except Exception as e:
+        print(f"[Storage Sync] Warning: Automatic Google Sheets sync failed: {e}")
+
+
 if __name__ == '__main__':
     # Ensure standard directories exist
     os.makedirs("templates", exist_ok=True)
@@ -1913,7 +2020,11 @@ if __name__ == '__main__':
             users = ["default"]
         for u in users:
             deduplicate_all_tables(u)
-        print("[Startup Database] Safely scanned and deduplicated all user tables.")
+            try:
+                sync_google_sheets_to_local_if_empty(u)
+            except Exception as se:
+                print(f"[Startup Database] Warning: Sheets auto-sync failed for user '{u}': {se}")
+        print("[Startup Database] Safely scanned, auto-synced, and deduplicated all user tables.")
     except Exception as e:
         print(f"[Startup Database] Warning: Deduplication run failed: {e}")
     
