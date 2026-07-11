@@ -46,16 +46,21 @@ def trim_scraper_excel_to_schema(path=None):
 
 def append_email(email, keyword='', post_url='', company_name='', experience='', location='', path=None):
     """Appends extracted email to the job tracker if it's unique."""
-    try:
-        rows = read_database_rows("emails")
-        normalized_email = str(email or '').strip().lower()
-        normalized_post_url = str(post_url or '').strip().lower()
+    rows = read_database_rows("emails")
+    normalized_email = str(email or '').strip().lower()
+    normalized_post_url = str(post_url or '').strip().lower()
+    for r in rows:
+        if str(r.get('Email')).strip().lower() == normalized_email and str(r.get('PostURL')).strip().lower() == normalized_post_url:
+            return False
+    max_id = 0
+    if rows:
         for r in rows:
-            if str(r.get('Email')).strip().lower() == normalized_email and str(r.get('PostURL')).strip().lower() == normalized_post_url:
-                return False
-        max_id = max([int(float(r.get('ID') or 0)) for r in rows]) if rows else 0
-    except Exception:
-        max_id = 0
+            try:
+                val = int(float(r.get('ID') or 0))
+                if val > max_id:
+                    max_id = val
+            except (ValueError, TypeError):
+                pass
         
     data = {
         'ID': max_id + 1,
