@@ -340,14 +340,15 @@ def add_header(response):
 @app.route('/api/stats')
 def get_stats():
     from core.storage.engine import read_database_rows
-    job_tracker = read_database_rows("emails", bypass_cache=False)
-    job_leads = read_database_rows("jobs", bypass_cache=False)
+    # Always read from disk so the dashboard reflects pipeline updates immediately
+    job_tracker = read_database_rows("emails", bypass_cache=True)
+    job_leads = read_database_rows("jobs", bypass_cache=True)
 
     total_emails = len(job_tracker)
     emails_sent = sum(1 for r in job_tracker if str(r.get('Status')).strip().lower() == 'sent')
-    
+
     total_leads = len(job_leads)
-    
+
     referral_requests_sent = sum(1 for r in job_leads if str(r.get('Status')).strip().lower() in ('ask for referral', 'asked for referral', 'done', 'referred'))
     done_referrals = sum(1 for r in job_leads if str(r.get('Status')).strip().lower() == 'done')
 
@@ -375,7 +376,17 @@ def outreach_stats():
 @app.route('/api/data/job_tracker')
 def job_tracker_data():
     from core.storage.engine import read_database_rows
-    return jsonify(read_database_rows("emails", bypass_cache=False))
+    return jsonify(read_database_rows("emails", bypass_cache=True))
+
+
+@app.route('/api/cache/invalidate', methods=['GET', 'POST'])
+def invalidate_cache():
+    """Called by background pipeline processes after writing data so the Flask
+    in-memory cache is cleared and the next UI request reads fresh data from disk."""
+    from core.storage.engine import _invalidate_cached_rows
+    username = get_selected_user_name()
+    _invalidate_cached_rows(username)  # clears all table caches for the active user
+    return jsonify({"status": "ok", "message": f"Cache invalidated for '{username}'"})
 
 @app.route('/api/data/job_leads')
 def job_leads_data():

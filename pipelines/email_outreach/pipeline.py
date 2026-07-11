@@ -1,5 +1,4 @@
 import os
-import openpyxl
 from config.settings import get_job_tracker_file
 from config.user_profiles import get_selected_user_config
 from config.constants import DBA_KEYWORDS_DEFAULT
@@ -49,34 +48,15 @@ def run_phase_one(scraper):
 
 def run_phase_two(scraper, review_mode=None):
     """Executes composing and sending emails via Selenium browser to discovered addresses."""
-    pending_rows = []
-    
-    job_tracker_file = get_job_tracker_file()
-    if not os.path.exists(job_tracker_file):
-        logger.warning(f"Excel database '{job_tracker_file}' not found – nothing to send. Please run Phase 1 (Fetch Emails) first to scrape contact leads.")
-        return
-        
-    wb = openpyxl.load_workbook(job_tracker_file)
-    ws = wb.active
-    col_map = {cell.value: idx+1 for idx, cell in enumerate(ws[1])}
-    email_col = col_map.get('Email')
-    status_col = col_map.get('Status')
-    post_url_col = col_map.get('PostURL')
-    
-    if not email_col or not status_col:
-        logger.error("Excel schema missing required columns.")
-        return
-            
-    for row in range(2, ws.max_row + 1):
-        status = (ws.cell(row=row, column=status_col).value or '').strip().lower()
-        if status in ('sent', 'skipped'):
-            continue
-        email = ws.cell(row=row, column=email_col).value
-        if not email:
-            continue
-        post_url = ws.cell(row=row, column=post_url_col).value if post_url_col else ''
-        pending_rows.append((row, email, post_url or ''))
-        
+    from core.storage.database import read_database_rows as _read_rows
+
+    rows = _read_rows("emails", bypass_cache=True)
+    pending_rows = [
+        r for r in rows
+        if str(r.get('Status', '')).strip().lower() not in ('sent', 'skipped')
+        and r.get('Email')
+    ]
+
     user_conf = get_selected_user_config()
     email_scraper_conf = user_conf.get("email_scraper", {})
     max_emails = int(email_scraper_conf.get("max_emails_per_run") or 5)
@@ -86,27 +66,41 @@ def run_phase_two(scraper, review_mode=None):
         job_tracker_file = get_job_tracker_file()
         logger.info(f"No pending or unsent emails found in '{job_tracker_file}'. All scraped email records are already sent or the file is empty.")
         return
-        
+
     logger.info(f"Found {len(pending_rows)} pending emails to process. Target limit: {max_emails} per run.")
-    for row, email, post_url in pending_rows:
+
+    def _ping_cache_invalidate():
+        """Ping the Flask server to invalidate its in-memory cache so the dashboard updates live."""
+        try:
+            import urllib.request
+            urllib.request.urlopen("http://127.0.0.1:5001/api/cache/invalidate", timeout=2)
+        except Exception:
+            pass  # Flask may not be running (e.g. CLI use) — silently ignore
+
+    for r in pending_rows:
         if emails_sent >= max_emails:
             logger.info(f"Target limit of {max_emails} emails sent reached for this run. Stopping.")
             break
-            
-        logger.info(f"Processing email outreach for {email} (row {row})")
+
+        email = r.get('Email')
+        post_url = r.get('PostURL', '') or ''
+        logger.info(f"Processing email outreach for {email}")
         sent = send_email_via_gmail(scraper.driver, email, post_url=post_url, review_mode=review_mode)
         if sent == "skipped":
             logger.info(f"Email to {email} skipped – updating status to 'skipped'.")
             update_status(email, 'skipped')
+            _ping_cache_invalidate()
             continue
         elif sent == "quit":
             logger.info("Quitting email outreach pipeline as requested by user.")
             break
         elif sent:
             update_status(email, 'sent')
+            _ping_cache_invalidate()
             emails_sent += 1
         else:
             logger.info(f"Email to {email} not sent – leaving status unchanged.")
+
 
 
 def run_pipeline(phase="full", review_mode=None):
