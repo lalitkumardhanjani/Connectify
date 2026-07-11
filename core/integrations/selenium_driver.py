@@ -189,6 +189,10 @@ def get_driver(profile_suffix=None):
         service = Service(chromedriver_path)
 
     driver = webdriver.Chrome(service=service, options=options)
+    try:
+        driver.set_page_load_timeout(30)
+    except Exception:
+        pass
     return driver
 
 def wait_for_page(seconds=5):

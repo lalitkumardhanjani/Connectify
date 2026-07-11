@@ -268,7 +268,12 @@ def login_to_linkedin(driver, email, password):
             # Navigate to the dedicated login page to ensure standard login form elements are present
             if "linkedin.com/login" not in driver.current_url:
                 logger.info("Navigating directly to LinkedIn dedicated login page...")
-                driver.get("https://www.linkedin.com/login")
+                try:
+                    driver.get("https://www.linkedin.com/login")
+                except TimeoutException:
+                    logger.warning("Page load timeout navigating to login page; proceeding anyway...")
+                except Exception as e:
+                    logger.warning(f"Error navigating to login page: {e}; proceeding anyway...")
                 time.sleep(2)
                 
             email_selectors = [
