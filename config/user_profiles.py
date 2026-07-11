@@ -149,7 +149,10 @@ def load_all_configs(bypass_cache: bool = False):
             for d in os.listdir(users_dir):
                 if d == "default" or not os.path.isdir(os.path.join(users_dir, d)):
                     continue
-                users[d] = get_user_config(d, bypass_cache=bypass_cache)
+                # Always use cache here — callers needing fresh data for a specific user
+                # should call get_user_config(username, bypass_cache=True) directly.
+                # This prevents N x Google Sheets API calls on every load_all_configs() invocation.
+                users[d] = get_user_config(d, bypass_cache=False)
         except Exception as e:
             logger.error(f"Error loading configs via storage provider: {e}")
             

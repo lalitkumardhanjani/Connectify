@@ -630,12 +630,16 @@ def select_active_user():
     except Exception:
         pass
         
-    # Auto-sync sheets to local if empty/missing
-    try:
-        sync_google_sheets_to_local_if_empty(user)
-    except Exception as se:
-        print(f"[User Switch] Warning: Sheets auto-sync failed for user '{user}': {se}")
-    
+    # Auto-sync sheets to local in background (non-blocking) so the switch response returns instantly
+    def _bg_sync(username):
+        try:
+            sync_google_sheets_to_local_if_empty(username)
+        except Exception as se:
+            print(f"[User Switch] Warning: Sheets auto-sync failed for user '{username}': {se}")
+
+    t = threading.Thread(target=_bg_sync, args=(user,), daemon=True)
+    t.start()
+
     return jsonify({"status": "success", "selected_user": user})
 
 
@@ -1299,11 +1303,11 @@ def pull_system_updates():
 
 @app.route('/api/users/config', methods=['GET'])
 def get_user_configuration():
-    fresh = request.args.get('fresh', 'true') == 'true'
-    config = load_all_configs(bypass_cache=fresh)
+    # Only load the active user's config — no need to fetch all users (avoids N Google Sheets calls)
+    from core.storage.engine import get_user_config
     username = get_selected_user_name()
-    user_data = config.get("users", {}).get(username, {})
-    global_settings = get_global_settings()
+    user_data = get_user_config(username, bypass_cache=False)  # use cache; 15s TTL is fine here
+    global_settings = user_data.get("global_settings", {})
     return jsonify({
         "username": username,
         "config": user_data,
@@ -1314,14 +1318,14 @@ def get_user_configuration():
 @app.route('/api/users/config', methods=['POST'])
 def save_user_configuration():
     body = request.get_json() or {}
-    config = load_all_configs()
+    from core.storage.engine import get_user_config, save_user_config, _invalidate_cached_config
     username = get_selected_user_name()
-    
-    if username not in config.get("users", {}):
+
+    # Load only this user's existing config (uses cache — fast)
+    existing_user = get_user_config(username, bypass_cache=False)
+    if not existing_user:
         return jsonify({"status": "error", "message": f"User {username} not found"}), 404
-    
-    existing_user = config["users"][username]
-    
+
     # Helper: deep merge incoming section over existing section so no fields are lost
     def merge_section(existing, incoming):
         if not incoming:
@@ -1329,76 +1333,84 @@ def save_user_configuration():
         merged = dict(existing)
         merged.update({k: v for k, v in incoming.items() if v is not None and v != ''})
         return merged
-    
-    # For profile and global_settings, always use the full incoming value (they are fully managed by UI)
+
+    # For profile and global_settings, always use the full incoming value (fully managed by UI)
     user_profile = body.get("profile") or {}
-    global_settings = body.get("global_settings") or {}
-    
+    global_settings_incoming = body.get("global_settings") or {}
+
     # For pipeline sections, merge incoming over existing so stale/missing fields are preserved
     email_scraper_incoming = body.get("email_scraper") or {}
     linkedin_connect_incoming = body.get("linkedin_connect") or {}
     recruiter_outreach_incoming = body.get("recruiter_outreach") or {}
     referral_outreach_incoming = body.get("referral_outreach") or {}
-    
+
     existing_scraper = existing_user.get("email_scraper") or {}
     existing_connect = existing_user.get("linkedin_connect") or {}
     existing_recruiter = existing_user.get("recruiter_outreach") or {}
     existing_referral = existing_user.get("referral_outreach") or {}
-    
+
     # Apply scraper defaults for missing fields
     scraper_defaults = {
-        "interval": "60",
-        "review_mode": True,
-        "max_emails_per_run": "5",
-        "search_keywords": [],
-        "title_keywords": [],
-        "keywords": [],
-        "excluded_keywords": [],
-        "email_subject": "",
-        "email_template": "",
-        "sender_email": ""
+        "interval": "60", "review_mode": True, "max_emails_per_run": "5",
+        "search_keywords": [], "title_keywords": [], "keywords": [],
+        "excluded_keywords": [], "email_subject": "", "email_template": "", "sender_email": ""
     }
     existing_scraper = {**scraper_defaults, **existing_scraper}
-    
+
     # Apply connect defaults for missing fields
     connect_defaults = {
-        "interval": "60",
-        "search_pages": 2,
-        "review_mode": True,
-        "max_connections_per_company": "5",
-        "max_connections_per_run": "5",
-        "search_keywords": [],
-        "title_keywords": [],
-        "keywords": [],
-        "excluded_keywords": [],
-        "message_template": ""
+        "interval": "60", "search_pages": 2, "review_mode": True,
+        "max_connections_per_company": "5", "max_connections_per_run": "5",
+        "search_keywords": [], "title_keywords": [], "keywords": [],
+        "excluded_keywords": [], "message_template": ""
     }
     existing_connect = {**connect_defaults, **existing_connect}
-    
+
     # Apply recruiter defaults for missing fields
     recruiter_defaults = {
-        "interval": "120",
-        "target_count": "2",
-        "review_mode": True,
-        "message_template": "",
-        "direct_message_template": ""
+        "interval": "120", "target_count": "2", "review_mode": True,
+        "message_template": "", "direct_message_template": ""
     }
     existing_recruiter = {**recruiter_defaults, **existing_recruiter}
-    
-    # Merge: incoming takes precedence, but existing fills gaps
+
+    # Merge: incoming takes precedence, existing fills gaps
     email_scraper = {**existing_scraper, **{k: v for k, v in email_scraper_incoming.items() if v is not None}}
     linkedin_connect = {**existing_connect, **{k: v for k, v in linkedin_connect_incoming.items() if v is not None}}
     recruiter_outreach = {**existing_recruiter, **{k: v for k, v in recruiter_outreach_incoming.items() if v is not None}}
     referral_outreach = {**existing_referral, **{k: v for k, v in referral_outreach_incoming.items() if v is not None}}
-    
-    config["users"][username]["profile"] = user_profile
-    config["users"][username]["email_scraper"] = email_scraper
-    config["users"][username]["linkedin_connect"] = linkedin_connect
-    config["users"][username]["recruiter_outreach"] = recruiter_outreach
-    config["users"][username]["referral_outreach"] = referral_outreach
-    config["global_settings"] = global_settings
-    
-    save_all_configs(config)
+
+    # Preserve existing global_settings (credentials, etc.) and overlay incoming changes
+    existing_global = existing_user.get("global_settings", {})
+    merged_global = {**existing_global, **{k: v for k, v in global_settings_incoming.items() if v is not None and v != ''}}
+
+    updated_config = dict(existing_user)
+    updated_config["profile"] = user_profile
+    updated_config["email_scraper"] = email_scraper
+    updated_config["linkedin_connect"] = linkedin_connect
+    updated_config["recruiter_outreach"] = recruiter_outreach
+    updated_config["referral_outreach"] = referral_outreach
+    updated_config["global_settings"] = merged_global
+
+    # 1. Save locally immediately (fast — just writes config.json)
+    from core.storage.engine import LocalStorageProvider
+    LocalStorageProvider().save_config(username, updated_config)
+    _invalidate_cached_config(username)
+    from core.storage.engine import _set_cached_config
+    _set_cached_config(username, updated_config)
+
+    # 2. Sync to Google Sheets in background so the response returns instantly
+    def _bg_sheets_sync(uname, cfg):
+        try:
+            db_type = cfg.get("global_settings", {}).get("database_type", "local")
+            if db_type == "google_sheets":
+                from core.storage.engine import GoogleSheetsStorageProvider
+                GoogleSheetsStorageProvider().save_config(uname, cfg)
+        except Exception as e:
+            print(f"[Config Save] Google Sheets sync failed (background): {e}")
+
+    t = threading.Thread(target=_bg_sheets_sync, args=(username, updated_config), daemon=True)
+    t.start()
+
     return jsonify({"status": "success"})
 
 
@@ -1425,9 +1437,26 @@ def save_user_keywords():
     field = "keywords" if kws_type in ("scraper", "connect") else "excluded_keywords"
     config["users"][username][target_section][field] = [k.strip() for k in keywords if str(k).strip()]
 
-    save_all_configs(config)
-    return jsonify({"status": "success"})
+    # Save only the active user directly (fast local write + background Sheets sync)
+    from core.storage.engine import get_user_config, LocalStorageProvider, _invalidate_cached_config, _set_cached_config
+    updated_config = get_user_config(username, bypass_cache=False)
+    updated_config.setdefault(target_section, {})[field] = [k.strip() for k in keywords if str(k).strip()]
 
+    LocalStorageProvider().save_config(username, updated_config)
+    _invalidate_cached_config(username)
+    _set_cached_config(username, updated_config)
+
+    def _bg_kw_sync(uname, cfg):
+        try:
+            db_type = cfg.get("global_settings", {}).get("database_type", "local")
+            if db_type == "google_sheets":
+                from core.storage.engine import GoogleSheetsStorageProvider
+                GoogleSheetsStorageProvider().save_config(uname, cfg)
+        except Exception as e:
+            print(f"[Keywords Save] Google Sheets sync failed (background): {e}")
+
+    threading.Thread(target=_bg_kw_sync, args=(username, updated_config), daemon=True).start()
+    return jsonify({"status": "success"})
 
 @app.route('/api/users/resume/upload', methods=['POST'])
 def upload_user_resume():
