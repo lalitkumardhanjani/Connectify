@@ -265,6 +265,12 @@ def login_to_linkedin(driver, email, password):
     logger.info("Not logged in. Attempting login...")
     if email and password:
         try:
+            # Navigate to the dedicated login page to ensure standard login form elements are present
+            if "linkedin.com/login" not in driver.current_url:
+                logger.info("Navigating directly to LinkedIn dedicated login page...")
+                driver.get("https://www.linkedin.com/login")
+                time.sleep(2)
+                
             email_selectors = [
                 "input[id*='username']",
                 "input[name='session_key']",
