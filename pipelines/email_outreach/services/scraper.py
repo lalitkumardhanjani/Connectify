@@ -150,6 +150,12 @@ class LinkedInScraper:
                 logger.error("Manual login timeout. Exiting.")
                 return False
                 
+            # Navigate to the dedicated login page to ensure standard login form elements are present
+            if "linkedin.com/login" not in self.driver.current_url:
+                logger.info("Navigating directly to LinkedIn dedicated login page...")
+                self.driver.get("https://www.linkedin.com/login")
+                time.sleep(2)
+                
             email_selectors = [
                 "input[id*='username']",
                 "input[name='session_key']",
