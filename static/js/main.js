@@ -4,6 +4,12 @@ const tabPanes = document.querySelectorAll('.main-content .tab-pane');
 
 navItems.forEach(item => {
     item.addEventListener('click', () => {
+        // Hide stdin quality gate popup on tab switch
+        const stdinOverlay = document.getElementById('stdin-overlay');
+        if (stdinOverlay) {
+            stdinOverlay.classList.add('hidden');
+        }
+
         // Find if we were on settings tab
         const currentActive = document.querySelector('.nav-menu .nav-item.active');
         const wasOnSettings = currentActive ? currentActive.getAttribute('data-tab') === 'settings' : false;
@@ -1886,6 +1892,12 @@ document.querySelectorAll('.settings-tab-btn').forEach(btn => {
 // Subtab navigation in Pipelines section
 document.querySelectorAll('.pipeline-tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
+        // Hide stdin quality gate popup on sub-tab switch
+        const stdinOverlay = document.getElementById('stdin-overlay');
+        if (stdinOverlay) {
+            stdinOverlay.classList.add('hidden');
+        }
+        
         document.querySelectorAll('.pipeline-tab-btn').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.pipeline-tab-pane').forEach(p => p.classList.remove('active'));
         
