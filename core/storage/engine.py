@@ -316,7 +316,28 @@ class LocalStorageProvider(BaseStorageProvider):
             ws = wb.active
             headers = [cell.value for cell in ws[1]]
             if not headers:
+                wb.close()
                 return []
+            
+            # Check for missing expected headers to auto-migrate schema
+            expected_headers = GOOGLE_SHEET_WORKSHEETS[table_key]["headers"]
+            missing_headers = [h for h in expected_headers if h not in headers]
+            if missing_headers:
+                logger.info(f"Auto-migrating schema for local table '{table_key}' (user: {username}). Adding missing columns: {missing_headers}")
+                rows = []
+                for r in range(2, ws.max_row + 1):
+                    row_dict = {}
+                    for col_idx, h in enumerate(headers, start=1):
+                        val = ws.cell(row=r, column=col_idx).value
+                        row_dict[h] = val if val is not None else ""
+                    # Ensure expected headers are present in dict
+                    for eh in expected_headers:
+                        if eh not in row_dict:
+                            row_dict[eh] = ""
+                    rows.append(row_dict)
+                wb.close()
+                self.write_rows(username, table_key, rows)
+                return rows
             
             rows = []
             for r in range(2, ws.max_row + 1):
@@ -325,6 +346,7 @@ class LocalStorageProvider(BaseStorageProvider):
                     val = ws.cell(row=r, column=col_idx).value
                     row_dict[h] = val if val is not None else ""
                 rows.append(row_dict)
+            wb.close()
             return rows
         except Exception as e:
             logger.error(f"Error reading local Excel database file '{path}': {e}")

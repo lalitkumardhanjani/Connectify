@@ -188,7 +188,17 @@
                             </div>
                         </div>
                         <div class="chart-card card-glass chart-card-wide" style="grid-column: span 2;">
-                            <h3 class="chart-title"><i class="fa-solid fa-chart-line"></i> Emails Generated Per Day</h3>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+                                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                                    <h3 class="chart-title" style="margin:0;"><i class="fa-solid fa-chart-line" style="color:var(--accent-blue);"></i> Emails Generated & Sent Trend</h3>
+                                    <span id="email-achievements-badge" style="display:none; align-items:center; gap:5px; background:linear-gradient(135deg, #ffd700, #ffa000); color:#000000; padding:4px 10px; border-radius:12px; font-size:0.72rem; font-weight:800; box-shadow:0 0 10px rgba(255,179,0,0.4);"><i class="fa-solid fa-star"></i> <span id="email-achievements-count">0</span> Goals Met</span>
+                                </div>
+                                <div class="chart-timeframe-selector">
+                                    <button type="button" class="chart-timeframe-btn" id="email-tf-7" onclick="toggleEmailTimeframe(7)"><i class="fa-solid fa-calendar-week"></i> 7D</button>
+                                    <button type="button" class="chart-timeframe-btn active" id="email-tf-30" onclick="toggleEmailTimeframe(30)"><i class="fa-solid fa-calendar-alt"></i> 30D</button>
+                                    <button type="button" class="chart-timeframe-btn" id="email-tf-90" onclick="toggleEmailTimeframe(90)"><i class="fa-solid fa-clock-rotate-left"></i> 90D</button>
+                                </div>
+                            </div>
                             <div class="chart-wrap">
                                 <canvas id="emailDailyChart"></canvas>
                             </div>
@@ -291,6 +301,22 @@
                             <h3 class="chart-title"><i class="fa-solid fa-chart-bar"></i> Search Keyword Analysis</h3>
                             <div class="chart-wrap">
                                 <canvas id="coKeywordChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="chart-card card-glass chart-card-wide" style="grid-column: span 2;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+                                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                                    <h3 class="chart-title" style="margin:0;"><i class="fa-solid fa-chart-line" style="color:var(--accent-purple);"></i> Company & Connection Activity Trend</h3>
+                                    <span id="company-achievements-badge" style="display:none; align-items:center; gap:5px; background:linear-gradient(135deg, #ffd700, #ffa000); color:#000000; padding:4px 10px; border-radius:12px; font-size:0.72rem; font-weight:800; box-shadow:0 0 10px rgba(255,179,0,0.4);"><i class="fa-solid fa-trophy"></i> <span id="company-achievements-count">0</span> Goals Met</span>
+                                </div>
+                                <div class="chart-timeframe-selector">
+                                    <button type="button" class="chart-timeframe-btn" id="company-tf-7" onclick="toggleCompanyTimeframe(7)"><i class="fa-solid fa-calendar-week"></i> 7D</button>
+                                    <button type="button" class="chart-timeframe-btn active" id="company-tf-30" onclick="toggleCompanyTimeframe(30)"><i class="fa-solid fa-calendar-alt"></i> 30D</button>
+                                    <button type="button" class="chart-timeframe-btn" id="company-tf-90" onclick="toggleCompanyTimeframe(90)"><i class="fa-solid fa-clock-rotate-left"></i> 90D</button>
+                                </div>
+                            </div>
+                            <div class="chart-wrap">
+                                <canvas id="coDailyChart"></canvas>
                             </div>
                         </div>
                     </div>
@@ -831,7 +857,6 @@
                         <table class="data-table" id="table-scraper">
                             <thead>
                                 <tr>
-                                    <th>ID</th>
                                     <th>Email</th>
                                     <th>Status</th>
                                     <th>Keyword</th>
@@ -843,8 +868,6 @@
                                     <th style="width: 120px; text-align: center;">Actions</th>
                                 </tr>
                                 <tr class="table-filter-row">
-                                    <th><input type="text" id="filter-col-id" placeholder="ID..."
-                                            class="col-filter-input"></th>
                                     <th><input type="text" id="filter-col-email" placeholder="Email..."
                                             class="col-filter-input"></th>
                                     <th>
@@ -874,7 +897,7 @@
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td colspan="10" class="table-empty">Loading database records...</td>
+                                    <td colspan="9" class="table-empty">Loading database records...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -995,7 +1018,6 @@
                         <table class="data-table" id="table-referrals-outreach">
                             <thead>
                                 <tr>
-                                    <th>ID</th>
                                     <th>Company Name</th>
                                     <th>Job URL</th>
                                     <th>Employee Name</th>
@@ -1009,7 +1031,7 @@
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td colspan="11" class="table-empty">Loading referral contacts...</td>
+                                    <td colspan="9" class="table-empty">Loading referral contacts...</td>
                                 </tr>
                             </tbody>
                         </table>

@@ -1211,7 +1211,7 @@ function renderReferralsTable(data) {
     tbody.innerHTML = '';
     
     if (data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10" class="table-empty">No matching referral contacts found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="table-empty">No matching referral contacts found.</td></tr>`;
         return;
     }
     
@@ -1244,7 +1244,6 @@ function renderReferralsTable(data) {
         const pUrlHtml = pUrl.startsWith("http") ? `<a href="${pUrl}" target="_blank" class="table-link" title="${pUrl}"><strong>${row.Referral_Person_Name || ""}</strong></a>` : (row.Referral_Person_Name || "");
 
         tr.innerHTML = `
-            <td>${row.ReferralID || ""}</td>
             <td><strong>${row.CompanyName || ""}</strong></td>
             <td>${jUrlHtml}</td>
             <td>${pUrlHtml}</td>
@@ -1413,7 +1412,7 @@ function applyScraperFiltersAndRender() {
         tbody.innerHTML = '';
         
         if (pageData.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="10" class="table-empty">No matching records found.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9" class="table-empty">No matching records found.</td></tr>`;
             renderScraperPaginationControls(filtered.length);
             return;
         }
@@ -1439,7 +1438,6 @@ function applyScraperFiltersAndRender() {
                 : `<span style="color: var(--text-muted); font-size: 12px;">—</span>`;
             
             tr.innerHTML = `
-                <td>${row.ID || ""}</td>
                 <td><strong>${row.Email || ""}</strong></td>
                 <td>${statusHtml}</td>
                 <td>${row.Keyword || ""}</td>
@@ -3346,7 +3344,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function bindScraperColumnFilters() {
-    const filters = ['filter-col-id', 'filter-col-email', 'filter-col-status', 'filter-col-keyword', 'filter-col-timestamp'];
+    const filters = ['filter-col-email', 'filter-col-status', 'filter-col-keyword', 'filter-col-timestamp'];
     filters.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
