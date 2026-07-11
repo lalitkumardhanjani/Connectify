@@ -48,7 +48,7 @@ os.getenv = _thread_safe_getenv
 _cache_lock = threading.Lock()
 _row_cache = {}          # { (username, table_key): (fetched_at_monotonic, data) }
 _config_cache = {}       # { username: (fetched_at_monotonic, config_dict) }
-CACHE_TTL_SECONDS = 30   # Cache lifetime for Google Sheets reads
+CACHE_TTL_SECONDS = 15   # Cache lifetime for Google Sheets reads
 
 
 def _get_cached_rows(username: str, table_key: str):

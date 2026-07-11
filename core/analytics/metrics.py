@@ -18,7 +18,7 @@ def _load_data_as_df(table_key):
     """Utility to load table rows as a pandas DataFrame from active storage provider."""
     try:
         from core.storage.engine import read_database_rows
-        rows = read_database_rows(table_key, bypass_cache=True)
+        rows = read_database_rows(table_key, bypass_cache=False)
         if not rows:
             return pd.DataFrame()
         return pd.DataFrame(rows)
