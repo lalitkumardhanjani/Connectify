@@ -124,19 +124,19 @@ def get_email_metrics():
             sent_mask = df['_status'] == 'sent'
             df.loc[sent_mask & df['_ts_sent'].isna(), '_ts_sent'] = pd.to_datetime(df.loc[sent_mask & df['_ts_sent'].isna(), timestamp_col], errors='coerce')
             
-            # Get start date (30 days ago)
-            last_30_date = (datetime.now() - timedelta(days=30)).date()
+            # Get start date (90 days ago)
+            last_90_date = (datetime.now() - timedelta(days=90)).date()
             
-            # We want to collect all dates in the last 30 days
+            # We want to collect all dates in the last 90 days
             today = datetime.now().date()
-            dates_range = [today - timedelta(days=i) for i in range(30)]
+            dates_range = [today - timedelta(days=i) for i in range(90)]
             dates_range.reverse() # chronologically ascending
             
             # Create a dictionary to hold counts
             counts_by_date = {str(d): {"generated": 0, "sent": 0} for d in dates_range}
             
             # Count generated emails
-            gen_df = df[df['_ts_gen'].dt.date >= last_30_date]
+            gen_df = df[df['_ts_gen'].dt.date >= last_90_date]
             if not gen_df.empty:
                 for d, g in gen_df.groupby(gen_df['_ts_gen'].dt.date):
                     d_str = str(d)
@@ -144,7 +144,7 @@ def get_email_metrics():
                         counts_by_date[d_str]["generated"] = int(len(g))
                         
             # Count sent emails
-            sent_df = df[(df['_status'] == 'sent') & (df['_ts_sent'].dt.date >= last_30_date)]
+            sent_df = df[(df['_status'] == 'sent') & (df['_ts_sent'].dt.date >= last_90_date)]
             if not sent_df.empty:
                 for d, g in sent_df.groupby(sent_df['_ts_sent'].dt.date):
                     d_str = str(d)
@@ -210,6 +210,7 @@ def get_email_metrics():
 def get_company_metrics():
     """Compute company-scraper analytics from active storage provider."""
     df = _load_data_as_df("jobs")
+    ref_df = _load_data_as_df("referrals")
 
     empty_result = {
         "total_companies": 0,
@@ -220,7 +221,9 @@ def get_company_metrics():
         "referral_outreach": 0,
         "status_distribution": {},
         "keyword_counts": {},
-        "keyword_status": {}
+        "keyword_status": {},
+        "top_hiring_companies": {},
+        "daily_counts": []
     }
 
     if df.empty:
@@ -280,6 +283,56 @@ def get_company_metrics():
         if not comp_series.empty:
             top_hiring_companies = comp_series.value_counts().head(10).to_dict()
 
+    # Build daily counts (last 90 days)
+    daily_counts = []
+    try:
+        today = datetime.now().date()
+        dates_range = [today - timedelta(days=i) for i in range(90)]
+        dates_range.reverse()
+        counts_by_date = {str(d): {"companies_added": 0, "connections_sent": 0} for d in dates_range}
+
+        # Jobs created daily
+        created_col = _find_col(df, 'CreatedDateTime', 'Created DateTime', 'Timestamp')
+        if created_col:
+            df['_ts_created'] = pd.to_datetime(df[created_col], errors='coerce')
+            last_90_date = (datetime.now() - timedelta(days=90)).date()
+            recent_jobs = df[df['_ts_created'].dt.date >= last_90_date]
+            if not recent_jobs.empty:
+                for d, g in recent_jobs.groupby(recent_jobs['_ts_created'].dt.date):
+                    d_str = str(d)
+                    if d_str in counts_by_date:
+                        counts_by_date[d_str]["companies_added"] = int(len(g))
+
+        # Connections sent daily
+        if not ref_df.empty:
+            sent_time_col = _find_col(ref_df, 'Sent_Time', 'Sent Time')
+            if sent_time_col:
+                ref_df['_ts_sent'] = pd.to_datetime(ref_df[sent_time_col], errors='coerce')
+                source_col = _find_col(ref_df, 'Referral_Source')
+                if source_col:
+                    conn_df = ref_df[ref_df[source_col].astype(str).str.lower().str.contains('connection|connect')]
+                else:
+                    conn_df = ref_df
+                
+                last_90_date = (datetime.now() - timedelta(days=90)).date()
+                recent_conn = conn_df[conn_df['_ts_sent'].dt.date >= last_90_date]
+                if not recent_conn.empty:
+                    for d, g in recent_conn.groupby(recent_conn['_ts_sent'].dt.date):
+                        d_str = str(d)
+                        if d_str in counts_by_date:
+                            counts_by_date[d_str]["connections_sent"] = int(len(g))
+
+        daily_counts = [
+            {
+                "date": d_str,
+                "companies_added": val["companies_added"],
+                "connections_sent": val["connections_sent"]
+            }
+            for d_str, val in counts_by_date.items()
+        ]
+    except Exception as e:
+        print(f"Daily company analytics count error: {e}")
+
     return {
         "total_companies":    total_companies,
         "new":                new,
@@ -291,6 +344,7 @@ def get_company_metrics():
         "keyword_counts":     keyword_counts,
         "keyword_status":     keyword_status,
         "top_hiring_companies": top_hiring_companies,
+        "daily_counts":       daily_counts
     }
 
 

@@ -40,10 +40,23 @@ let emailKeywordChartInst = null;
 let emailDailyChartInst = null;
 let coStatusChartInst = null;
 let coKeywordChartInst = null;
+let coDailyChartInst = null;
 let coHiringChartInst = null;
 let outreachStatusChartInst = null;
 let outreachSourceChartInst = null;
 let outreachDailyChartInst = null;
+
+// Caching & Timeframe State for Daily Line Charts
+let rawEmailDailyCounts = [];
+let currentEmailTimeframe = 30;
+let rawCompanyDailyCounts = [];
+let currentCompanyTimeframe = 30;
+
+// Gold star SVG image for daily chart achievements (white-backed to prevent line bleed-through)
+const goldStarImg = new Image();
+goldStarImg.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="12" r="11" fill="%23ffffff" stroke="%23ffb300" stroke-width="2.5"/><path d="M12 5.5l1.94 3.93 4.34.63-3.14 3.06.74 4.32L12 15.4l-3.88 2.04.74-4.32-3.14-3.06 4.34-.63z" fill="%23ffb300"/></svg>';
+goldStarImg.width = 18;
+goldStarImg.height = 18;
 
 // Pending Queue Pagination State
 let pendingCurrentPage = 1;
@@ -223,7 +236,7 @@ function makeBarChart(canvasId, labels, data, color = PALETTE.purple) {
     });
 }
 
-function makeLineChart(canvasId, labels, generatedData, sentData) {
+function makeCustomEmailLineChart(canvasId, labels, generatedData, sentData, genPointStyles, genPointRadii, genPointHoverRadii, sentPointStyles, sentPointRadii, sentPointHoverRadii, sentPointBgColors, sentPointBorderColors, rawSubset) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return null;
     const ctx = canvas.getContext('2d');
@@ -232,37 +245,41 @@ function makeLineChart(canvasId, labels, generatedData, sentData) {
     genGradient.addColorStop(0, 'rgba(0,176,255,0.35)');
     genGradient.addColorStop(1, 'rgba(0,176,255,0.0)');
 
-    const datasets = [{
-        label: 'Emails Generated',
-        data: generatedData,
-        borderColor: PALETTE.cyan,
-        borderWidth: 2,
-        pointBackgroundColor: PALETTE.cyan,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-        fill: true,
-        backgroundColor: genGradient,
-        tension: 0.4,
-    }];
+    const sentGradient = ctx.createLinearGradient(0, 0, 0, 200);
+    sentGradient.addColorStop(0, 'rgba(0,230,118,0.25)');
+    sentGradient.addColorStop(1, 'rgba(0,230,118,0.0)');
 
-    if (sentData) {
-        const sentGradient = ctx.createLinearGradient(0, 0, 0, 200);
-        sentGradient.addColorStop(0, 'rgba(0,230,118,0.25)');
-        sentGradient.addColorStop(1, 'rgba(0,230,118,0.0)');
-
-        datasets.push({
+    const datasets = [
+        {
+            label: 'Emails Generated',
+            data: generatedData,
+            borderColor: PALETTE.cyan,
+            borderWidth: 2,
+            pointStyle: genPointStyles, // Array of point styles!
+            pointBackgroundColor: PALETTE.cyan,
+            pointRadius: genPointRadii, // Hide on achievement days!
+            pointHoverRadius: genPointHoverRadii,
+            fill: true,
+            backgroundColor: genGradient,
+            tension: 0.4,
+            order: 2, // Draw first (bottom)
+        },
+        {
             label: 'Emails Sent',
             data: sentData,
-            borderColor: '#00e676', // Emerald Green
+            borderColor: '#00e676',
             borderWidth: 2,
-            pointBackgroundColor: '#00e676',
-            pointRadius: 4,
-            pointHoverRadius: 6,
+            pointStyle: sentPointStyles, // Array of point styles!
+            pointBackgroundColor: sentPointBgColors, // Gold for achievements!
+            pointBorderColor: sentPointBorderColors,
+            pointRadius: sentPointRadii,
+            pointHoverRadius: sentPointHoverRadii,
             fill: true,
             backgroundColor: sentGradient,
             tension: 0.4,
-        });
-    }
+            order: 1, // Draw last (top)
+        }
+    ];
 
     return new Chart(ctx, {
         type: 'line',
@@ -278,14 +295,315 @@ function makeLineChart(canvasId, labels, generatedData, sentData) {
                     display: true,
                     position: 'top',
                     labels: {
-                        color: 'rgba(255,255,255,0.7)',
+                        usePointStyle: true, // Use dataset point styles in legend!
+                        color: document.body.classList.contains('light-theme') ? '#1f1f2e' : 'rgba(255,255,255,0.7)',
                         font: { family: 'Outfit, sans-serif', size: 11 }
+                    }
+                },
+                tooltip: {
+                    ...getChartOptions(true).plugins.tooltip,
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed.y !== null) {
+                                label += context.parsed.y;
+                            }
+                            
+                            // Check if this point is an achievement!
+                            if (context.datasetIndex === 1) { // Emails Sent
+                                const r = rawSubset[context.dataIndex];
+                                const gen = r.generated || r.count || 0;
+                                const sent = r.sent || 0;
+                                if (gen > 0 && sent >= gen) {
+                                    label += ' ⭐ Goal Achieved! (Sent all generated)';
+                                }
+                            }
+                            return label;
+                        }
                     }
                 }
             }
         }
     });
 }
+
+function makeCustomCompanyLineChart(canvasId, labels, companiesAdded, connectionsSent, addPointStyles, addPointRadii, addPointHoverRadii, sentPointStyles, sentPointRadii, sentPointHoverRadii, sentPointBgColors, sentPointBorderColors, rawSubset) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return null;
+    const ctx = canvas.getContext('2d');
+
+    const addedGradient = ctx.createLinearGradient(0, 0, 0, 200);
+    addedGradient.addColorStop(0, 'rgba(127,90,240,0.35)');
+    addedGradient.addColorStop(1, 'rgba(127,90,240,0.0)');
+
+    const sentGradient = ctx.createLinearGradient(0, 0, 0, 200);
+    sentGradient.addColorStop(0, 'rgba(0,176,255,0.25)');
+    sentGradient.addColorStop(1, 'rgba(0,176,255,0.0)');
+
+    const datasets = [
+        {
+            label: 'Companies Added',
+            data: companiesAdded,
+            borderColor: PALETTE.purple,
+            borderWidth: 2,
+            pointStyle: addPointStyles, // Array of point styles!
+            pointBackgroundColor: PALETTE.purple,
+            pointRadius: addPointRadii, // Hide on achievement days!
+            pointHoverRadius: addPointHoverRadii,
+            fill: true,
+            backgroundColor: addedGradient,
+            tension: 0.4,
+            order: 2, // Draw first (bottom)
+        },
+        {
+            label: 'Connection Requests Sent',
+            data: connectionsSent,
+            borderColor: PALETTE.cyan,
+            borderWidth: 2,
+            pointStyle: sentPointStyles,
+            pointBackgroundColor: sentPointBgColors,
+            pointBorderColor: sentPointBorderColors,
+            pointRadius: sentPointRadii,
+            pointHoverRadius: sentPointHoverRadii,
+            fill: true,
+            backgroundColor: sentGradient,
+            tension: 0.4,
+            order: 1, // Draw last (top)
+        }
+    ];
+
+    return new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets
+        },
+        options: {
+            ...getChartOptions(true),
+            plugins: {
+                ...getChartOptions(true).plugins,
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        usePointStyle: true,
+                        color: document.body.classList.contains('light-theme') ? '#1f1f2e' : 'rgba(255,255,255,0.7)',
+                        font: { family: 'Outfit, sans-serif', size: 11 }
+                    }
+                },
+                tooltip: {
+                    ...getChartOptions(true).plugins.tooltip,
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed.y !== null) {
+                                label += context.parsed.y;
+                            }
+                            
+                            // Check if this point is an achievement!
+                            if (context.datasetIndex === 1) { // Connections Sent
+                                const r = rawSubset[context.dataIndex];
+                                const added = r.companies_added || 0;
+                                const sent = r.connections_sent || 0;
+                                if (added > 0 && sent >= (added * 5)) {
+                                    label += ' 🏆 Target Met! (Sent 5x+ connections vs added)';
+                                }
+                            }
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderEmailDailyChart() {
+    const subset = rawEmailDailyCounts.slice(-currentEmailTimeframe);
+    
+    let achievementsCount = 0;
+    const genPointStyles = [];
+    const genPointRadii = [];
+    const genPointHoverRadii = [];
+    
+    const sentPointStyles = [];
+    const sentPointRadii = [];
+    const sentPointHoverRadii = [];
+    const sentPointBgColors = [];
+    const sentPointBorderColors = [];
+    
+    subset.forEach(r => {
+        const gen = r.generated || r.count || 0;
+        const sent = r.sent || 0;
+        const isAchieved = gen > 0 && sent >= gen;
+        
+        if (isAchieved) {
+            achievementsCount++;
+            
+            // Hide diamond Generated point at this overlap index
+            genPointStyles.push('circle');
+            genPointRadii.push(0);
+            genPointHoverRadii.push(0);
+            
+            // Show custom Gold Star image
+            sentPointStyles.push(goldStarImg);
+            sentPointRadii.push(9);
+            sentPointHoverRadii.push(11);
+            sentPointBgColors.push('#ffb300');
+            sentPointBorderColors.push('#ffb300');
+        } else {
+            // Normal diamond shape
+            genPointStyles.push('rectRot');
+            genPointRadii.push(5);
+            genPointHoverRadii.push(7);
+            
+            // Normal circle shape
+            sentPointStyles.push('circle');
+            sentPointRadii.push(5);
+            sentPointHoverRadii.push(7);
+            sentPointBgColors.push('#00e676');
+            sentPointBorderColors.push('#00e676');
+        }
+    });
+
+    const badge = document.getElementById('email-achievements-badge');
+    const countEl = document.getElementById('email-achievements-count');
+    if (badge && countEl) {
+        if (achievementsCount > 0) {
+            countEl.textContent = achievementsCount;
+            badge.style.display = 'inline-flex';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+
+    if (emailDailyChartInst) emailDailyChartInst.destroy();
+    emailDailyChartInst = makeCustomEmailLineChart(
+        'emailDailyChart',
+        subset.map(r => r.date),
+        subset.map(r => r.generated || r.count || 0),
+        subset.map(r => r.sent || 0),
+        genPointStyles,
+        genPointRadii,
+        genPointHoverRadii,
+        sentPointStyles,
+        sentPointRadii,
+        sentPointHoverRadii,
+        sentPointBgColors,
+        sentPointBorderColors,
+        subset
+    );
+}
+
+function toggleEmailTimeframe(days) {
+    currentEmailTimeframe = days;
+    [7, 30, 90].forEach(d => {
+        const btn = document.getElementById(`email-tf-${d}`);
+        if (btn) {
+            if (d === days) btn.classList.add('active');
+            else btn.classList.remove('active');
+        }
+    });
+    renderEmailDailyChart();
+}
+
+function renderCompanyDailyChart() {
+    const subset = rawCompanyDailyCounts.slice(-currentCompanyTimeframe);
+    
+    let achievementsCount = 0;
+    const addPointStyles = [];
+    const addPointRadii = [];
+    const addPointHoverRadii = [];
+    
+    const sentPointStyles = [];
+    const sentPointRadii = [];
+    const sentPointHoverRadii = [];
+    const sentPointBgColors = [];
+    const sentPointBorderColors = [];
+    
+    subset.forEach(r => {
+        const added = r.companies_added || 0;
+        const sent = r.connections_sent || 0;
+        const isAchieved = added > 0 && sent >= (added * 5);
+        
+        if (isAchieved) {
+            achievementsCount++;
+            
+            // Hide triangle Added point at this overlap index
+            addPointStyles.push('circle');
+            addPointRadii.push(0);
+            addPointHoverRadii.push(0);
+            
+            // Show custom Gold Star image
+            sentPointStyles.push(goldStarImg);
+            sentPointRadii.push(9);
+            sentPointHoverRadii.push(11);
+            sentPointBgColors.push('#ffb300');
+            sentPointBorderColors.push('#ffb300');
+        } else {
+            // Normal triangle shape
+            addPointStyles.push('triangle');
+            addPointRadii.push(5);
+            addPointHoverRadii.push(7);
+            
+            // Normal circle shape
+            sentPointStyles.push('circle');
+            sentPointRadii.push(5);
+            sentPointHoverRadii.push(7);
+            sentPointBgColors.push(PALETTE.cyan);
+            sentPointBorderColors.push(PALETTE.cyan);
+        }
+    });
+
+    const badge = document.getElementById('company-achievements-badge');
+    const countEl = document.getElementById('company-achievements-count');
+    if (badge && countEl) {
+        if (achievementsCount > 0) {
+            countEl.textContent = achievementsCount;
+            badge.style.display = 'inline-flex';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+
+    if (coDailyChartInst) coDailyChartInst.destroy();
+    coDailyChartInst = makeCustomCompanyLineChart(
+        'coDailyChart',
+        subset.map(r => r.date),
+        subset.map(r => r.companies_added || 0),
+        subset.map(r => r.connections_sent || 0),
+        addPointStyles,
+        addPointRadii,
+        addPointHoverRadii,
+        sentPointStyles,
+        sentPointRadii,
+        sentPointHoverRadii,
+        sentPointBgColors,
+        sentPointBorderColors,
+        subset
+    );
+}
+
+function toggleCompanyTimeframe(days) {
+    currentCompanyTimeframe = days;
+    [7, 30, 90].forEach(d => {
+        const btn = document.getElementById(`company-tf-${d}`);
+        if (btn) {
+            if (d === days) btn.classList.add('active');
+            else btn.classList.remove('active');
+        }
+    });
+    renderCompanyDailyChart();
+}
+
+window.toggleEmailTimeframe = toggleEmailTimeframe;
+window.toggleCompanyTimeframe = toggleCompanyTimeframe;
 
 function renderLegend(containerId, labels, colors, data) {
     const el = document.getElementById(containerId);
@@ -357,14 +675,8 @@ async function loadEmailDashboard() {
     );
 
     // Daily Line Chart
-    const daily = d.daily_counts || [];
-    if (emailDailyChartInst) emailDailyChartInst.destroy();
-    emailDailyChartInst = makeLineChart(
-        'emailDailyChart',
-        daily.map(r => r.date),
-        daily.map(r => r.generated || r.count || 0),
-        daily.map(r => r.sent || 0)
-    );
+    rawEmailDailyCounts = d.daily_counts || [];
+    renderEmailDailyChart();
 
     // Keyword Effectiveness Table
     const kwTbody = document.querySelector('#email-keyword-table tbody');
@@ -484,6 +796,10 @@ async function loadCompanyDashboard() {
             });
         }
     }
+
+    // Daily Company & Connection Activity Line Chart
+    rawCompanyDailyCounts = d.daily_counts || [];
+    renderCompanyDailyChart();
 }
 // ─────────────────────────────────────────────────────────
 //  Bootstrap — run when dashboard tab is active

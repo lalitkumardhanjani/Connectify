@@ -340,7 +340,7 @@ class TestCompositeUniquenessConstraints:
         metrics = get_email_metrics()
         daily = metrics["daily_counts"]
         
-        assert len(daily) == 30
+        assert len(daily) == 90
         
         # Today's daily stats should show 2 generated and 1 sent
         today_stats = daily[-1]

@@ -9,7 +9,7 @@ SCRAPER_HEADERS = ['ID', 'Email', 'Status', 'Timestamp', 'Keyword', 'PostURL', '
 
 JOB_LEADS_HEADERS = [
     'JobID', 'JobTitle', 'CompanyName', 'LinkedIn_Company_URL', 'CompanyURL', 'ShortenURL', 'SearchKeyword', 'Status', 
-    'ShortUrlCreated', 'CreatedDateTime'
+    'ShortUrlCreated', 'CreatedDateTime', 'Experience', 'Location'
 ]
 
 REFERRAL_HEADERS = [

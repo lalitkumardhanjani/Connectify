@@ -1211,7 +1211,7 @@ function renderReferralsTable(data) {
     tbody.innerHTML = '';
     
     if (data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10" class="table-empty">No matching referral contacts found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="table-empty">No matching referral contacts found.</td></tr>`;
         return;
     }
     
@@ -1244,7 +1244,6 @@ function renderReferralsTable(data) {
         const pUrlHtml = pUrl.startsWith("http") ? `<a href="${pUrl}" target="_blank" class="table-link" title="${pUrl}"><strong>${row.Referral_Person_Name || ""}</strong></a>` : (row.Referral_Person_Name || "");
 
         tr.innerHTML = `
-            <td>${row.ReferralID || ""}</td>
             <td><strong>${row.CompanyName || ""}</strong></td>
             <td>${jUrlHtml}</td>
             <td>${pUrlHtml}</td>
@@ -1274,7 +1273,7 @@ function renderTable(type, data) {
     tbody.innerHTML = '';
 
     if (data.length === 0) {
-        const cols = type === 'scraper' ? 6 : 8;
+        const cols = type === 'scraper' ? 10 : 14;
         tbody.innerHTML = `<tr><td colspan="${cols}" class="table-empty">No records found.</td></tr>`;
         return;
     }
@@ -1318,6 +1317,8 @@ function renderTable(type, data) {
             <td><strong>${row.CompanyName || ""}</strong></td>
             <td>${lUrlHtml}</td>
             <td>${companyLinkHtml}</td>
+            <td><span style="font-size: 0.8rem; font-weight: 500;">${row.Location || "Remote / India"}</span></td>
+            <td><span style="font-size: 0.8rem; font-weight: 500;">${row.Experience || "Not Specified"}</span></td>
             <td>${shortenLinkHtml}</td>
             <td>${row.SearchKeyword || ""}</td>
             <td><strong>${row.Referral_Target || 5}</strong></td>
@@ -1325,7 +1326,7 @@ function renderTable(type, data) {
             <td><span style="color:${row.Referral_Remaining > 0 ? 'var(--accent-yellow)' : 'var(--text-secondary)'};">${row.Referral_Remaining ?? 5}</span></td>
             <td>
                 <div class="status-select-wrapper ${cleanStatus}">
-                    <select class="status-inline-select" onchange="updateStatus('referral', ${row.JobID}, this.value)">
+                    <select class="status-inline-select" onchange="updateStatus('referral', '${row.JobID}', this.value)">
                         ${statusOptionsHtml}
                     </select>
                 </div>
@@ -1333,10 +1334,10 @@ function renderTable(type, data) {
             <td>${row.CreatedDateTime || ""}</td>
             <td style="text-align: center;">
                 <div style="display: flex; gap: 8px; justify-content: center;">
-                    <button class="table-action-btn btn-edit" onclick="showEditReferralModal(${row.JobID}, '${encCompany}', '${encUrl}', '${encShorten}', '${encKeyword}', '${encPosition}', '${encStatus}')" title="Edit record">
+                    <button class="table-action-btn btn-edit" onclick="showEditReferralModal('${row.JobID}', '${encCompany}', '${encUrl}', '${encShorten}', '${encKeyword}', '${encPosition}', '${encStatus}')" title="Edit record">
                         <i class="fa-solid fa-pen-to-square"></i>
                     </button>
-                    <button class="table-action-btn btn-delete" onclick="deleteRow('referral', ${row.JobID})" title="Delete job">
+                    <button class="table-action-btn btn-delete" onclick="deleteRow('referral', '${row.JobID}')" title="Delete job">
                         <i class="fa-solid fa-trash-can"></i>
                     </button>
                 </div>
@@ -1411,7 +1412,7 @@ function applyScraperFiltersAndRender() {
         tbody.innerHTML = '';
         
         if (pageData.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="10" class="table-empty">No matching records found.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9" class="table-empty">No matching records found.</td></tr>`;
             renderScraperPaginationControls(filtered.length);
             return;
         }
@@ -1437,7 +1438,6 @@ function applyScraperFiltersAndRender() {
                 : `<span style="color: var(--text-muted); font-size: 12px;">—</span>`;
             
             tr.innerHTML = `
-                <td>${row.ID || ""}</td>
                 <td><strong>${row.Email || ""}</strong></td>
                 <td>${statusHtml}</td>
                 <td>${row.Keyword || ""}</td>
@@ -3344,7 +3344,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function bindScraperColumnFilters() {
-    const filters = ['filter-col-id', 'filter-col-email', 'filter-col-status', 'filter-col-keyword', 'filter-col-timestamp'];
+    const filters = ['filter-col-email', 'filter-col-status', 'filter-col-keyword', 'filter-col-timestamp'];
     filters.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
