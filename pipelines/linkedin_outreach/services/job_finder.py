@@ -814,7 +814,10 @@ def run_job_finder(target_url=None):
                             pre_click_handles = driver.window_handles
 
                             logger.info("  Clicking the external Apply button for confirmation and URL retrieval...")
-                            driver.execute_script("arguments[0].click();", external_apply_btn)
+                            try:
+                                external_apply_btn.click()
+                            except Exception:
+                                driver.execute_script("arguments[0].click();", external_apply_btn)
 
                             # Wait for new tab
                             new_handle = None
@@ -827,6 +830,47 @@ def run_job_finder(target_url=None):
                                         break
                                 if new_handle:
                                     break
+
+                            if not new_handle:
+                                logger.info("  No new tab opened immediately. Checking for LinkedIn safety/redirection confirmation modal...")
+                                modal_confirm_btn = None
+                                
+                                # Common selectors for the proceed/confirm elements in LinkedIn's safety warning dialogs
+                                for selector in [
+                                    "a[href*='linkedin.com/safety/go']",
+                                    ".artdeco-modal__confirm-dialog-btn",
+                                    ".artdeco-modal button.artdeco-button--primary",
+                                    "div[role='dialog'] button.artdeco-button--primary",
+                                    "div[role='dialog'] a[href*='safety/go']"
+                                ]:
+                                    try:
+                                        elements = driver.find_elements(By.CSS_SELECTOR, selector)
+                                        for el in elements:
+                                            if el.is_displayed():
+                                                modal_confirm_btn = el
+                                                break
+                                    except Exception:
+                                        pass
+                                    if modal_confirm_btn:
+                                        break
+                                        
+                                if modal_confirm_btn:
+                                    logger.info("  Detected redirection confirmation dialog. Clicking proceed button...")
+                                    try:
+                                        modal_confirm_btn.click()
+                                    except Exception:
+                                        driver.execute_script("arguments[0].click();", modal_confirm_btn)
+                                        
+                                    # Wait again for the new tab to open
+                                    for _ in range(15):
+                                        time.sleep(0.5)
+                                        current_handles = driver.window_handles
+                                        for h in current_handles:
+                                            if h not in pre_click_handles:
+                                                new_handle = h
+                                                break
+                                        if new_handle:
+                                            break
 
                             if not new_handle:
                                 logger.warning("  [WARNING] Clicked Apply but no new tab opened.")
