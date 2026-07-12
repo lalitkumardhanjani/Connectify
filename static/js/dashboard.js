@@ -236,6 +236,32 @@ function makeBarChart(canvasId, labels, data, color = PALETTE.purple) {
     });
 }
 
+function makeLineChart(canvasId, labels, data) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return null;
+    const ctx = canvas.getContext('2d');
+    
+    const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+    gradient.addColorStop(0, 'rgba(127,90,240,0.35)');
+    gradient.addColorStop(1, 'rgba(127,90,240,0.0)');
+    
+    return new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                data,
+                borderColor: PALETTE.purple,
+                borderWidth: 2,
+                fill: true,
+                backgroundColor: gradient,
+                tension: 0.4
+            }]
+        },
+        options: getChartOptions(true)
+    });
+}
+
 function makeCustomEmailLineChart(canvasId, labels, generatedData, sentData, genPointStyles, genPointRadii, genPointHoverRadii, sentPointStyles, sentPointRadii, sentPointHoverRadii, sentPointBgColors, sentPointBorderColors, rawSubset) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return null;
@@ -281,7 +307,7 @@ function makeCustomEmailLineChart(canvasId, labels, generatedData, sentData, gen
         }
     ];
 
-    return new Chart(ctx, {
+    const chart = new Chart(ctx, {
         type: 'line',
         data: {
             labels,
@@ -314,11 +340,13 @@ function makeCustomEmailLineChart(canvasId, labels, generatedData, sentData, gen
                             
                             // Check if this point is an achievement!
                             if (context.datasetIndex === 1) { // Emails Sent
-                                const r = rawSubset[context.dataIndex];
-                                const gen = r.generated || r.count || 0;
-                                const sent = r.sent || 0;
-                                if (gen > 0 && sent >= gen) {
-                                    label += ' ⭐ Goal Achieved! (Sent all generated)';
+                                const r = context.chart.rawSubset ? context.chart.rawSubset[context.dataIndex] : null;
+                                if (r) {
+                                    const gen = r.generated || r.count || 0;
+                                    const sent = r.sent || 0;
+                                    if (gen > 0 && sent >= gen) {
+                                        label += ' ⭐ Goal Achieved! (Sent all generated)';
+                                    }
                                 }
                             }
                             return label;
@@ -328,6 +356,8 @@ function makeCustomEmailLineChart(canvasId, labels, generatedData, sentData, gen
             }
         }
     });
+    chart.rawSubset = rawSubset;
+    return chart;
 }
 
 function makeCustomCompanyLineChart(canvasId, labels, companiesAdded, connectionsSent, addPointStyles, addPointRadii, addPointHoverRadii, sentPointStyles, sentPointRadii, sentPointHoverRadii, sentPointBgColors, sentPointBorderColors, rawSubset) {
@@ -375,7 +405,7 @@ function makeCustomCompanyLineChart(canvasId, labels, companiesAdded, connection
         }
     ];
 
-    return new Chart(ctx, {
+    const chart = new Chart(ctx, {
         type: 'line',
         data: {
             labels,
@@ -408,11 +438,13 @@ function makeCustomCompanyLineChart(canvasId, labels, companiesAdded, connection
                             
                             // Check if this point is an achievement!
                             if (context.datasetIndex === 1) { // Connections Sent
-                                const r = rawSubset[context.dataIndex];
-                                const added = r.companies_added || 0;
-                                const sent = r.connections_sent || 0;
-                                if (added > 0 && sent >= (added * 5)) {
-                                    label += ' 🏆 Target Met! (Sent 5x+ connections vs added)';
+                                const r = context.chart.rawSubset ? context.chart.rawSubset[context.dataIndex] : null;
+                                if (r) {
+                                    const added = r.companies_added || 0;
+                                    const sent = r.connections_sent || 0;
+                                    if (added > 0 && sent >= (added * 5)) {
+                                        label += ' 🏆 Target Met! (Sent 5x+ connections vs added)';
+                                    }
                                 }
                             }
                             return label;
@@ -422,6 +454,8 @@ function makeCustomCompanyLineChart(canvasId, labels, companiesAdded, connection
             }
         }
     });
+    chart.rawSubset = rawSubset;
+    return chart;
 }
 
 function renderEmailDailyChart() {
@@ -483,22 +517,39 @@ function renderEmailDailyChart() {
         }
     }
 
-    if (emailDailyChartInst) emailDailyChartInst.destroy();
-    emailDailyChartInst = makeCustomEmailLineChart(
-        'emailDailyChart',
-        subset.map(r => r.date),
-        subset.map(r => r.generated || r.count || 0),
-        subset.map(r => r.sent || 0),
-        genPointStyles,
-        genPointRadii,
-        genPointHoverRadii,
-        sentPointStyles,
-        sentPointRadii,
-        sentPointHoverRadii,
-        sentPointBgColors,
-        sentPointBorderColors,
-        subset
-    );
+    if (emailDailyChartInst) {
+        emailDailyChartInst.rawSubset = subset;
+        emailDailyChartInst.data.labels = subset.map(r => r.date);
+        emailDailyChartInst.data.datasets[0].data = subset.map(r => r.generated || r.count || 0);
+        emailDailyChartInst.data.datasets[0].pointStyle = genPointStyles;
+        emailDailyChartInst.data.datasets[0].pointRadius = genPointRadii;
+        emailDailyChartInst.data.datasets[0].pointHoverRadius = genPointHoverRadii;
+        
+        emailDailyChartInst.data.datasets[1].data = subset.map(r => r.sent || 0);
+        emailDailyChartInst.data.datasets[1].pointStyle = sentPointStyles;
+        emailDailyChartInst.data.datasets[1].pointRadius = sentPointRadii;
+        emailDailyChartInst.data.datasets[1].pointHoverRadius = sentPointHoverRadii;
+        emailDailyChartInst.data.datasets[1].pointBackgroundColor = sentPointBgColors;
+        emailDailyChartInst.data.datasets[1].pointBorderColor = sentPointBorderColors;
+        
+        emailDailyChartInst.update('none'); // Update smoothly without reload animation
+    } else {
+        emailDailyChartInst = makeCustomEmailLineChart(
+            'emailDailyChart',
+            subset.map(r => r.date),
+            subset.map(r => r.generated || r.count || 0),
+            subset.map(r => r.sent || 0),
+            genPointStyles,
+            genPointRadii,
+            genPointHoverRadii,
+            sentPointStyles,
+            sentPointRadii,
+            sentPointHoverRadii,
+            sentPointBgColors,
+            sentPointBorderColors,
+            subset
+        );
+    }
 }
 
 function toggleEmailTimeframe(days) {
@@ -572,22 +623,39 @@ function renderCompanyDailyChart() {
         }
     }
 
-    if (coDailyChartInst) coDailyChartInst.destroy();
-    coDailyChartInst = makeCustomCompanyLineChart(
-        'coDailyChart',
-        subset.map(r => r.date),
-        subset.map(r => r.companies_added || 0),
-        subset.map(r => r.connections_sent || 0),
-        addPointStyles,
-        addPointRadii,
-        addPointHoverRadii,
-        sentPointStyles,
-        sentPointRadii,
-        sentPointHoverRadii,
-        sentPointBgColors,
-        sentPointBorderColors,
-        subset
-    );
+    if (coDailyChartInst) {
+        coDailyChartInst.rawSubset = subset;
+        coDailyChartInst.data.labels = subset.map(r => r.date);
+        coDailyChartInst.data.datasets[0].data = subset.map(r => r.companies_added || 0);
+        coDailyChartInst.data.datasets[0].pointStyle = addPointStyles;
+        coDailyChartInst.data.datasets[0].pointRadius = addPointRadii;
+        coDailyChartInst.data.datasets[0].pointHoverRadius = addPointHoverRadii;
+        
+        coDailyChartInst.data.datasets[1].data = subset.map(r => r.connections_sent || 0);
+        coDailyChartInst.data.datasets[1].pointStyle = sentPointStyles;
+        coDailyChartInst.data.datasets[1].pointRadius = sentPointRadii;
+        coDailyChartInst.data.datasets[1].pointHoverRadius = sentPointHoverRadii;
+        coDailyChartInst.data.datasets[1].pointBackgroundColor = sentPointBgColors;
+        coDailyChartInst.data.datasets[1].pointBorderColor = sentPointBorderColors;
+        
+        coDailyChartInst.update('none'); // Update smoothly without reload animation
+    } else {
+        coDailyChartInst = makeCustomCompanyLineChart(
+            'coDailyChart',
+            subset.map(r => r.date),
+            subset.map(r => r.companies_added || 0),
+            subset.map(r => r.connections_sent || 0),
+            addPointStyles,
+            addPointRadii,
+            addPointHoverRadii,
+            sentPointStyles,
+            sentPointRadii,
+            sentPointHoverRadii,
+            sentPointBgColors,
+            sentPointBorderColors,
+            subset
+        );
+    }
 }
 
 function toggleCompanyTimeframe(days) {
@@ -863,12 +931,17 @@ async function loadOutreachDashboard() {
 
     // Daily Line Chart
     const daily = d.daily_counts || [];
-    if (outreachDailyChartInst) outreachDailyChartInst.destroy();
-    outreachDailyChartInst = makeLineChart(
-        'outreachDailyChart',
-        daily.map(r => r.date),
-        daily.map(r => r.count)
-    );
+    if (outreachDailyChartInst) {
+        outreachDailyChartInst.data.labels = daily.map(r => r.date);
+        outreachDailyChartInst.data.datasets[0].data = daily.map(r => r.count);
+        outreachDailyChartInst.update('none');
+    } else {
+        outreachDailyChartInst = makeLineChart(
+            'outreachDailyChart',
+            daily.map(r => r.date),
+            daily.map(r => r.count)
+        );
+    }
 
     // Recent Outreach Log Table
     const tbody = document.querySelector('#outreach-recent-table tbody');
