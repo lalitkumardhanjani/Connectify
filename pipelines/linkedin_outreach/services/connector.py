@@ -453,13 +453,116 @@ def login_to_linkedin(driver, email, password):
             logger.error("Login timeout. Exiting.")
             return False
 
+def apply_current_company_filter_via_ui(driver, company_name):
+    """
+    Attempts to apply the 'Current companies' filter via the LinkedIn UI
+    by clicking the dropdown, typing the company name, selecting the first
+    suggestion, and clicking 'Show results'.
+    """
+    logger.info(f"Attempting to verify/apply 'Current companies' filter for '{company_name}' via UI...")
+    try:
+        # Step A: Click 'Current companies' dropdown button
+        clicked_dropdown = driver.execute_script("""
+            const btns = Array.from(document.querySelectorAll('button'));
+            const filterBtn = btns.find(b => {
+                const txt = (b.innerText || b.textContent || '').trim().toLowerCase();
+                return txt.includes('current companies') || txt.includes('current company');
+            });
+            if (filterBtn) {
+                filterBtn.scrollIntoView({block: 'center'});
+                filterBtn.click();
+                return true;
+            }
+            return false;
+        """)
+        if not clicked_dropdown:
+            logger.warning("Could not find 'Current companies' filter button in UI.")
+            return False
+            
+        time.sleep(2)
+        
+        # Step B: Type the company name in the input field
+        typed_input = driver.execute_script(f"""
+            const input = document.querySelector('input[placeholder*="Add a company"]') || 
+                          document.querySelector('input[aria-label*="Add a company"]') ||
+                          document.querySelector('input[placeholder*="company"]');
+            if (input) {{
+                input.focus();
+                input.value = "{company_name}";
+                input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                input.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                return true;
+            }}
+            return false;
+        """)
+        if not typed_input:
+            logger.warning("Could not find 'Add a company' input field in dropdown.")
+            return False
+            
+        time.sleep(2.5) # Wait for suggestions to load
+        
+        # Step C: Select the first checkbox/suggestion that matches
+        selected_option = driver.execute_script(f"""
+            const options = Array.from(document.querySelectorAll('div[role="option"], [data-value], .typeahead-option, [class*="typeahead"]'));
+            const textMatch = "{company_name.lower()}";
+            let targetOption = options.find(o => (o.innerText || o.textContent || '').toLowerCase().includes(textMatch));
+            
+            if (!targetOption) {{
+                const popover = document.querySelector('[role="dialog"]') || document.querySelector('.artdeco-hoverable-content__shell') || document.body;
+                const divs = Array.from(popover.querySelectorAll('div, label, span'));
+                targetOption = divs.find(d => {{
+                    const txt = (d.innerText || d.textContent || '').toLowerCase().trim();
+                    return txt.includes(textMatch) && d.querySelector('input[type="checkbox"]');
+                }});
+            }}
+            
+            if (targetOption) {{
+                const cb = targetOption.querySelector('input[type="checkbox"]');
+                if (cb && !cb.checked) {{
+                    cb.click();
+                }} else {{
+                    targetOption.click();
+                }}
+                return true;
+            }}
+            return false;
+        """)
+        if not selected_option:
+            logger.warning("Could not find a matching company option in suggestions.")
+            
+        time.sleep(1)
+        
+        # Step D: Click 'Show results' button
+        submitted = driver.execute_script("""
+            const btns = Array.from(document.querySelectorAll('button'));
+            const showBtn = btns.find(b => {
+                const txt = (b.innerText || b.textContent || '').trim().toLowerCase();
+                return txt.includes('show results') || txt.includes('apply');
+            });
+            if (showBtn) {
+                showBtn.click();
+                return true;
+            }
+            return false;
+        """)
+        if submitted:
+            logger.info("Successfully clicked 'Show results' to apply filter.")
+            time.sleep(4)
+            return True
+            
+        return False
+    except Exception as ex:
+        logger.warning(f"Error applying current company filter via UI: {ex}")
+        return False
+
 def search_company(driver, company_name):
-    """Search for a company on LinkedIn"""
+    """Search for a company on LinkedIn and apply Current Company filter"""
     logger.info(f"Searching for company: {company_name}")
     try:
         search_url = f"https://www.linkedin.com/search/results/people/?keywords={company_name.replace(' ', '%20')}&origin=FACETED_SEARCH"
         driver.get(search_url)
         time.sleep(4)
+        apply_current_company_filter_via_ui(driver, company_name)
         return True
     except Exception as e:
         logger.error(f"Direct navigation failed: {str(e)}")
