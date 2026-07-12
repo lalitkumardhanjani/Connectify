@@ -2178,5 +2178,5 @@ if __name__ == '__main__':
                     extra_files.append(os.path.join(root, file))
     
     print("Connectify Automation Hub starting at http://127.0.0.1:5001")
-    app.run(host='127.0.0.1', port=5001, debug=True, extra_files=extra_files)
+    app.run(host='127.0.0.1', port=5001, debug=True, use_reloader=False, extra_files=extra_files)
 
