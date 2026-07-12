@@ -76,9 +76,13 @@ def get_email_metrics():
     new_count = int((df['_status'] == 'new').sum())
     skipped = int((df['_status'] == 'skipped').sum())
 
-    # Added today (based on timestamp)
+    # Added today (based on Generated_Time, with fallback to Timestamp)
     added_today = 0
-    if timestamp_col:
+    gen_time_col = _find_col(df, 'Generated_Time')
+    if gen_time_col:
+        today_str = datetime.now().strftime('%Y-%m-%d')
+        added_today = int(df[gen_time_col].astype(str).str.startswith(today_str).sum())
+    elif timestamp_col:
         today_str = datetime.now().strftime('%Y-%m-%d')
         added_today = int(df[timestamp_col].astype(str).str.startswith(today_str).sum())
 
