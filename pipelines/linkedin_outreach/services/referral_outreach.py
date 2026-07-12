@@ -1650,7 +1650,7 @@ def run_phase_two_messaging():
             logger.info("=" * 60)
             
             # ── Final eligibility check ──────────────────────────────────────
-            if is_profile_already_contacted(profile_url, job_url=job_url):
+            if is_profile_already_contacted(profile_url, job_url=job_url, sent_only=True):
                 logger.info(f"Eligibility check: profile already messaged for job {job_url}. Skipping.")
                 ref['Referral_Status'] = 'Skipped'
                 add_or_update_referral(ref)

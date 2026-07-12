@@ -292,7 +292,7 @@ def run_recruiter_messaging():
             
             # Final eligibility check
             job_url = ref.get('Job_URL') or ""
-            if is_profile_already_contacted(profile_url, job_url=job_url):
+            if is_profile_already_contacted(profile_url, job_url=job_url, sent_only=True):
                 logger.info(f"Eligibility Check: profile {profile_url} already messaged for job {job_url}. Skipping.")
                 ref['Referral_Status'] = 'Skipped'
                 add_or_update_referral(ref)

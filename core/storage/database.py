@@ -359,16 +359,21 @@ def add_or_update_referral(referral_data, path=None):
     write_database_rows("referrals", rows)
     return True
 
-def is_profile_already_contacted(profile_url, job_url=None, path=None):
+def is_profile_already_contacted(profile_url, job_url=None, sent_only=False, path=None):
     rows = read_database_rows("referrals")
     target_profile = str(profile_url).strip().lower()
     target_job_url = str(job_url or '').strip().lower()
     for r in rows:
         curr_profile = str(r.get('Referral_Person_Profile_URL') or '').strip().lower()
         curr_job_url = str(r.get('Job_URL') or '').strip().lower()
+        status = str(r.get('Referral_Status') or '').strip().lower()
         if curr_profile == target_profile:
             if not target_job_url or curr_job_url == target_job_url:
-                return True
+                if sent_only:
+                    if status in ('sent', 'replied', 'referral received'):
+                        return True
+                else:
+                    return True
     return False
 
 def edit_referral_contact_row(referral_id, referral_data, path=None):
