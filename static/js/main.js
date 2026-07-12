@@ -1198,11 +1198,18 @@ function applyReferralsFiltersAndRender() {
         return textMatch && statusMatch && sourceMatch;
     });
     
-    // Sort referrals by ReferralID ascending
+    // Sort referrals by Sent_Time descending
     filtered.sort((a, b) => {
+        const valA = a.Sent_Time ? String(a.Sent_Time).trim() : '';
+        const valB = b.Sent_Time ? String(b.Sent_Time).trim() : '';
+        if (valA && valB) {
+            return valB.localeCompare(valA);
+        }
+        if (valA) return -1;
+        if (valB) return 1;
         const idA = parseInt(a.ReferralID) || 0;
         const idB = parseInt(b.ReferralID) || 0;
-        return idA - idB;
+        return idB - idA;
     });
     
     const totalPages = Math.ceil(filtered.length / referralsRecordsPerPage) || 1;
@@ -1403,11 +1410,18 @@ function applyScraperFiltersAndRender() {
         return matchesId && matchesEmail && matchesStatus && matchesKeyword && matchesTimestamp && matchesCompany && matchesExperience && matchesLocation;
     });
     
-    // 2. Sort by ID ascending (incremental by default)
+    // 2. Sort by Timestamp descending
     filtered.sort((a, b) => {
+        const valA = a.Timestamp ? String(a.Timestamp).trim() : '';
+        const valB = b.Timestamp ? String(b.Timestamp).trim() : '';
+        if (valA && valB) {
+            return valB.localeCompare(valA);
+        }
+        if (valA) return -1;
+        if (valB) return 1;
         const idA = parseInt(a.ID) || 0;
         const idB = parseInt(b.ID) || 0;
-        return idA - idB;
+        return idB - idA;
     });
     
     // 3. Render page chunk
@@ -2604,11 +2618,18 @@ function applyFilters(type) {
     });
     
     if (type === 'referral') {
-        // Sort referrals by JobID ascending (incremental by default)
+        // Sort referrals by CreatedDateTime descending
         filtered.sort((a, b) => {
+            const valA = a.CreatedDateTime ? String(a.CreatedDateTime).trim() : '';
+            const valB = b.CreatedDateTime ? String(b.CreatedDateTime).trim() : '';
+            if (valA && valB) {
+                return valB.localeCompare(valA);
+            }
+            if (valA) return -1;
+            if (valB) return 1;
             const idA = parseInt(a.JobID) || 0;
             const idB = parseInt(b.JobID) || 0;
-            return idA - idB;
+            return idB - idA;
         });
 
         const totalPages = Math.ceil(filtered.length / referralRecordsPerPage) || 1;
