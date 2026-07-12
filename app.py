@@ -376,7 +376,9 @@ def outreach_stats():
 @app.route('/api/data/job_tracker')
 def job_tracker_data():
     from core.storage.engine import read_database_rows
-    return jsonify(read_database_rows("emails", bypass_cache=True))
+    rows = read_database_rows("emails", bypass_cache=True)
+    rows.sort(key=lambda x: str(x.get('Timestamp') or ''), reverse=True)
+    return jsonify(rows)
 
 
 @app.route('/api/cache/invalidate', methods=['GET', 'POST'])
@@ -391,7 +393,9 @@ def invalidate_cache():
 @app.route('/api/data/job_leads')
 def job_leads_data():
     from core.storage.database import load_job_leads_with_referral_counts
-    return jsonify(load_job_leads_with_referral_counts())
+    leads = load_job_leads_with_referral_counts()
+    leads.sort(key=lambda x: str(x.get('CreatedDateTime') or ''), reverse=True)
+    return jsonify(leads)
 
 
 @app.route('/api/run/scraper', methods=['POST'])
@@ -1719,7 +1723,9 @@ def referrals_data():
     if not get_sheets_config():
         init_referrals_store()
     # Do NOT pass path= here — load_all_referrals() detects Sheets mode automatically
-    return jsonify(load_all_referrals())
+    rows = load_all_referrals()
+    rows.sort(key=lambda x: str(x.get('Sent_Time') or ''), reverse=True)
+    return jsonify(rows)
 
 
 @app.route('/api/data/update_referral_status', methods=['POST'])
