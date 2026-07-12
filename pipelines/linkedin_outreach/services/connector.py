@@ -607,19 +607,26 @@ def find_people_with_connect_button(driver, max_people=10):
     people_with_connect = []
 
     try:
-        # Scroll to load all cards
-        for _ in range(2):
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(1)
-        driver.execute_script("window.scrollTo(0, 0);")
-        time.sleep(0.5)
+        # Wait explicitly for search result content to finish rendering
+        try:
+            WebDriverWait(driver, 15).until(
+                EC.presence_of_element_located((By.XPATH, "//a[contains(@href, '/in/')]"))
+            )
+            logger.info("Search results detected — profile links visible.")
+        except Exception:
+            logger.warning("Timed out waiting for profile links. Proceeding anyway...")
 
-        # LinkedIn now uses fully hash-based CSS class names that change with every deploy.
-        # The only stable anchors are:
-        #   1. Connect button aria-label: "Invite [Name] to connect"
-        #   2. Profile links:  a[href*='/in/']
-        # Strategy: find Connect buttons by aria-label, walk up DOM for profile URL.
-        # Selenium execute_script CAN return DOM elements as WebElements directly.
+        # Scroll to load all lazy-rendered cards
+        for _ in range(3):
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(1.5)
+        driver.execute_script("window.scrollTo(0, 0);")
+        time.sleep(1)
+
+        # LinkedIn uses hash-based CSS classes that change every deploy.
+        # Stable anchor: Connect button text/aria-label.
+        # NOTE: Do NOT filter by offsetParent — LinkedIn's layout can make offsetParent
+        # null even for fully-visible buttons (e.g. inside position:fixed containers).
         results = driver.execute_script("""
             const maxPeople = arguments[0];
             const found = [];
@@ -628,14 +635,25 @@ def find_people_with_connect_button(driver, max_people=10):
 
             for (const btn of allBtns) {
                 if (found.length >= maxPeople) break;
-                if (!btn.offsetParent) continue; // skip hidden buttons
 
                 const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
                 const txt  = (btn.innerText || btn.textContent || '').trim().toLowerCase();
+
+                // Match all known Connect button variants:
+                //   "Invite [Name] to connect"  (aria-label)
+                //   "Connect"                   (aria-label or button text)
+                //   Text containing 'connect' but short (<25 chars to avoid false positives)
                 const isConnect = aria.includes('to connect') ||
                                   (aria.includes('invite') && aria.includes('connect')) ||
-                                  txt === 'connect';
+                                  aria === 'connect' ||
+                                  txt === 'connect' ||
+                                  (txt.includes('connect') && txt.length < 25);
+
                 if (!isConnect) continue;
+
+                // Exclude "currently following", "connection request pending" etc.
+                if (aria.includes('currently') || txt.includes('pending') ||
+                    txt.includes('following') || txt.includes('message')) continue;
 
                 // Extract name from "Invite [Name] to connect"
                 const ariaLabel = btn.getAttribute('aria-label') || '';
@@ -643,10 +661,10 @@ def find_people_with_connect_button(driver, max_people=10):
                 const m = ariaLabel.match(/invite (.+?) to connect/i);
                 if (m) name = m[1].trim();
 
-                // Walk up to find nearest /in/ profile link
+                // Walk up DOM (up to 25 levels) to find nearest /in/ profile link
                 let profileUrl = '';
                 let el = btn.parentElement;
-                for (let i = 0; i < 20; i++) {
+                for (let i = 0; i < 25; i++) {
                     if (!el) break;
                     const link = el.querySelector('a[href*="/in/"]');
                     if (link) { profileUrl = link.href.split('?')[0]; break; }
@@ -673,6 +691,41 @@ def find_people_with_connect_button(driver, max_people=10):
                     'role':        '',
                     'profile_url': profile_url
                 })
+            logger.info(f"Total people with Connect button: {len(people_with_connect)}")
+            return people_with_connect
+
+        # JS found nothing — fallback to direct Selenium XPATH
+        logger.warning("JS found 0 Connect buttons. Trying Selenium XPATH fallback...")
+        connect_btns = driver.find_elements(
+            By.XPATH,
+            "//button[contains(translate(@aria-label,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'to connect')"
+            " or contains(translate(@aria-label,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'connect')"
+            " or translate(normalize-space(text()),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz')='connect']"
+        )
+        logger.info(f"XPATH fallback found {len(connect_btns)} Connect buttons")
+        for btn in connect_btns[:max_people]:
+            try:
+                aria_label = btn.get_attribute("aria-label") or ""
+                name = ""
+                m = __import__('re').search(r'invite (.+?) to connect', aria_label, __import__('re').IGNORECASE)
+                if m:
+                    name = m.group(1).strip()
+                profile_url = ""
+                try:
+                    # Find profile link from parent container
+                    profile_link = btn.find_element(By.XPATH,
+                        "ancestor::*[.//a[contains(@href,'/in/')]][1]//a[contains(@href,'/in/')]")
+                    profile_url = (profile_link.get_attribute("href") or "").split("?")[0]
+                except Exception:
+                    pass
+                people_with_connect.append({
+                    'button': btn,
+                    'name': name,
+                    'role': '',
+                    'profile_url': profile_url
+                })
+            except Exception:
+                continue
 
         logger.info(f"Total people with Connect button: {len(people_with_connect)}")
         return people_with_connect
