@@ -141,7 +141,8 @@ class LinkedInScraper:
             search_bar_selectors = [
                 "input[placeholder*='Search']",
                 ".search-global-typeahead__input",
-                "input[role='combobox']"
+                "input[role='combobox']",
+                "input[placeholder*=\"I'm looking for…\"]"
             ]
             for selector in search_bar_selectors:
                 try:
