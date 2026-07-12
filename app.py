@@ -1892,52 +1892,42 @@ def sanitize_excel_files():
 
 
 def start_git_autoupdater(app):
-    def check_and_pull():
-        # wait a bit for server to fully start
-        time.sleep(10)
-        repo_dir = os.path.dirname(os.path.abspath(__file__))
-        
-        while True:
-            try:
-                # Check if there are active tasks running first to avoid disrupting user work
-                running = False
-                with task_lock:
-                    for runner in active_tasks.values():
-                        if runner.status in ("running", "queued"):
-                            running = True
-                            break
-                            
-                if running:
-                    print("[Auto-Updater] Active pipeline task detected. Postponing update check to avoid disrupting execution.")
-                else:
-                    # 1. Fetch from remote
-                    fetch_res = subprocess.run(["git", "fetch", "origin"], cwd=repo_dir, capture_output=True, text=True, timeout=30)
-                    if fetch_res.returncode == 0:
-                        # 2. Check if local branch is behind remote tracking branch origin/main
-                        behind_log = subprocess.run(["git", "log", "HEAD..origin/main", "--oneline"], cwd=repo_dir, capture_output=True, text=True, timeout=10).stdout.strip()
-                        if behind_log:
-                            print("[Auto-Updater] Remote changes detected. Pulling updates automatically...")
-                            # 3. Pull latest changes
-                            # Stash local changes to avoid merge conflicts with system-generated files
-                            subprocess.run(["git", "stash"], cwd=repo_dir, capture_output=True, text=True, timeout=30)
-                            pull_res = subprocess.run(["git", "pull", "origin", "main"], cwd=repo_dir, capture_output=True, text=True, timeout=60)
-                            subprocess.run(["git", "stash", "pop"], cwd=repo_dir, capture_output=True, text=True, timeout=30)
-                            
-                            if pull_res.returncode == 0:
-                                print("[Auto-Updater] Code successfully updated from remote. Server should reload automatically.")
-                            else:
-                                print(f"[Auto-Updater] Git pull failed: {pull_res.stderr.strip()}", file=sys.stderr)
-            except Exception as e:
-                print(f"[Auto-Updater] Error checking updates: {e}", file=sys.stderr)
-            
-            # Check every 60 seconds
-            time.sleep(60)
-
-    # Only run in the Werkzeug reloader child process to avoid starting duplicate threads in parent/child
+    # Only run once at startup (in the Werkzeug reloader child process or if debug is off)
     if os.environ.get("WERZEUG_RUN_MAIN") == "true" or not app.debug:
-        t = threading.Thread(target=check_and_pull, daemon=True)
-        t.start()
-        print("[Auto-Updater] Background git update checker thread started.")
+        repo_dir = os.path.dirname(os.path.abspath(__file__))
+        print("[Auto-Updater] Checking for git updates at startup...")
+        try:
+            # Determine the current branch name dynamically
+            branch_res = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=repo_dir, capture_output=True, text=True, timeout=10)
+            current_branch = branch_res.stdout.strip()
+            if not current_branch:
+                current_branch = "main"
+
+            # 1. Fetch from remote
+            fetch_res = subprocess.run(["git", "fetch", "origin"], cwd=repo_dir, capture_output=True, text=True, timeout=30)
+            if fetch_res.returncode == 0:
+                # 2. Check if local is behind remote branch
+                remote_ref = f"origin/{current_branch}"
+                behind_log = subprocess.run(["git", "log", f"HEAD..{remote_ref}", "--oneline"], cwd=repo_dir, capture_output=True, text=True, timeout=10).stdout.strip()
+                if behind_log:
+                    print(f"[Auto-Updater] Remote changes detected on branch '{current_branch}'. Pulling updates...")
+                    # 3. Pull latest changes
+                    # Stash local changes to avoid conflicts with system-generated files
+                    subprocess.run(["git", "stash"], cwd=repo_dir, capture_output=True, text=True, timeout=30)
+                    pull_res = subprocess.run(["git", "pull", "origin", current_branch], cwd=repo_dir, capture_output=True, text=True, timeout=60)
+                    subprocess.run(["git", "stash", "pop"], cwd=repo_dir, capture_output=True, text=True, timeout=30)
+                    
+                    if pull_res.returncode == 0:
+                        print(f"[Auto-Updater] Code successfully updated from remote branch '{current_branch}'.")
+                    else:
+                        print(f"[Auto-Updater] Git pull failed: {pull_res.stderr.strip()}", file=sys.stderr)
+                else:
+                    print(f"[Auto-Updater] Code is already up to date on branch '{current_branch}'.")
+            else:
+                print(f"[Auto-Updater] Git fetch failed: {fetch_res.stderr.strip()}", file=sys.stderr)
+        except Exception as e:
+            print(f"[Auto-Updater] Error checking updates: {e}", file=sys.stderr)
+
 
 
 def sync_google_sheets_to_local_if_empty(username):
