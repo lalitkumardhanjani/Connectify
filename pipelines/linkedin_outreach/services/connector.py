@@ -90,7 +90,11 @@ def get_company_id_from_page(driver, company_url):
             
         company_id = driver.execute_script(r"""
             const getCompanyId = () => {
-                // 1. Try meta tags
+                // A. Try URL if it already contains a numeric company ID
+                const urlMatch = window.location.href.match(/\/company\/(\d+)/);
+                if (urlMatch) return urlMatch[1];
+
+                // B. Try meta tags (highly reliable, specific to the current page head)
                 const metaSelectors = [
                     'meta[property="al:android:url"]',
                     'meta[name="twitter:app:url:iphone"]',
@@ -106,36 +110,88 @@ def get_company_id_from_page(driver, company_url):
                     }
                 }
                 
-                // 2. Try page source script tags
-                const scripts = document.querySelectorAll('script');
-                for (const script of scripts) {
-                    const text = script.textContent || '';
-                    const match = text.match(/"objectUrn"\s*:\s*"urn:li:company:(\d+)"/) || text.match(/"urn:li:company:(\d+)"/);
-                    if (match) return match[1];
-                }
-                
-                // 3. Try finding employee search link inside main top card
-                const mainSection = document.querySelector('.org-top-card, section.artdeco-card, main');
-                if (mainSection) {
-                    const link = mainSection.querySelector('a[href*="/search/results/people/"]');
-                    if (link) {
+                // C. Try to find the primary "See all employees" / "View all employees" link
+                // excluding sidebars/recommendations, and specifically looking for employee/people/connection keywords in the link text
+                const links = Array.from(document.querySelectorAll('a[href*="/search/results/people/"]'));
+                for (const link of links) {
+                    if (link.closest('aside') || link.closest('.org-similar-pages') || link.closest('.org-people-also-viewed') || link.closest('.org-people-also-viewed-module')) {
+                        continue;
+                    }
+                    const text = (link.innerText || link.textContent || '').toLowerCase();
+                    if (text.includes('employee') || text.includes('people') || text.includes('connection')) {
                         const href = link.getAttribute('href') || '';
                         const match = href.match(/currentCompany=%5B%22(\d+)%22%5D/) || href.match(/currentCompany=(\d+)/);
                         if (match) return match[1];
                     }
                 }
-                
-                // 4. Try any link with currentCompany
-                const links = Array.from(document.querySelectorAll('a[href*="/search/results/people/"]'));
+
+                // D. Try jobs link with company ID parameter (f_C)
+                const jobLinks = Array.from(document.querySelectorAll('a[href*="f_C="]'));
+                for (const link of jobLinks) {
+                    if (link.closest('aside') || link.closest('.org-similar-pages') || link.closest('.org-people-also-viewed') || link.closest('.org-people-also-viewed-module')) {
+                        continue;
+                    }
+                    const href = link.getAttribute('href') || '';
+                    const match = href.match(/f_C=(\d+)/) || href.match(/f_C=%5B%22(\d+)%22%5D/);
+                    if (match) return match[1];
+                }
+
+                // E. Try any link with currentCompany (excluding sidebars)
                 for (const link of links) {
+                    if (link.closest('aside') || link.closest('.org-similar-pages') || link.closest('.org-people-also-viewed') || link.closest('.org-people-also-viewed-module')) {
+                        continue;
+                    }
                     const href = link.getAttribute('href') || '';
                     const match = href.match(/currentCompany=%5B%22(\d+)%22%5D/) || href.match(/currentCompany=(\d+)/);
                     if (match) return match[1];
                 }
+
+                // F. Try parsing script tags, looking for companyUniversalId or objectUrn
+                const scripts = document.querySelectorAll('script');
+                for (const script of scripts) {
+                    const text = script.textContent || '';
+                    let match = text.match(/"companyUniversalId"\s*:\s*(\d+)/) || text.match(/companyUniversalId\s*:\s*(\d+)/);
+                    if (match) return match[1];
+
+                    match = text.match(/"objectUrn"\s*:\s*"urn:li:company:(\d+)"/) || text.match(/"urn:li:company:(\d+)"/);
+                    if (match) return match[1];
+                }
+                
                 return null;
             };
             return getCompanyId();
         """)
+
+        # 2. Python-based regex fallback over page source if JS extraction returned nothing
+        if not company_id:
+            logger.info("JS company ID extraction returned nothing. Trying Python page source regex fallback...")
+            import re
+            page_source = driver.page_source or ""
+            current_url = driver.current_url or ""
+            
+            # A. URL numeric check
+            url_match = re.search(r'/company/(\d+)', current_url)
+            if url_match:
+                company_id = url_match.group(1)
+                
+            # B. companyUniversalId check
+            if not company_id:
+                m = re.search(r'"companyUniversalId"\s*:\s*(\d+)', page_source) or re.search(r'companyUniversalId\s*:\s*(\d+)', page_source)
+                if m:
+                    company_id = m.group(1)
+                    
+            # C. objectUrn check
+            if not company_id:
+                m = re.search(r'"objectUrn"\s*:\s*"urn:li:company:(\d+)"', page_source) or re.search(r'urn:li:company:(\d+)', page_source)
+                if m:
+                    company_id = m.group(1)
+
+            # D. f_C (job filter) check
+            if not company_id:
+                m = re.search(r'f_C=(\d+)', page_source) or re.search(r'f_C=%5B%22(\d+)%22%5D', page_source)
+                if m:
+                    company_id = m.group(1)
+
         return company_id
     except Exception as e:
         logger.warning(f"Error extracting Company ID from page: {e}")
