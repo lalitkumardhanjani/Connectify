@@ -607,7 +607,7 @@ def find_people_with_connect_button(driver, max_people=10):
     people_with_connect = []
 
     try:
-        # Wait explicitly for search result content to finish rendering
+        # Wait for search result content to finish rendering
         try:
             WebDriverWait(driver, 15).until(
                 EC.presence_of_element_located((By.XPATH, "//a[contains(@href, '/in/')]"))
@@ -623,15 +623,27 @@ def find_people_with_connect_button(driver, max_people=10):
         driver.execute_script("window.scrollTo(0, 0);")
         time.sleep(1)
 
-        # LinkedIn uses hash-based CSS classes that change every deploy.
-        # Stable anchor: Connect button text/aria-label.
-        # NOTE: Do NOT filter by offsetParent — LinkedIn's layout can make offsetParent
-        # null even for fully-visible buttons (e.g. inside position:fixed containers).
+        # KEY FIX: LinkedIn renders people cards inside Shadow DOM web components.
+        # document.querySelectorAll('button') CANNOT find them.
+        # We must recursively traverse shadow roots to find all buttons.
         results = driver.execute_script("""
             const maxPeople = arguments[0];
+
+            // Recursively search both light DOM and all shadow roots
+            function deepQueryAll(selector, root) {
+                const results = [];
+                try { results.push(...Array.from(root.querySelectorAll(selector))); } catch(e) {}
+                try {
+                    Array.from(root.querySelectorAll('*')).forEach(el => {
+                        if (el.shadowRoot) results.push(...deepQueryAll(selector, el.shadowRoot));
+                    });
+                } catch(e) {}
+                return results;
+            }
+
+            const allBtns = deepQueryAll('button, a', document);
             const found = [];
             const seen = new Set();
-            const allBtns = Array.from(document.querySelectorAll('button'));
 
             for (const btn of allBtns) {
                 if (found.length >= maxPeople) break;
@@ -639,10 +651,6 @@ def find_people_with_connect_button(driver, max_people=10):
                 const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
                 const txt  = (btn.innerText || btn.textContent || '').trim().toLowerCase();
 
-                // Match all known Connect button variants:
-                //   "Invite [Name] to connect"  (aria-label)
-                //   "Connect"                   (aria-label or button text)
-                //   Text containing 'connect' but short (<25 chars to avoid false positives)
                 const isConnect = aria.includes('to connect') ||
                                   (aria.includes('invite') && aria.includes('connect')) ||
                                   aria === 'connect' ||
@@ -651,7 +659,7 @@ def find_people_with_connect_button(driver, max_people=10):
 
                 if (!isConnect) continue;
 
-                // Exclude "currently following", "connection request pending" etc.
+                // Exclude false positives
                 if (aria.includes('currently') || txt.includes('pending') ||
                     txt.includes('following') || txt.includes('message')) continue;
 
@@ -661,17 +669,25 @@ def find_people_with_connect_button(driver, max_people=10):
                 const m = ariaLabel.match(/invite (.+?) to connect/i);
                 if (m) name = m[1].trim();
 
-                // Walk up DOM (up to 25 levels) to find nearest /in/ profile link
+                // Walk up DOM (works for both light and shadow DOM)
                 let profileUrl = '';
                 let el = btn.parentElement;
                 for (let i = 0; i < 25; i++) {
                     if (!el) break;
+                    // Check if the ancestor element itself is the profile link
+                    if (el.tagName === 'A' && (el.href || '').includes('/in/')) {
+                        profileUrl = el.href.split('?')[0];
+                        break;
+                    }
+                    // Search in light DOM
                     const link = el.querySelector('a[href*="/in/"]');
                     if (link) { profileUrl = link.href.split('?')[0]; break; }
+                    // Also search in shadow DOM of this element
+                    const shadowLink = deepQueryAll('a[href*="/in/"]', el)[0];
+                    if (shadowLink) { profileUrl = shadowLink.href.split('?')[0]; break; }
                     el = el.parentElement;
                 }
 
-                // Deduplicate by profile URL
                 if (profileUrl && seen.has(profileUrl)) continue;
                 if (profileUrl) seen.add(profileUrl);
 
@@ -680,9 +696,11 @@ def find_people_with_connect_button(driver, max_people=10):
             return found;
         """, max_people)
 
+        logger.info(f"Deep shadow DOM search found {len(results) if results else 0} Connect buttons")
+
         if results:
             for item in results:
-                btn_el      = item[0]   # WebElement (Selenium converts JS DOM elements)
+                btn_el      = item[0]   # WebElement (works for shadow DOM elements too)
                 name        = item[1] or ""
                 profile_url = item[2] or ""
                 people_with_connect.append({
@@ -694,40 +712,8 @@ def find_people_with_connect_button(driver, max_people=10):
             logger.info(f"Total people with Connect button: {len(people_with_connect)}")
             return people_with_connect
 
-        # JS found nothing — fallback to direct Selenium XPATH
-        logger.warning("JS found 0 Connect buttons. Trying Selenium XPATH fallback...")
-        connect_btns = driver.find_elements(
-            By.XPATH,
-            "//button[contains(translate(@aria-label,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'to connect')"
-            " or contains(translate(@aria-label,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'connect')"
-            " or translate(normalize-space(text()),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz')='connect']"
-        )
-        logger.info(f"XPATH fallback found {len(connect_btns)} Connect buttons")
-        for btn in connect_btns[:max_people]:
-            try:
-                aria_label = btn.get_attribute("aria-label") or ""
-                name = ""
-                m = __import__('re').search(r'invite (.+?) to connect', aria_label, __import__('re').IGNORECASE)
-                if m:
-                    name = m.group(1).strip()
-                profile_url = ""
-                try:
-                    # Find profile link from parent container
-                    profile_link = btn.find_element(By.XPATH,
-                        "ancestor::*[.//a[contains(@href,'/in/')]][1]//a[contains(@href,'/in/')]")
-                    profile_url = (profile_link.get_attribute("href") or "").split("?")[0]
-                except Exception:
-                    pass
-                people_with_connect.append({
-                    'button': btn,
-                    'name': name,
-                    'role': '',
-                    'profile_url': profile_url
-                })
-            except Exception:
-                continue
-
-        logger.info(f"Total people with Connect button: {len(people_with_connect)}")
+        logger.warning("Shadow DOM search found 0 Connect buttons.")
+        logger.info(f"Total people with Connect button: 0")
         return people_with_connect
     except Exception as e:
         logger.error(f"Error finding people: {str(e)}")
@@ -861,24 +847,29 @@ def send_connection_request(driver, person, message, review_mode=None):
 
         add_note_clicked = False
 
-        # Find "Add a note" button by text content — it is the SECONDARY button
-        # (blue outline). "Send without a note" is the PRIMARY button (solid blue).
-        # We must NOT use class .artdeco-button--primary as that matches the wrong button.
+        # KEY FIX: Modal buttons may be in Shadow DOM — use recursive deep search.
         add_note_button = driver.execute_script("""
-            // Search light DOM first
-            const allBtns = Array.from(document.querySelectorAll('button'));
+            function deepQueryAll(selector, root) {
+                const results = [];
+                try { results.push(...Array.from(root.querySelectorAll(selector))); } catch(e) {}
+                try {
+                    Array.from(root.querySelectorAll('*')).forEach(el => {
+                        if (el.shadowRoot) results.push(...deepQueryAll(selector, el.shadowRoot));
+                    });
+                } catch(e) {}
+                return results;
+            }
+            const allBtns = deepQueryAll('button, a', document);
             const byText = allBtns.find(b => {
                 const txt = (b.innerText || b.textContent || '').trim().toLowerCase();
                 return txt === 'add a note' || txt.includes('add a note');
             });
-            if (byText && byText.offsetParent !== null) return byText;
-            // Try aria-label
+            if (byText) return byText;
             const byAria = allBtns.find(b => {
                 const a = (b.getAttribute('aria-label') || '').toLowerCase();
                 return a.includes('add a note');
             });
-            if (byAria) return byAria;
-            return null;
+            return byAria || null;
         """)
 
         if add_note_button:
@@ -892,11 +883,20 @@ def send_connection_request(driver, person, message, review_mode=None):
                 logger.warning(f"Failed to click Add a note button: {e}")
 
         if add_note_clicked:
-            # Find textarea — any visible textarea in the dialog
+            # KEY FIX: Textarea may be in Shadow DOM — use deep recursive search.
             message_box = driver.execute_script("""
-                const allTextareas = Array.from(document.querySelectorAll('textarea'));
-                const visible = allTextareas.find(t => t.offsetParent !== null);
-                return visible || null;
+                function deepQueryAll(selector, root) {
+                    const results = [];
+                    try { results.push(...Array.from(root.querySelectorAll(selector))); } catch(e) {}
+                    try {
+                        Array.from(root.querySelectorAll('*')).forEach(el => {
+                            if (el.shadowRoot) results.push(...deepQueryAll(selector, el.shadowRoot));
+                        });
+                    } catch(e) {}
+                    return results;
+                }
+                const allTextareas = deepQueryAll('textarea', document);
+                return allTextareas.find(t => t.offsetParent !== null) || allTextareas[0] || null;
             """)
 
             if message_box:
@@ -940,22 +940,31 @@ def send_connection_request(driver, person, message, review_mode=None):
                 else:
                     logger.info("Automatically sending connection request...")
 
-                # Find send button by text — after adding note the button says "Send invitation"
+                # KEY FIX: Send button may be in Shadow DOM — use deep recursive search.
                 send_btn = driver.execute_script("""
-                    const allBtns = Array.from(document.querySelectorAll('button'));
-                    // Prefer exact 'Send invitation' or 'Send'
+                    function deepQueryAll(selector, root) {
+                        const results = [];
+                        try { results.push(...Array.from(root.querySelectorAll(selector))); } catch(e) {}
+                        try {
+                            Array.from(root.querySelectorAll('*')).forEach(el => {
+                                if (el.shadowRoot) results.push(...deepQueryAll(selector, el.shadowRoot));
+                            });
+                        } catch(e) {}
+                        return results;
+                    }
+                    const allBtns = deepQueryAll('button, a', document);
+                    // Prefer exact 'Send invitation' match
                     const exact = allBtns.find(b => {
                         const txt = (b.innerText || b.textContent || '').trim().toLowerCase();
                         const aria = (b.getAttribute('aria-label') || '').toLowerCase();
                         return txt === 'send invitation' || aria === 'send invitation' || txt === 'send';
                     });
-                    if (exact && exact.offsetParent !== null) return exact;
-                    // Fallback: primary button that does NOT say 'without'
-                    const primary = allBtns.find(b => {
+                    if (exact) return exact;
+                    // Fallback: primary button that is NOT 'Send without a note'
+                    return allBtns.find(b => {
                         const txt = (b.innerText || b.textContent || '').trim().toLowerCase();
-                        return b.classList.contains('artdeco-button--primary') && !txt.includes('without') && b.offsetParent !== null;
-                    });
-                    return primary || null;
+                        return b.classList.contains('artdeco-button--primary') && !txt.includes('without');
+                    }) || null;
                 """)
 
                 if send_btn:
