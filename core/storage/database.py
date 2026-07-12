@@ -48,9 +48,8 @@ def append_email(email, keyword='', post_url='', company_name='', experience='',
     """Appends extracted email to the job tracker if it's unique."""
     rows = read_database_rows("emails")
     normalized_email = str(email or '').strip().lower()
-    normalized_post_url = str(post_url or '').strip().lower()
     for r in rows:
-        if str(r.get('Email')).strip().lower() == normalized_email and str(r.get('PostURL')).strip().lower() == normalized_post_url:
+        if str(r.get('Email')).strip().lower() == normalized_email:
             return False
     max_id = 0
     if rows:
@@ -625,16 +624,14 @@ def deduplicate_all_tables(username):
     try:
         from core.storage.engine import read_database_rows, write_database_rows
         
-        # 1. Deduplicate 'emails' (Email + PostURL)
+        # 1. Deduplicate 'emails' (Email only)
         email_rows = read_database_rows("emails", username=username, bypass_cache=True)
         unique_emails = []
         seen_emails = set()
         for r in email_rows:
             email_val = str(r.get('Email') or '').strip().lower()
-            post_url_val = str(r.get('PostURL') or '').strip().lower()
-            key = (email_val, post_url_val)
-            if key not in seen_emails:
-                seen_emails.add(key)
+            if email_val not in seen_emails:
+                seen_emails.add(email_val)
                 unique_emails.append(r)
         if len(unique_emails) < len(email_rows):
             logger.info(f"Removing {len(email_rows) - len(unique_emails)} duplicate outreach records for user {username}.")

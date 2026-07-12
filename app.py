@@ -2102,7 +2102,44 @@ def sync_google_sheets_to_local_if_empty(username):
         print(f"[Storage Sync] Warning: Automatic Google Sheets sync failed: {e}")
 
 
+def kill_lingering_instances():
+    """Closes all lingering chromedriver processes and chrome instances started by pipelines."""
+    import subprocess as sp
+    import sys
+    
+    print("[Startup Cleanup] Cleaning up lingering ChromeDriver and Chrome pipeline instances...")
+    
+    # 1. Kill chromedriver processes
+    if sys.platform == 'win32':
+        try:
+            sp.run(["taskkill", "/F", "/IM", "chromedriver.exe"], capture_output=True, check=False)
+        except Exception as e:
+            print(f"[Startup Cleanup] Failed to kill chromedriver: {e}")
+            
+        # 2. Kill only Chrome instances started by our app (filtering by user data directory command line argument)
+        try:
+            # Run powershell command to find and terminate chrome.exe processes with 'chrome-profile' in their command line
+            cmd = (
+                'Get-CimInstance Win32_Process -Filter "Name = \'chrome.exe\'" | '
+                'Where-Object { $_.CommandLine -like "*chrome-profile*" -or $_.CommandLine -like "*Connectify/users*" } | '
+                'ForEach-Object { Stop-Process -Id $_.ProcessId -Force }'
+            )
+            sp.run(["powershell", "-NoProfile", "-Command", cmd], capture_output=True, check=False)
+        except Exception as e:
+            print(f"[Startup Cleanup] Failed to kill pipeline chrome instances: {e}")
+    else:
+        # Non-Windows fallback (killall)
+        try:
+            sp.run(["killall", "-9", "chromedriver"], capture_output=True, check=False)
+            sp.run(["pkill", "-f", "chrome.*chrome-profile"], capture_output=True, check=False)
+        except Exception as e:
+            print(f"[Startup Cleanup] Failed to kill lingering instances on unix: {e}")
+
+
 if __name__ == '__main__':
+    # Clean up lingering pipeline instances
+    kill_lingering_instances()
+    
     # Ensure standard directories exist
     os.makedirs("templates", exist_ok=True)
     os.makedirs("static/css", exist_ok=True)

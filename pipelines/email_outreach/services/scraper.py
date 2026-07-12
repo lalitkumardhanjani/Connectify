@@ -415,8 +415,14 @@ class LinkedInScraper:
                             # Fallback: Read from clipboard
                             if not post_url:
                                 import subprocess
+                                import platform
                                 try:
-                                    clipboard_val = subprocess.check_output('pbpaste', env={'LANG': 'en_US.UTF-8'}).decode('utf-8').strip()
+                                    if platform.system() == 'Windows':
+                                        # Use PowerShell on Windows to get clipboard text
+                                        clipboard_val = subprocess.check_output(['powershell', '-NoProfile', '-Command', 'Get-Clipboard'], text=True).strip()
+                                    else:
+                                        clipboard_val = subprocess.check_output('pbpaste', env={'LANG': 'en_US.UTF-8'}).decode('utf-8').strip()
+                                    
                                     extracted = extract_canonical_linkedin_url(clipboard_val)
                                     if extracted:
                                         post_url = extracted
@@ -597,7 +603,10 @@ class LinkedInScraper:
                     data = self.extract_post_data(post)
                     if data and data.get('content'):
                         content = data['content']
-                        post_url = data.get('post_url', '')
+                        post_url = data.get('post_url', '').strip()
+                        if not post_url:
+                            logger.warning("Could not extract Post URL. Skipping post to ensure every entry in email scraper database has a valid Post URL.")
+                            continue
                         content_lower = content.lower()
                         # Case-insensitive keyword match in post content
                         if any(kw in content_lower for kw in title_keywords):
