@@ -2998,7 +2998,8 @@ async function saveConfiguration(module) {
             "message_template": noteTemplate
         };
         cachedConfig.config.referral_outreach = {
-            "message_template": getVal('referral-message-template')
+            "message_template": getVal('referral-message-template'),
+            "review_mode": !getChecked('connect-review-mode')
         };
     } else if (module === 'recruiter') {
         const targetCountVal = parseInt(getVal('recruiter-target-count'), 10);
