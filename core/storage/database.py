@@ -77,19 +77,49 @@ def append_email(email, keyword='', post_url='', company_name='', experience='',
     append_database_row("emails", data)
     return True
 
-def update_status(email, status, path=None):
-    """Updates status for a specific scraped email row."""
+def update_status(email, status, post_url=None, path=None):
+    """Updates status for a specific scraped email row, prioritizing post_url match if duplicate emails exist."""
     rows = read_database_rows("emails")
     normalized_email = str(email or '').strip().lower()
+    normalized_post_url = str(post_url or '').strip().lower() if post_url else None
+    
     updated = False
-    for r in rows:
-        if str(r.get('Email')).strip().lower() == normalized_email:
-            r['Status'] = status
-            r['Timestamp'] = datetime.utcnow().isoformat()
-            if status.lower() == 'sent':
-                r['Sent_Time'] = datetime.utcnow().isoformat()
-            updated = True
-            break
+    # First pass: try matching BOTH email and post_url (if post_url provided)
+    if normalized_post_url:
+        for r in rows:
+            if str(r.get('Email')).strip().lower() == normalized_email and str(r.get('PostURL')).strip().lower() == normalized_post_url:
+                r['Status'] = status
+                r['Timestamp'] = datetime.utcnow().isoformat()
+                if status.lower() == 'sent':
+                    r['Sent_Time'] = datetime.utcnow().isoformat()
+                updated = True
+                break
+                
+    # Second pass: fallback to matching only email (first match of non-sent/non-skipped status or first match generally)
+    if not updated:
+        for r in rows:
+            if str(r.get('Email')).strip().lower() == normalized_email:
+                # If we are marking it sent/skipped, prefer updating the one that is currently not sent/skipped
+                if status.lower() in ('sent', 'skipped') and str(r.get('Status')).strip().lower() in ('sent', 'skipped'):
+                    continue
+                r['Status'] = status
+                r['Timestamp'] = datetime.utcnow().isoformat()
+                if status.lower() == 'sent':
+                    r['Sent_Time'] = datetime.utcnow().isoformat()
+                updated = True
+                break
+                
+        # Last resort fallback (update first email match if all are already sent/skipped)
+        if not updated:
+            for r in rows:
+                if str(r.get('Email')).strip().lower() == normalized_email:
+                    r['Status'] = status
+                    r['Timestamp'] = datetime.utcnow().isoformat()
+                    if status.lower() == 'sent':
+                        r['Sent_Time'] = datetime.utcnow().isoformat()
+                    updated = True
+                    break
+
     if updated:
         write_database_rows("emails", rows)
     return updated
