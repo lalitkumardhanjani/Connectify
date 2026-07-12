@@ -1580,6 +1580,7 @@ def run_phase_two_messaging():
                 logger.warning("Message exceeds 2000 characters. Truncating.")
                 message_text = message_text[:1997] + "..."
                 
+            logger.info(f"[OUTREACH] Drafting message to connection {name} (Profile URL: {profile_url})\nMessage:\n{message_text}")
             inserted = insert_message_draft(driver, message_text)
             if not inserted:
                 logger.warning(f"[Step 5] Failed to insert message draft for {name}.")
@@ -1646,7 +1647,7 @@ def run_phase_two_messaging():
                 logger.info("[Step 11] Verifying message delivery...")
                 verified = verify_delivery(driver, message_text)
                 if verified:
-                    logger.info(f"[Step 11] Message to {name} confirmed in chat history.")
+                    logger.info(f"[Step 11] Message to {name} (Profile URL: {profile_url}) confirmed in chat history and successfully sent!")
                     ref['Referral_Status'] = 'Sent'
                     ref['Sent_Time'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     ref['Error_Reason'] = ''

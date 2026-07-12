@@ -1,5 +1,28 @@
 import logging
 import os
+import sys
+import time
+from datetime import datetime
+
+def cleanup_old_logs(logs_dir, days=7):
+    """
+    Deletes log files in the given directory that are older than the specified number of days.
+    """
+    try:
+        if not os.path.exists(logs_dir):
+            return
+        cutoff = time.time() - (days * 24 * 60 * 60)
+        for filename in os.listdir(logs_dir):
+            if filename.endswith(".log"):
+                file_path = os.path.join(logs_dir, filename)
+                if os.path.isfile(file_path):
+                    if os.path.getmtime(file_path) < cutoff:
+                        try:
+                            os.remove(file_path)
+                        except Exception:
+                            pass
+    except Exception:
+        pass
 
 class DynamicUserFileHandler(logging.Handler):
     """
@@ -10,21 +33,38 @@ class DynamicUserFileHandler(logging.Handler):
         super().__init__()
         self.filename_base = filename_base
         self.formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        
+        # Determine unique timestamped filename for CLI runs
+        entry_script = os.path.basename(sys.argv[0]) if (sys.argv and sys.argv[0]) else "automation.py"
+        entry_name = os.path.splitext(entry_script)[0].replace(".", "_")
+        run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.timestamped_filename = f"{entry_name}_{run_timestamp}.log"
 
     def emit(self, record):
         try:
             from config.settings import get_logs_dir
             logs_dir = get_logs_dir()
-            log_file = os.path.join(logs_dir, self.filename_base)
             
             # Ensure the logs directory exists
             os.makedirs(logs_dir, exist_ok=True)
             
-            # Append log message
-            with open(log_file, "a", encoding="utf-8") as f:
-                f.write(self.format(record) + "\n")
+            formatted_record = self.format(record)
+            
+            # 1. Do NOT write to automation.log (general log file) anymore
+            # 2. Do NOT write to file if it is app.py (entry_name == "app")
+            is_subprocess_runner = os.getenv("CONNECTIFY_SUBPROCESS_RUNNER") == "true"
+            if self.timestamped_filename.startswith("app_"):
+                # Ignore Flask app.py logging to files (app log and automation log)
+                return
+                
+            if not is_subprocess_runner:
+                # For CLI scripts (e.g. run_email_scraper.py), write to their specific timestamped log file
+                timestamped_file = os.path.join(logs_dir, self.timestamped_filename)
+                with open(timestamped_file, "a", encoding="utf-8") as f:
+                    f.write(formatted_record + "\n")
         except Exception:
             self.handleError(record)
+
 
 def setup_logger(log_file=None):
     """
@@ -46,6 +86,13 @@ def setup_logger(log_file=None):
         
         logger.addHandler(dynamic_handler)
         logger.addHandler(stream_handler)
+        
+    # Automatically clean up logs older than 30 days
+    try:
+        from config.settings import get_logs_dir
+        cleanup_old_logs(get_logs_dir())
+    except Exception:
+        pass
         
     return logger
 

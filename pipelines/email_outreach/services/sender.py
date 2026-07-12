@@ -101,7 +101,7 @@ def send_email_smtp(to_email, name, post_url):
         server.send_message(msg)
         server.quit()
         
-        logger.info(f"Successfully sent email to {to_email}.")
+        logger.info(f"Successfully sent email to {to_email}.\nSubject: {subject}\nBody:\n{body}")
         return True
     except Exception as e:
         logger.error(f"Failed to send email to {to_email}: {e}")
@@ -569,14 +569,14 @@ def send_email_via_gmail(driver, to_email, post_url='', review_mode=None):
                 time.sleep(0.3)
                 driver.execute_script("arguments[0].click();", send_btn)
                 time.sleep(5)
-                logger.info(f"Successfully sent email to {to_email} via Gmail web interface.")
+                logger.info(f"Successfully sent email to {to_email} via Gmail web interface.\nSubject: {subject}\nBody:\n{body}")
                 return True
             except Exception as e:
                 logger.warning(f"Failed to click Send button: {e}")
                 try:
                     send_btn.click()
                     time.sleep(5)
-                    logger.info(f"Successfully sent email to {to_email} (via direct click).")
+                    logger.info(f"Successfully sent email to {to_email} (via direct click).\nSubject: {subject}\nBody:\n{body}")
                     return True
                 except Exception as e2:
                     logger.warning(f"Failed to click Send button (direct): {e2}")

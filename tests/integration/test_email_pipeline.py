@@ -186,7 +186,7 @@ class TestEmailPipelinePhaseTwo:
         )
         monkeypatch.setattr(
             "pipelines.email_outreach.pipeline.update_status",
-            lambda email, status: None
+            lambda email, status, *args, **kwargs: None
         )
 
         from pipelines.email_outreach.pipeline import run_phase_two
@@ -208,7 +208,7 @@ class TestEmailPipelinePhaseTwo:
         )
         monkeypatch.setattr(
             "pipelines.email_outreach.pipeline.update_status",
-            lambda email, status: None
+            lambda email, status, *args, **kwargs: None
         )
 
         from pipelines.email_outreach.pipeline import run_phase_two
@@ -231,7 +231,7 @@ class TestEmailPipelinePhaseTwo:
         )
         monkeypatch.setattr(
             "pipelines.email_outreach.pipeline.update_status",
-            lambda email, status: None
+            lambda email, status, *args, **kwargs: None
         )
 
         from pipelines.email_outreach.pipeline import run_phase_two
@@ -295,7 +295,7 @@ class TestEmailPipelinePhaseTwo:
         )
         monkeypatch.setattr(
             "pipelines.email_outreach.pipeline.update_status",
-            lambda email, status: None
+            lambda email, status, *args, **kwargs: None
         )
 
         from pipelines.email_outreach.pipeline import run_phase_two

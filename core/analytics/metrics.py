@@ -98,13 +98,35 @@ def get_email_metrics():
 
     status_distribution = {"sent": sent, "pending": new_count, "new": new_count, "skipped": skipped}
 
-    # Keyword counts — only count non-null, non-empty values
+    # Keyword counts — only count non-null, non-empty values and filter by active user config keywords
     keyword_counts = {}
     if keyword_col:
+        from config.user_profiles import get_selected_user_config
+        try:
+            user_config = get_selected_user_config()
+            esc_conf = user_config.get("email_scraper", {})
+            active_kws = esc_conf.get("keywords") or esc_conf.get("search_keywords") or []
+            active_kws_set = {str(k).strip().lower() for k in active_kws if k}
+        except Exception:
+            active_kws_set = None
+
         kw_series = df[keyword_col].dropna().astype(str).str.strip()
-        kw_series = kw_series[kw_series != '' ].str.title()
+        kw_series = kw_series[kw_series != '']
+        
+        # Filter if active keywords are defined in user settings
+        if active_kws_set is not None and len(active_kws_set) > 0:
+            kw_series = kw_series[kw_series.str.lower().isin(active_kws_set)]
+            
+        kw_series = kw_series.str.title()
         if not kw_series.empty:
             keyword_counts = kw_series.value_counts().to_dict()
+            
+        # Ensure ALL active keywords are represented in the dict (even if 0 counts)
+        if active_kws_set:
+            for kw in active_kws:
+                title_kw = str(kw).strip().title()
+                if title_kw not in keyword_counts:
+                    keyword_counts[title_kw] = 0
 
     # Daily email counts (last 30 days)
     daily_counts = []
@@ -261,23 +283,71 @@ def get_company_metrics():
     # Keyword counts
     keyword_counts = {}
     if keyword_col:
+        from config.user_profiles import get_selected_user_config
+        try:
+            user_config = get_selected_user_config()
+            lc_conf = user_config.get("linkedin_connect", {})
+            active_kws = lc_conf.get("keywords") or lc_conf.get("search_keywords") or []
+            active_kws_set = {str(k).strip().lower() for k in active_kws if k}
+        except Exception:
+            active_kws_set = None
+
         kw_series = df[keyword_col].dropna().astype(str).str.strip()
         kw_series = kw_series[kw_series != '']
+        
+        # Filter by active keywords
+        if active_kws_set is not None and len(active_kws_set) > 0:
+            kw_series = kw_series[kw_series.str.lower().isin(active_kws_set)]
+            
+        kw_series = kw_series.str.title()
         if not kw_series.empty:
             keyword_counts = kw_series.value_counts().to_dict()
+            
+        # Ensure ALL active keywords are represented in the dict (even if 0 counts)
+        if active_kws_set:
+            for kw in active_kws:
+                title_kw = str(kw).strip().title()
+                if title_kw not in keyword_counts:
+                    keyword_counts[title_kw] = 0
 
     # Keyword vs Status breakdown
     keyword_status = {}
     if keyword_col and status_col:
+        from config.user_profiles import get_selected_user_config
+        try:
+            user_config = get_selected_user_config()
+            lc_conf = user_config.get("linkedin_connect", {})
+            active_kws = lc_conf.get("keywords") or lc_conf.get("search_keywords") or []
+            active_kws_set = {str(k).strip().lower() for k in active_kws if k}
+        except Exception:
+            active_kws_set = None
+
         for kw, group in df.groupby(keyword_col):
             if pd.isna(kw) or str(kw).strip() == '':
                 continue
+            
+            # Filter by active keywords
+            if active_kws_set is not None and len(active_kws_set) > 0:
+                if str(kw).strip().lower() not in active_kws_set:
+                    continue
+                    
             kw_stats = group['_status'].value_counts().to_dict()
-            keyword_status[str(kw)] = {
+            keyword_status[str(kw).strip().title()] = {
                 "new":            int(kw_stats.get('new', 0)),
                 "done":           int(kw_stats.get('done', 0)),
                 "not_interested": int(kw_stats.get('not interested', 0)),
             }
+            
+        # Ensure ALL active keywords are represented in the breakdown (even if 0 counts)
+        if active_kws_set:
+            for kw in active_kws:
+                title_kw = str(kw).strip().title()
+                if title_kw not in keyword_status:
+                    keyword_status[title_kw] = {
+                        "new": 0,
+                        "done": 0,
+                        "not_interested": 0
+                    }
 
     # Top hiring companies
     top_hiring_companies = {}

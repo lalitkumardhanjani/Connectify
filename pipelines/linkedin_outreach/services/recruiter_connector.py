@@ -322,6 +322,7 @@ def run_recruiter_messaging():
                 logger.warning("Message exceeds 1000 characters. Truncating.")
                 message_text = message_text[:997] + "..."
                 
+            logger.info(f"[OUTREACH] Drafting direct message to recruiter {name} (Profile URL: {profile_url})\nMessage:\n{message_text}")
             inserted = insert_message_draft(driver, message_text)
             if not inserted:
                 ref['Referral_Status'] = 'Failed'
@@ -356,6 +357,7 @@ def run_recruiter_messaging():
                 # Delivery Verification
                 verified = verify_delivery(driver, message_text)
                 if verified:
+                    logger.info(f"Message to recruiter {name} (Profile URL: {profile_url}) confirmed in chat history and successfully sent!")
                     ref['Referral_Status'] = 'Sent'
                     ref['Sent_Time'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     ref['Error_Reason'] = ''

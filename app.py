@@ -61,6 +61,13 @@ class SubprocessRunner:
         self.current_step = 0
         self.thread = None
         self.start_time = datetime.now().timestamp()
+        
+        # Determine unique, timestamped filename based on pipeline task ID
+        parts = task_id.split("::")
+        pipeline_name = "_".join(parts[1:]) if len(parts) > 1 else "pipeline"
+        pipeline_name = pipeline_name.replace("::", "_").replace(" ", "_")
+        timestamp = datetime.fromtimestamp(self.start_time).strftime("%Y%m%d_%H%M%S")
+        self.log_filename = f"{pipeline_name}_{timestamp}.log"
 
     def start(self):
         self.status = "running"
@@ -69,10 +76,37 @@ class SubprocessRunner:
         self.thread.start()
 
     def log(self, text):
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        self.logs.append(f"[{timestamp}] {text}")
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_line = f"[{timestamp}] {text}"
+        self.logs.append(log_line)
+        self.write_to_log_file(log_line)
+        
+        # Detailed user-friendly console logging
+        parts = self.task_id.split("::")
+        pipeline_name = parts[1] if len(parts) > 1 else "pipeline"
+        print(f"[Connectify] [USER: {self.username}] [PIPELINE: {pipeline_name}] {text}", flush=True)
+
+    def write_to_log_file(self, line):
+        try:
+            # Construct active user logs directory path
+            user_logs_dir = os.path.join(BASE_DIR, "users", self.username, "logs")
+            os.makedirs(user_logs_dir, exist_ok=True)
+            log_file_path = os.path.join(user_logs_dir, self.log_filename)
+            with open(log_file_path, "a", encoding="utf-8") as f:
+                f.write(line + "\n")
+        except Exception as e:
+            # Simply print write failure to system standard error
+            sys.stderr.write(f"Error writing to pipeline log file: {e}\n")
 
     def _run_loop(self):
+        # Automatically clean up logs older than 30 days for this user
+        try:
+            from core.logging.config import cleanup_old_logs
+            user_logs_dir = os.path.join(BASE_DIR, "users", self.username, "logs")
+            cleanup_old_logs(user_logs_dir)
+        except Exception as e:
+            self.log(f"Warning: failed to clean up old logs: {e}")
+
         for idx, (script, args) in enumerate(self.commands):
             self.current_step = idx + 1
             if script == "run_linkedin_connect.py":
@@ -130,6 +164,7 @@ class SubprocessRunner:
             # which user is currently selected in the UI.
             env_copy["CONNECTIFY_USER"] = self.username
             env_copy["CONNECTIFY_PARALLEL"] = "true"
+            env_copy["CONNECTIFY_SUBPROCESS_RUNNER"] = "true"
             
             # Derive per-user, per-pipeline Chrome profile directories
             user_dir_for_runner = os.path.join(BASE_DIR, "users", self.username)
@@ -188,17 +223,24 @@ class SubprocessRunner:
                 if not line:
                     break
                 
-                clean_line = line.strip()
-                self.logs.append(line.rstrip('\r\n'))
+                clean_line = line.rstrip('\r\n')
+                self.logs.append(clean_line)
+                self.write_to_log_file(clean_line)
+                
+                # Print to terminal console
+                parts = self.task_id.split("::")
+                pipeline_name = parts[1] if len(parts) > 1 else "pipeline"
+                print(f"[Connectify] [USER: {self.username}] [PIPELINE: {pipeline_name}] {clean_line}", flush=True)
                 
                 # Dynamic step tracking based on stdout lines for combined outreach script
-                if "Executing Phase 1: Post email scraping" in clean_line:
+                compare_line = clean_line.strip()
+                if "Executing Phase 1: Post email scraping" in compare_line:
                     self.current_step = 1
-                elif "Executing Phase 2: Email sending" in clean_line:
+                elif "Executing Phase 2: Email sending" in compare_line:
                     self.current_step = 2
                 
                 # Check if review_for_referral or job search is waiting for option/confirmation selection
-                if "Enter choice:" in clean_line or "Options:" in clean_line or "press ENTER to continue" in clean_line or "Send [S] / Skip [K] / Quit [Q]" in clean_line:
+                if "Enter choice:" in compare_line or "Options:" in compare_line or "press ENTER to continue" in compare_line or "Send [S] / Skip [K] / Quit [Q]" in compare_line:
                     time.sleep(0.2)
                     self.waiting_for_input = True
 

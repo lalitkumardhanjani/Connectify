@@ -75,7 +75,9 @@ def append_email(email, keyword='', post_url='', company_name='', experience='',
         'Location': location
     }
     append_database_row("emails", data)
+    logger.info(f"[DATABASE] Added email to tracker: ID={max_id + 1}, Email='{email}', Keyword='{keyword}', Company='{company_name}' (This will increase the Generated count on the dashboard)")
     return True
+
 
 def update_status(email, status, post_url=None, path=None):
     """Updates status for a specific scraped email row, prioritizing post_url match if duplicate emails exist."""
@@ -121,6 +123,7 @@ def update_status(email, status, post_url=None, path=None):
                     break
 
     if updated:
+        logger.info(f"[DATABASE] Email status changed: '{email}' status set to '{status}' (This will update the dashboard Sent/Outreach KPI metrics)")
         write_database_rows("emails", rows)
     return updated
 
@@ -229,6 +232,7 @@ def save_job(data, path=None):
         'CreatedDateTime': data.get('CreatedDateTime') or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
     append_database_row("jobs", new_job)
+    logger.info(f"[DATABASE] Added job to leads tracker: JobID={new_job['JobID']}, JobTitle='{new_job['JobTitle']}', CompanyName='{new_job['CompanyName']}' (This will increase the Companies/Jobs counts on the dashboard)")
     seen_external_urls.add(cache_key)
     return True
 
@@ -256,6 +260,7 @@ def update_status_by_id(job_id, status, path=None):
             updated = True
             break
     if updated:
+        logger.info(f"[DATABASE] Job status changed: JobID={job_id} status set to '{status}' (This will update the dashboard connection/outreach KPI metrics)")
         write_database_rows("jobs", rows)
     return updated
 

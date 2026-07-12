@@ -59,73 +59,66 @@ goldStarImg.width = 18;
 goldStarImg.height = 18;
 
 function computeStreaks(subset, type) {
-    let currentStreak = 0;
     let maxStreak = 0;
     let tempStreak = 0;
-    
-    // Sort subset by date ascending to compute chronological streaks
+
+    // Sort ascending by date
     const sorted = [...subset].sort((a, b) => a.date.localeCompare(b.date));
-    
-    sorted.forEach(r => {
-        let isStreakDay = false;
+
+    // An "active" day = any day where outreach was actually SENT
+    function isActiveDay(r) {
         if (type === 'email') {
-            const gen = r.generated || r.count || 0;
-            const sent = r.sent || 0;
-            isStreakDay = gen > 0 && sent >= gen;
+            return (r.sent || 0) > 0;
         } else if (type === 'company') {
-            const added = r.companies_added || 0;
-            const sent = r.connections_sent || 0;
-            isStreakDay = added > 0 && sent >= (added * 5);
+            return (r.connections_sent || 0) > 0;
         }
-        
-        if (isStreakDay) {
+        return false;
+    }
+
+    // Max streak: longest consecutive run in full history
+    sorted.forEach(r => {
+        if (isActiveDay(r)) {
             tempStreak++;
-            if (tempStreak > maxStreak) {
-                maxStreak = tempStreak;
-            }
+            if (tempStreak > maxStreak) maxStreak = tempStreak;
         } else {
             tempStreak = 0;
         }
     });
-    
-    // Compute current streak starting from today/recently backwards
-    let idx = sorted.length - 1;
-    while (idx >= 0) {
-        const r = sorted[idx];
-        let isStreakDay = false;
-        if (type === 'email') {
-            const gen = r.generated || r.count || 0;
-            const sent = r.sent || 0;
-            isStreakDay = gen > 0 && sent >= gen;
-        } else if (type === 'company') {
-            const added = r.companies_added || 0;
-            const sent = r.connections_sent || 0;
-            isStreakDay = added > 0 && sent >= (added * 5);
-        }
-        
-        if (isStreakDay) {
-            currentStreak++;
-            idx--;
-        } else {
-            // If the very last day has no activity, allow evaluating starting from yesterday
-            if (idx === sorted.length - 1) {
-                let hasActivity = false;
-                if (type === 'email') {
-                    hasActivity = (r.generated || r.count || 0) > 0 || (r.sent || 0) > 0;
-                } else if (type === 'company') {
-                    hasActivity = (r.companies_added || 0) > 0 || (r.connections_sent || 0) > 0;
-                }
-                if (!hasActivity) {
-                    idx--;
-                    continue;
-                }
+
+    // Current streak: how many consecutive active days ending at TODAY (local timezone).
+    let currentStreak = 0;
+    const localDate = new Date();
+    const year = localDate.getFullYear();
+    const month = String(localDate.getMonth() + 1).padStart(2, '0');
+    const day = String(localDate.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+
+    let startIdx = sorted.length - 1;
+
+    if (startIdx >= 0) {
+        const lastDate = sorted[startIdx].date;
+
+        if (lastDate === todayStr) {
+            // Today is recorded: if no outreach sent, streak is 0 immediately
+            if (!isActiveDay(sorted[startIdx])) {
+                return { currentStreak: 0, maxStreak };
             }
-            break;
+        }
+        // If lastDate < todayStr: today has no entry yet, start from last known day
+    }
+
+    // Walk backwards counting consecutive active days
+    for (let i = startIdx; i >= 0; i--) {
+        if (isActiveDay(sorted[i])) {
+            currentStreak++;
+        } else {
+            break; // Gap found — streak is broken
         }
     }
-    
+
     return { currentStreak, maxStreak };
 }
+
 
 function updateStreakDisplay(type, currentCountId, maxCountId, currentBadgeId, maxBadgeId, rawData) {
     const { currentStreak, maxStreak } = computeStreaks(rawData, type);
@@ -821,7 +814,6 @@ async function loadEmailDashboard() {
     }
     document.getElementById('email-pending').textContent = fmt(d.pending);
     document.getElementById('email-today').textContent = fmt(d.added_today);
-
 
 
     // Leaderboard

@@ -776,6 +776,7 @@ def send_connection_request(driver, person, message, review_mode=None):
                     time.sleep(1)
                     driver.execute_script("arguments[0].click();", send_btn)
                     time.sleep(3)
+                    logger.info(f"Successfully sent connection request to {person.get('name', 'unknown')} (Profile URL: {person.get('profile_url', 'unknown')}) with note:\n{message}")
                     return True
                 else:
                     logger.warning("Could not find Send invitation button.")
@@ -838,6 +839,7 @@ def send_connection_request(driver, person, message, review_mode=None):
             if send_btn:
                 driver.execute_script("arguments[0].click();", send_btn)
                 time.sleep(2)
+                logger.info(f"Successfully sent connection request to {person.get('name', 'unknown')} (Profile URL: {person.get('profile_url', 'unknown')}) (No Note)")
                 return True
             close_dialog(driver)
             return False
