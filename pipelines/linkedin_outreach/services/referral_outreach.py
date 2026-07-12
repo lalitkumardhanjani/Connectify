@@ -909,32 +909,72 @@ def clean_company_name(name):
     return " ".join(filtered)
 
 
+# Markers that indicate a person is no longer at the company
+_NEGATIVE_COMPANY_MARKERS = [
+    'former', 'ex-', ' ex ', 'past ', 'previous', 'retired', 'ex employee',
+    'used to work', 'worked at', 'alumnus', 'alumni', 'open to', 'immediate joiner',
+    'looking for', 'seeking', 'job search', 'available'
+]
+
+# Terms that indicate someone is a job seeker, not a current employee
+_JOB_SEEKER_NAME_MARKERS = [
+    'immediate joiner', 'open to work', 'open to opportunities', 'looking for',
+    'available for', 'actively looking', 'job seeker', 'fresher'
+]
+
 def company_names_match(target, extracted):
+    """Returns True only when 'extracted' confidently names the same company as 'target'.
+    
+    Stricter than before:
+    - Rejects strings containing ex-employee language (e.g. 'Ex-IBM', 'Former Infosys')
+    - Requires significant word overlap with a minimum match score
+    - Extracted text must be short enough to be an actual company name (< 80 chars)
+    """
+    if not target or not extracted:
+        return False
+
+    extracted_lower = extracted.lower()
+
+    # Reject immediately if the extracted string contains negative markers
+    for marker in _NEGATIVE_COMPANY_MARKERS:
+        if marker in extracted_lower:
+            return False
+
+    # Extracted text that is too long is not a company name — it's a sentence (headline, bio, etc.)
+    if len(extracted.strip()) > 80:
+        return False
+
     target_clean = clean_company_name(target)
     extracted_clean = clean_company_name(extracted)
-    
+
     if not target_clean or not extracted_clean:
         return False
-        
+
     # Exact match of cleaned strings
     if target_clean == extracted_clean:
         return True
-        
-    # Word token matching
-    target_words = target_clean.split()
-    extracted_words = extracted_clean.split()
-    
+
+    # Word token matching — requires ALL target words (>2 chars) to appear in extracted
+    target_words = [w for w in target_clean.split() if len(w) > 2]
+    extracted_words = set(extracted_clean.split())
+
     if not target_words or not extracted_words:
         return False
-        
-    # Check if target_words is subset of extracted_words or vice versa
-    if set(target_words).issubset(set(extracted_words)) or set(extracted_words).issubset(set(target_words)):
-        matching_words = set(target_words).intersection(set(extracted_words))
-        non_trivial = [w for w in matching_words if len(w) > 2]
-        if non_trivial:
-            return True
-            
+
+    # All significant target words must be present in the extracted company name
+    matched = [w for w in target_words if w in extracted_words]
+    if len(matched) == len(target_words) and len(matched) > 0:
+        return True
+
     return False
+
+
+def is_job_seeker_name(name: str) -> bool:
+    """Returns True if the person's display name contains job-seeker language."""
+    if not name:
+        return False
+    name_lower = name.lower()
+    return any(marker in name_lower for marker in _JOB_SEEKER_NAME_MARKERS)
 
 
 def scroll_to_experience_section(driver):
@@ -1087,53 +1127,42 @@ def extract_active_roles(driver):
                 }
                 
                 // Fallbacks (top card, etc.)
-                // Always append them to activeRoles to ensure maximum backwards compatibility/safety
-
-                const rightPanelItems = document.querySelectorAll('.pv-text-details__right-panel-item, li.pv-text-details__right-panel-item');
-                rightPanelItems.forEach(el => {
-                    const text = normalize(el.innerText || el.textContent);
-                    if (text) {
-                        activeRoles.push({
-                            company: text,
-                            title: '',
-                            date_range: 'Present',
-                            source: 'header_panel'
-                        });
-                    }
-                });
-
-                const currentCompanyBtn = document.querySelector('button[aria-label*=\"Current company\"]') || 
-                                         document.querySelector('[data-field=\"experience_company_logo\"]') ||
-                                         document.querySelector('a[data-field=\"company_link\"]');
-                if (currentCompanyBtn) {
-                    const text = normalize(currentCompanyBtn.innerText || currentCompanyBtn.textContent);
-                    if (text) {
-                        activeRoles.push({
-                            company: text,
-                            title: '',
-                            date_range: 'Present',
-                            source: 'header_company_button'
-                        });
-                    }
-                }
-
-                const topCardSection = document.querySelector('.pv-top-card') || 
-                                       document.querySelector('.pv-top-card-layout') ||
-                                       document.querySelector('section.artdeco-card');
-                if (topCardSection) {
-                    const textEls = topCardSection.querySelectorAll('p, span, div, a');
-                    textEls.forEach(el => {
+                // Only use fallback header/panel sources when experience section
+                // returned zero results — avoids false positives from bio/headline text
+                if (activeRoles.length === 0) {
+                    const rightPanelItems = document.querySelectorAll('.pv-text-details__right-panel-item, li.pv-text-details__right-panel-item');
+                    rightPanelItems.forEach(el => {
                         const text = normalize(el.innerText || el.textContent);
-                        if (text.length > 2 && text.length < 100) {
+                        // Only use if reasonably short (actual company name, not a sentence)
+                        if (text && text.length > 2 && text.length < 60) {
                             activeRoles.push({
                                 company: text,
                                 title: '',
                                 date_range: 'Present',
-                                source: 'top_card_text_element'
+                                source: 'header_panel_fallback'
                             });
                         }
                     });
+
+                    const currentCompanyBtn = document.querySelector('button[aria-label*="Current company"]') || 
+                                             document.querySelector('[data-field="experience_company_logo"]') ||
+                                             document.querySelector('a[data-field="company_link"]');
+                    if (currentCompanyBtn) {
+                        const text = normalize(currentCompanyBtn.innerText || currentCompanyBtn.textContent);
+                        if (text && text.length > 2 && text.length < 60) {
+                            activeRoles.push({
+                                company: text,
+                                title: '',
+                                date_range: 'Present',
+                                source: 'header_company_button_fallback'
+                            });
+                        }
+                    }
                 }
+
+                // NOTE: The top-card blanket text scrape has been intentionally removed.
+                // It caused false positives by matching bio/headline text (e.g. "Ex-IBM",
+                // "500+ connections") as current company names.
 
                 return activeRoles;
             };
@@ -1287,11 +1316,16 @@ def run_phase_one_discovery():
                         logger.info(f"Connection {conn['name']} already messaged or skipped for job {job_url}. Skipping.")
                         continue
                         
+                    # Reject job seekers by name before even visiting profile
+                    if is_job_seeker_name(conn['name']):
+                        logger.warning(f"⛔ SKIPPED (job seeker name): {conn['name']} — name contains job-seeking language.")
+                        continue
+
                     logger.info(f"Navigating to {conn['name']}'s profile: {profile_url}")
                     try:
                         driver.get(profile_url)
                         time.sleep(3)
-                        
+
                         # Scroll to trigger lazy loading of experience section
                         scroll_to_experience_section(driver)
                         
