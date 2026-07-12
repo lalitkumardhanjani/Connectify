@@ -607,97 +607,73 @@ def find_people_with_connect_button(driver, max_people=10):
     people_with_connect = []
 
     try:
+        # Scroll to load all cards
         for _ in range(2):
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
             time.sleep(1)
+        driver.execute_script("window.scrollTo(0, 0);")
+        time.sleep(0.5)
 
-        people_cards = driver.find_elements(By.CSS_SELECTOR, "li.reusable-search__result-container, li[class*='reusable-search__result'], li[class*='entity-result']")
-        if not people_cards:
-            people_cards = driver.find_elements(By.XPATH, "//li[contains(@class,'reusable-search__result-container')] | //li[contains(@class,'entity-result')]")
-        if not people_cards:
-            # Fallback: any listitem that contains a profile link
-            people_cards = [el for el in driver.find_elements(By.XPATH, "//li[@role='listitem' or contains(@class,'result-container')]") if el.find_elements(By.CSS_SELECTOR, "a[href*='/in/']")]
-        for card in people_cards:
-            if len(people_with_connect) >= max_people:
-                break
-            try:
-                connect_button = None
-                buttons = card.find_elements(By.TAG_NAME, "button")
-                for btn in buttons:
-                    try:
-                        aria = btn.get_attribute("aria-label") or ""
-                        text = btn.text or ""
-                        if "to connect" in aria.lower() or "connect" in aria.lower() or text.strip().lower() == "connect":
-                            connect_button = btn
-                            break
-                    except Exception:
-                        continue
-                
-                if not connect_button:
-                    try:
-                        connect_button = card.find_element(By.XPATH, ".//*[contains(@aria-label, 'to connect') or contains(@aria-label, 'Connect')]")
-                    except Exception:
-                        pass
-                
-                if not connect_button:
-                    continue
+        # LinkedIn now uses fully hash-based CSS class names that change with every deploy.
+        # The only stable anchors are:
+        #   1. Connect button aria-label: "Invite [Name] to connect"
+        #   2. Profile links:  a[href*='/in/']
+        # Strategy: find Connect buttons by aria-label, walk up DOM for profile URL.
+        # Selenium execute_script CAN return DOM elements as WebElements directly.
+        results = driver.execute_script("""
+            const maxPeople = arguments[0];
+            const found = [];
+            const seen = new Set();
+            const allBtns = Array.from(document.querySelectorAll('button'));
 
-                name = ""
-                name_selectors = [
-                    ".entity-result__title-text span[aria-hidden='true']",
-                    ".entity-result__title-text a",
-                    ".entity-result__title-text",
-                    "span.entity-result__title-line",
-                    "a[href*='/in/']"
-                ]
-                for selector in name_selectors:
-                    try:
-                        el = card.find_element(By.CSS_SELECTOR, selector)
-                        val = el.text.strip()
-                        if val:
-                            if "•" in val:
-                                val = val.split("•")[0].strip()
-                            if "\n" in val:
-                                val = val.split("\n")[0].strip()
-                            name = val
-                            break
-                    except Exception:
-                        continue
+            for (const btn of allBtns) {
+                if (found.length >= maxPeople) break;
+                if (!btn.offsetParent) continue; // skip hidden buttons
 
-                role = ""
-                role_selectors = [
-                    ".entity-result__primary-subtitle",
-                    ".entity-result__badge-container + div",
-                    "div[class*='subtitle']"
-                ]
-                for selector in role_selectors:
-                    try:
-                        el = card.find_element(By.CSS_SELECTOR, selector)
-                        val = el.text.strip()
-                        if val:
-                            role = val
-                            break
-                    except Exception:
-                        continue
+                const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
+                const txt  = (btn.innerText || btn.textContent || '').trim().toLowerCase();
+                const isConnect = aria.includes('to connect') ||
+                                  (aria.includes('invite') && aria.includes('connect')) ||
+                                  txt === 'connect';
+                if (!isConnect) continue;
 
-                profile_url = ""
-                try:
-                    profile_link = card.find_element(By.CSS_SELECTOR, "a[href*='/in/']")
-                    profile_url = profile_link.get_attribute("href")
-                    if "?" in profile_url:
-                        profile_url = profile_url.split("?")[0]
-                except Exception:
-                    pass
+                // Extract name from "Invite [Name] to connect"
+                const ariaLabel = btn.getAttribute('aria-label') || '';
+                let name = '';
+                const m = ariaLabel.match(/invite (.+?) to connect/i);
+                if (m) name = m[1].trim();
 
+                // Walk up to find nearest /in/ profile link
+                let profileUrl = '';
+                let el = btn.parentElement;
+                for (let i = 0; i < 20; i++) {
+                    if (!el) break;
+                    const link = el.querySelector('a[href*="/in/"]');
+                    if (link) { profileUrl = link.href.split('?')[0]; break; }
+                    el = el.parentElement;
+                }
+
+                // Deduplicate by profile URL
+                if (profileUrl && seen.has(profileUrl)) continue;
+                if (profileUrl) seen.add(profileUrl);
+
+                found.push([btn, name, profileUrl]);
+            }
+            return found;
+        """, max_people)
+
+        if results:
+            for item in results:
+                btn_el      = item[0]   # WebElement (Selenium converts JS DOM elements)
+                name        = item[1] or ""
+                profile_url = item[2] or ""
                 people_with_connect.append({
-                    'button': connect_button,
-                    'card':   card,
-                    'name':   name,
-                    'role':   role,
+                    'button':      btn_el,
+                    'name':        name,
+                    'role':        '',
                     'profile_url': profile_url
                 })
-            except NoSuchElementException:
-                continue
+
         logger.info(f"Total people with Connect button: {len(people_with_connect)}")
         return people_with_connect
     except Exception as e:
