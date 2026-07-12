@@ -461,83 +461,98 @@ def apply_current_company_filter_via_ui(driver, company_name):
     """
     logger.info(f"Attempting to verify/apply 'Current companies' filter for '{company_name}' via UI...")
     try:
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        
         # Step A: Click 'Current companies' dropdown button
-        clicked_dropdown = driver.execute_script("""
-            const btns = Array.from(document.querySelectorAll('button'));
-            const filterBtn = btns.find(b => {
-                const txt = (b.innerText || b.textContent || '').trim().toLowerCase();
-                return txt.includes('current companies') || txt.includes('current company');
-            });
-            if (filterBtn) {
-                filterBtn.scrollIntoView({block: 'center'});
-                filterBtn.click();
-                return true;
-            }
-            return false;
+        dropdown_button = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, '//*[@componentkey="SearchResults_filter_pill_currentCompany"] | //button[contains(., "Current companies")] | //div[@componentkey="SearchResults_filter_pill_currentCompany"] | //span[contains(., "Current companies")]'))
+        )
+        dropdown_button.click()
+        logger.info("Dropdown clicked.")
+        time.sleep(2)
+        
+        # Step B: Find the input element and type the company name
+        input_field = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.XPATH, '//input[contains(@placeholder, "Add a company")] | //input[contains(@placeholder, "company")]'))
+        )
+        input_field.clear()
+        input_field.send_keys(company_name)
+        logger.info(f"Typed '{company_name}' in filter input.")
+        time.sleep(4) # Wait for autocomplete suggestions
+        
+        # Step C: Select the first suggestion matching the company name
+        selected = driver.execute_script(f"""
+            const options = Array.from(document.querySelectorAll('[role="option"]'));
+            const textMatch = "{company_name.lower()}";
+            
+            const target = options.find(opt => {{
+                const txt = (opt.innerText || opt.textContent || '').toLowerCase();
+                return txt.includes(textMatch);
+            }});
+            
+            if (target) {{
+                target.click();
+                return target.innerText.replace(/\\n/g, ' ');
+            }}
+            return null;
         """)
-        if not clicked_dropdown:
-            logger.warning("Could not find 'Current companies' filter button in UI.")
-            return False
+        
+        if selected:
+            logger.info(f"Successfully selected suggestion: {selected}")
+        else:
+            logger.warning("No matching option found in suggestions list. Attempting fallback click...")
+            # Fallback checkbox/label matching
+            fallback_clicked = driver.execute_script(f"""
+                const textMatch = "{company_name.lower()}";
+                const allElements = Array.from(document.querySelectorAll('span, div, label, p'));
+                const textElement = allElements.find(el => {{
+                    const txt = (el.innerText || el.textContent || '').toLowerCase().trim();
+                    return txt === textMatch && el.children.length === 0;
+                }}) || allElements.find(el => {{
+                    const txt = (el.innerText || el.textContent || '').toLowerCase().trim();
+                    return txt === textMatch;
+                }});
+                
+                if (textElement) {{
+                    let container = textElement.parentElement;
+                    let label = null;
+                    for (let i = 0; i < 4; i++) {{
+                        if (!container) break;
+                        label = container.querySelector('label');
+                        if (label) break;
+                        container = container.parentElement;
+                    }}
+                    if (label) {{
+                        label.click();
+                        return "label clicked";
+                    }}
+                }}
+                return null;
+            """)
+            if fallback_clicked:
+                logger.info(f"Fallback label check result: {fallback_clicked}")
             
         time.sleep(2)
         
-        # Step B: Type the company name in the input field
-        typed_input = driver.execute_script(f"""
-            const input = document.querySelector('input[placeholder*="Add a company"]') || 
-                          document.querySelector('input[aria-label*="Add a company"]') ||
-                          document.querySelector('input[placeholder*="company"]');
-            if (input) {{
-                input.focus();
-                input.value = "{company_name}";
-                input.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                input.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                return true;
-            }}
-            return false;
-        """)
-        if not typed_input:
-            logger.warning("Could not find 'Add a company' input field in dropdown.")
-            return False
-            
-        time.sleep(2.5) # Wait for suggestions to load
-        
-        # Step C: Select the first checkbox/suggestion that matches
-        selected_option = driver.execute_script(f"""
-            const options = Array.from(document.querySelectorAll('div[role="option"], [data-value], .typeahead-option, [class*="typeahead"]'));
-            const textMatch = "{company_name.lower()}";
-            let targetOption = options.find(o => (o.innerText || o.textContent || '').toLowerCase().includes(textMatch));
-            
-            if (!targetOption) {{
-                const popover = document.querySelector('[role="dialog"]') || document.querySelector('.artdeco-hoverable-content__shell') || document.body;
-                const divs = Array.from(popover.querySelectorAll('div, label, span'));
-                targetOption = divs.find(d => {{
-                    const txt = (d.innerText || d.textContent || '').toLowerCase().trim();
-                    return txt.includes(textMatch) && d.querySelector('input[type="checkbox"]');
-                }});
-            }}
-            
-            if (targetOption) {{
-                const cb = targetOption.querySelector('input[type="checkbox"]');
-                if (cb && !cb.checked) {{
-                    cb.click();
-                }} else {{
-                    targetOption.click();
-                }}
-                return true;
-            }}
-            return false;
-        """)
-        if not selected_option:
-            logger.warning("Could not find a matching company option in suggestions.")
-            
-        time.sleep(1)
-        
         # Step D: Click 'Show results' button
         submitted = driver.execute_script("""
-            const btns = Array.from(document.querySelectorAll('button'));
-            const showBtn = btns.find(b => {
-                const txt = (b.innerText || b.textContent || '').trim().toLowerCase();
-                return txt.includes('show results') || txt.includes('apply');
+            const inputField = document.querySelector('input[placeholder*="Add a company"]') || 
+                                 document.querySelector('input[placeholder*="company"]');
+            if (!inputField) return false;
+
+            const popover = inputField.closest('[role="dialog"]') || 
+                          inputField.closest('.artdeco-hoverable-content__shell') || 
+                          inputField.closest('.artdeco-dropdown__content') ||
+                          inputField.parentElement.parentElement.parentElement;
+                          
+            if (!popover) return false;
+            
+            const elements = Array.from(popover.querySelectorAll('button, div, span, label'));
+            const showBtn = elements.find(el => {
+                const txt = (el.innerText || el.textContent || '').trim().toLowerCase();
+                return txt === 'show results' || txt === 'apply';
             });
             if (showBtn) {
                 showBtn.click();
@@ -1251,12 +1266,26 @@ def run_connector():
             # Step 3: If we have a Company ID, navigate to search results filtered strictly by currentCompany
             if company_id:
                 # Filter to 2nd and 3rd+ degree connections who CURRENTLY work at the company
-                people_search_url = f"https://www.linkedin.com/search/results/people/?currentCompany=%5B%22{company_id}%22%5D&network=%5B%22S%22%2C%22O%22%5D"
+                people_search_url = f"https://www.linkedin.com/search/results/people/?currentCompany={company_id}&network=%5B%22S%22%2C%22O%22%5D"
                 logger.info(f"Navigating to current employees search results: {people_search_url}")
                 try:
                     driver.get(people_search_url)
                     time.sleep(4)
                     navigation_success = True
+                    
+                    # Verify if the current company filter is active in the UI
+                    is_active = driver.execute_script("""
+                        const el = document.querySelector('[componentkey="SearchResults_filter_pill_currentCompany"]') ||
+                                   document.querySelector('[aria-label*="Current companies"]');
+                        if (el) {
+                            const txt = (el.innerText || el.textContent || '').trim().toLowerCase();
+                            return !txt.includes('current companies') && !txt.includes('current company');
+                        }
+                        return false;
+                    """)
+                    if not is_active:
+                        logger.warning("Current Company filter is not active after direct URL navigation. Applying via UI...")
+                        apply_current_company_filter_via_ui(driver, company)
                 except Exception as e:
                     logger.error(f"Failed to navigate to company search page: {e}")
             

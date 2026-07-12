@@ -1374,6 +1374,21 @@ def run_phase_one_discovery():
             driver.get(search_url)
             time.sleep(4)
             
+            # Verify if the current company filter is active in the UI
+            is_active = driver.execute_script("""
+                const el = document.querySelector('[componentkey="SearchResults_filter_pill_currentCompany"]') ||
+                           document.querySelector('[aria-label*="Current companies"]');
+                if (el) {
+                    const txt = (el.innerText || el.textContent || '').trim().toLowerCase();
+                    return !txt.includes('current companies') && !txt.includes('current company');
+                }
+                return false;
+            """)
+            if not is_active:
+                logger.warning("Current Company filter is not active after direct URL navigation. Applying via UI...")
+                from pipelines.linkedin_outreach.services.connector import apply_current_company_filter_via_ui
+                apply_current_company_filter_via_ui(driver, company)
+            
             verified_connections = []
             page_num = 1
             
