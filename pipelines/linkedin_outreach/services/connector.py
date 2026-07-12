@@ -578,11 +578,13 @@ def apply_current_company_filter_via_ui(driver, company_name):
         logger.warning(f"Error applying current company filter via UI: {ex}")
         return False
 
-def search_company(driver, company_name):
+def search_company(driver, company_name, geo_urn="102713980"):
     """Search for a company on LinkedIn and apply Current Company filter"""
     logger.info(f"Searching for company: {company_name}")
     try:
         search_url = f"https://www.linkedin.com/search/results/people/?keywords={company_name.replace(' ', '%20')}&origin=FACETED_SEARCH"
+        if geo_urn:
+            search_url += f"&geoUrn=%5B%22{geo_urn}%22%5D"
         driver.get(search_url)
         time.sleep(4)
         apply_current_company_filter_via_ui(driver, company_name)
@@ -1144,6 +1146,7 @@ def run_connector():
     
     connect_conf = user_conf.get("linkedin_connect", {})
     max_connections = int(connect_conf.get("max_connections_per_company") or connect_conf.get("max_connections_per_run") or 5)
+    geo_urn = connect_conf.get("geo_urn") or "102713980"
     total_connections_sent = 0
     
     outreach_mode = os.getenv("OUTREACH_MODE", "connect_only")
@@ -1233,6 +1236,8 @@ def run_connector():
             if company_id:
                 # Filter to 2nd and 3rd+ degree connections who CURRENTLY work at the company
                 people_search_url = f"https://www.linkedin.com/search/results/people/?currentCompany={company_id}&network=%5B%22S%22%2C%22O%22%5D"
+                if geo_urn:
+                    people_search_url += f"&geoUrn=%5B%22{geo_urn}%22%5D"
                 logger.info(f"Navigating to current employees search results: {people_search_url}")
                 try:
                     driver.get(people_search_url)
@@ -1258,7 +1263,7 @@ def run_connector():
             # Step 4: Fallback to global keyword search if everything else fails
             if not navigation_success:
                 logger.info(f"Fallback to global keyword search for {company}")
-                if not search_company(driver, company):
+                if not search_company(driver, company, geo_urn=geo_urn):
                     logger.error(f"Failed to search for {company}. Skipping...")
                     continue
                 navigation_success = True
