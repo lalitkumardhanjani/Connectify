@@ -66,6 +66,7 @@ def get_driver(profile_suffix=None):
     _kill_lingering_chrome_instances(chrome_profile_dir)
 
     options = Options()
+    options.page_load_strategy = 'eager'
 
     # --- Core stability flags (important on Windows to prevent renderer crashes) ---
     options.add_argument("--no-sandbox")
@@ -190,7 +191,7 @@ def get_driver(profile_suffix=None):
 
     driver = webdriver.Chrome(service=service, options=options)
     try:
-        driver.set_page_load_timeout(30)
+        driver.set_page_load_timeout(60)
     except Exception:
         pass
     return driver
