@@ -351,6 +351,15 @@ async function pollAllLogs() {
                         });
                         tInfo.lastLogLength = data.logs.length;
                         
+                        // Live update stats, dashboard and tables when new progress logs are received
+                        if (typeof loadStats === 'function') loadStats();
+                        if (typeof loadDashboardAnalytics === 'function') loadDashboardAnalytics();
+                        if (typeof loadTableData === 'function') {
+                            loadTableData('scraper');
+                            loadTableData('referral');
+                            loadTableData('referrals');
+                        }
+                        
                         // Only auto-scroll to the bottom if the user was already at the bottom
                         if (isAtBottom) {
                             logContainer.scrollTop = logContainer.scrollHeight;
