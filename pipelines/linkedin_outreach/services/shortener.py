@@ -94,10 +94,7 @@ def run_url_shortener():
 
     if updated_jobs_count > 0:
         save_job_data_excel(wb, ws, headers, rows, JOB_LEADS_FILE)
-        logger.info(f"\nSuccessfully updated {updated_jobs_count} URLs in '{JOB_LEADS_FILE}'.")
-        # Reload sheet on macOS
-        from core.storage.database import _trigger_mac_excel_reload
-        _trigger_mac_excel_reload(JOB_LEADS_FILE)
+        logger.info(f"\nSuccessfully updated {updated_jobs_count} URLs in '{JOB_LEADS_FILE}'.")  
     else:
         logger.info("\nNo new URLs were shortened or updated.")
 
