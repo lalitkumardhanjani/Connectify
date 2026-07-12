@@ -141,9 +141,8 @@ def get_company_id_from_page(driver, company_url):
                     if (link.closest('aside') || link.closest('.org-similar-pages') || link.closest('.org-people-also-viewed') || link.closest('.org-people-also-viewed-module')) {
                         continue;
                     }
-                    const href = link.getAttribute('href') || '';
-                    const match = href.match(/currentCompany=%5B%22(\d+)%22%5D/) || href.match(/currentCompany=(\d+)/);
-                    if (match) return match[1];
+                    const ids = extractIds(link.getAttribute('href'));
+                    if (ids.length > 0) return ids;
                 }
 
                 // F. Try parsing script tags, looking for companyUniversalId or objectUrn
@@ -151,19 +150,24 @@ def get_company_id_from_page(driver, company_url):
                 for (const script of scripts) {
                     const text = script.textContent || '';
                     let match = text.match(/"companyUniversalId"\s*:\s*(\d+)/) || text.match(/companyUniversalId\s*:\s*(\d+)/);
-                    if (match) return match[1];
+                    if (match) return [match[1]];
 
                     match = text.match(/"objectUrn"\s*:\s*"urn:li:company:(\d+)"/) || text.match(/"urn:li:company:(\d+)"/);
-                    if (match) return match[1];
+                    if (match) return [match[1]];
                 }
                 
-                return null;
+                return [];
             };
-            return getCompanyId();
+            return getCompanyIds().join(',');
         """)
 
+        # Parse company IDs returned from JS
+        company_ids = []
+        if company_ids_str:
+            company_ids = [i.strip() for i in company_ids_str.split(",") if i.strip()]
+
         # 2. Python-based regex fallback over page source if JS extraction returned nothing
-        if not company_id:
+        if not company_ids:
             logger.info("JS company ID extraction returned nothing. Trying Python page source regex fallback...")
             import re
             page_source = driver.page_source or ""
@@ -172,27 +176,29 @@ def get_company_id_from_page(driver, company_url):
             # A. URL numeric check
             url_match = re.search(r'/company/(\d+)', current_url)
             if url_match:
-                company_id = url_match.group(1)
+                company_ids = [url_match.group(1)]
                 
-            # B. companyUniversalId check
-            if not company_id:
-                m = re.search(r'"companyUniversalId"\s*:\s*(\d+)', page_source) or re.search(r'companyUniversalId\s*:\s*(\d+)', page_source)
-                if m:
-                    company_id = m.group(1)
+            # B. companyUniversalId check (high confidence)
+            if not company_ids:
+                matches = re.findall(r'"companyUniversalId"\s*:\s*(\d+)', page_source) or re.findall(r'companyUniversalId\s*:\s*(\d+)', page_source)
+                if matches:
+                    company_ids = list(set(matches))
                     
-            # C. objectUrn check
-            if not company_id:
-                m = re.search(r'"objectUrn"\s*:\s*"urn:li:company:(\d+)"', page_source) or re.search(r'urn:li:company:(\d+)', page_source)
-                if m:
-                    company_id = m.group(1)
+            # C. f_C (job filter) check (high confidence)
+            if not company_ids:
+                matches = re.findall(r'f_C=(\d+)', page_source) or re.findall(r'f_C=%5B%22(\d+)%22%5D', page_source)
+                if matches:
+                    company_ids = list(set(matches))
 
-            # D. f_C (job filter) check
-            if not company_id:
-                m = re.search(r'f_C=(\d+)', page_source) or re.search(r'f_C=%5B%22(\d+)%22%5D', page_source)
-                if m:
-                    company_id = m.group(1)
+            # NOTE: Generic urn:li:company: matches over the whole source are intentionally avoided,
+            # as they capture competitor IDs from recommendations / "people also viewed" scripts.
 
-        return company_id
+        if company_ids:
+            import json
+            import urllib.parse
+            # Format as encoded JSON array e.g. %5B%228019%22%2C%2276157629%22%5D
+            return urllib.parse.quote(json.dumps(company_ids, separators=(',', ':')))
+        return None
     except Exception as e:
         logger.warning(f"Error extracting Company ID from page: {e}")
         return None

@@ -103,13 +103,35 @@ def find_company_employees_search_url(driver, company_name):
             return None, clean_company_url(driver.current_url)
 
     # 1. Extract company ID using extremely robust JS
-    company_id = None
+    company_ids_str = None
     try:
-        company_id = driver.execute_script(r"""
-            const getCompanyId = () => {
+        company_ids_str = driver.execute_script(r"""
+            const getCompanyIds = () => {
+                const extractIds = (href) => {
+                    if (!href) return [];
+                    try {
+                        const url = new URL(href, window.location.origin);
+                        
+                        // Try currentCompany query parameter
+                        const cc = url.searchParams.get('currentCompany');
+                        if (cc) {
+                            const matches = decodeURIComponent(cc).match(/\d+/g);
+                            if (matches) return matches;
+                        }
+                        
+                        // Try f_C query parameter
+                        const fc = url.searchParams.get('f_C');
+                        if (fc) {
+                            const matches = decodeURIComponent(fc).match(/\d+/g);
+                            if (matches) return matches;
+                        }
+                    } catch (e) {}
+                    return [];
+                };
+
                 // A. Try URL if it already contains a numeric company ID
                 const urlMatch = window.location.href.match(/\/company\/(\d+)/);
-                if (urlMatch) return urlMatch[1];
+                if (urlMatch) return [urlMatch[1]];
 
                 // B. Try meta tags (highly reliable, specific to the current page head)
                 const metaSelectors = [
@@ -123,7 +145,7 @@ def find_company_employees_search_url(driver, company_name):
                     if (el) {
                         const content = el.getAttribute('content') || '';
                         const match = content.match(/company\/(\d+)/) || content.match(/urn:li:company:(\d+)/);
-                        if (match) return match[1];
+                        if (match) return [match[1]];
                     }
                 }
                 
@@ -136,9 +158,8 @@ def find_company_employees_search_url(driver, company_name):
                     }
                     const text = (link.innerText || link.textContent || '').toLowerCase();
                     if (text.includes('employee') || text.includes('people') || text.includes('connection')) {
-                        const href = link.getAttribute('href') || '';
-                        const match = href.match(/currentCompany=%5B%22(\d+)%22%5D/) || href.match(/currentCompany=(\d+)/);
-                        if (match) return match[1];
+                        const ids = extractIds(link.getAttribute('href'));
+                        if (ids.length > 0) return ids;
                     }
                 }
 
@@ -148,9 +169,8 @@ def find_company_employees_search_url(driver, company_name):
                     if (link.closest('aside') || link.closest('.org-similar-pages') || link.closest('.org-people-also-viewed') || link.closest('.org-people-also-viewed-module')) {
                         continue;
                     }
-                    const href = link.getAttribute('href') || '';
-                    const match = href.match(/f_C=(\d+)/) || href.match(/f_C=%5B%22(\d+)%22%5D/);
-                    if (match) return match[1];
+                    const ids = extractIds(link.getAttribute('href'));
+                    if (ids.length > 0) return ids;
                 }
 
                 // E. Try any link with currentCompany (excluding sidebars)
@@ -158,9 +178,8 @@ def find_company_employees_search_url(driver, company_name):
                     if (link.closest('aside') || link.closest('.org-similar-pages') || link.closest('.org-people-also-viewed') || link.closest('.org-people-also-viewed-module')) {
                         continue;
                     }
-                    const href = link.getAttribute('href') || '';
-                    const match = href.match(/currentCompany=%5B%22(\d+)%22%5D/) || href.match(/currentCompany=(\d+)/);
-                    if (match) return match[1];
+                    const ids = extractIds(link.getAttribute('href'));
+                    if (ids.length > 0) return ids;
                 }
 
                 // F. Try parsing script tags, looking for companyUniversalId or objectUrn
@@ -168,21 +187,26 @@ def find_company_employees_search_url(driver, company_name):
                 for (const script of scripts) {
                     const text = script.textContent || '';
                     let match = text.match(/"companyUniversalId"\s*:\s*(\d+)/) || text.match(/companyUniversalId\s*:\s*(\d+)/);
-                    if (match) return match[1];
+                    if (match) return [match[1]];
 
                     match = text.match(/"objectUrn"\s*:\s*"urn:li:company:(\d+)"/) || text.match(/"urn:li:company:(\d+)"/);
-                    if (match) return match[1];
+                    if (match) return [match[1]];
                 }
                 
-                return null;
+                return [];
             };
-            return getCompanyId();
+            return getCompanyIds().join(',');
         """)
     except Exception as e:
         logger.warning(f"Error resolving company ID via JS: {e}")
 
+    # Parse company IDs returned from JS
+    company_ids = []
+    if company_ids_str:
+        company_ids = [i.strip() for i in company_ids_str.split(",") if i.strip()]
+
     # 2. Python-based regex fallback over page source if JS extraction returned nothing
-    if not company_id:
+    if not company_ids:
         logger.info("JS company ID extraction returned nothing. Trying Python page source regex fallback...")
         import re
         page_source = driver.page_source or ""
@@ -191,29 +215,31 @@ def find_company_employees_search_url(driver, company_name):
         # A. URL numeric check
         url_match = re.search(r'/company/(\d+)', current_url)
         if url_match:
-            company_id = url_match.group(1)
+            company_ids = [url_match.group(1)]
             
-        # B. companyUniversalId check
-        if not company_id:
-            m = re.search(r'"companyUniversalId"\s*:\s*(\d+)', page_source) or re.search(r'companyUniversalId\s*:\s*(\d+)', page_source)
-            if m:
-                company_id = m.group(1)
+        # B. companyUniversalId check (high confidence)
+        if not company_ids:
+            matches = re.findall(r'"companyUniversalId"\s*:\s*(\d+)', page_source) or re.findall(r'companyUniversalId\s*:\s*(\d+)', page_source)
+            if matches:
+                company_ids = list(set(matches))
                 
-        # C. objectUrn check
-        if not company_id:
-            m = re.search(r'"objectUrn"\s*:\s*"urn:li:company:(\d+)"', page_source) or re.search(r'urn:li:company:(\d+)', page_source)
-            if m:
-                company_id = m.group(1)
+        # C. f_C (job filter) check (high confidence)
+        if not company_ids:
+            # Check for direct f_C numbers or encoded ones
+            matches = re.findall(r'f_C=(\d+)', page_source) or re.findall(r'f_C=%5B%22(\d+)%22%5D', page_source)
+            if matches:
+                company_ids = list(set(matches))
 
-        # D. f_C (job filter) check
-        if not company_id:
-            m = re.search(r'f_C=(\d+)', page_source) or re.search(r'f_C=%5B%22(\d+)%22%5D', page_source)
-            if m:
-                company_id = m.group(1)
+        # NOTE: Generic urn:li:company: matches over the whole source are intentionally avoided,
+        # as they capture competitor IDs from recommendations / "people also viewed" scripts.
 
-    if company_id:
-        constructed_url = f"https://www.linkedin.com/search/results/people/?currentCompany=%5B%22{company_id}%22%5D&network=%5B%22F%22%5D"
-        logger.info(f"Successfully resolved company ID {company_id} and constructed search URL: {constructed_url}")
+    if company_ids:
+        import json
+        import urllib.parse
+        # Format as encoded JSON array e.g. %5B%228019%22%2C%2276157629%22%5D
+        company_ids_param = urllib.parse.quote(json.dumps(company_ids, separators=(',', ':')))
+        constructed_url = f"https://www.linkedin.com/search/results/people/?currentCompany={company_ids_param}&network=%5B%22F%22%5D"
+        logger.info(f"Successfully resolved company IDs {company_ids} and constructed search URL: {constructed_url}")
         return constructed_url, clean_company_url(driver.current_url)
 
     # Step 2: Fallback search link parsing (excluding sidebars)
