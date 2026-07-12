@@ -1130,6 +1130,24 @@ let referralsCurrentPage = 1;
 const referralsRecordsPerPage = 10;
 
 async function loadTableData(type) {
+    // Prevent rendering if user is actively interacting with inputs/selects inside the table to avoid auto-closing dropdowns
+    const activeEl = document.activeElement;
+    if (activeEl && (activeEl.tagName === 'SELECT' || activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+        const table = document.getElementById(`table-${type}`);
+        if (table && table.contains(activeEl)) {
+            // Update cache in background but skip rendering
+            try {
+                let url;
+                if (type === 'scraper') url = '/api/data/job_tracker';
+                else if (type === 'referral') url = '/api/data/job_leads';
+                else if (type === 'referrals') url = '/api/data/referrals';
+                const response = await fetch(url);
+                dbData[type] = await response.json();
+            } catch (e) {}
+            return;
+        }
+    }
+
     let url;
     if (type === 'scraper') {
         url = '/api/data/job_tracker';
@@ -1618,7 +1636,6 @@ async function updateStatus(type, id, newStatus) {
 }
 
 async function deleteRow(type, id) {
-    if (!confirm("Are you sure you want to delete this row from the database?")) return;
     try {
         const url = type === 'referrals' ? '/api/data/delete_referral_row' : '/api/data/delete_row';
         const body = type === 'referrals' ? { "id": id } : { "db_type": type, "id": id };
