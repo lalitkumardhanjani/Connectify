@@ -2403,7 +2403,7 @@ async function loadSettings() {
         
         // 3. LinkedIn Connect fields
         setVal('connect-search-pages', connect.search_pages || 2);
-        setChecked('connect-review-mode', !connect.review_mode);
+        setChecked('connect-review-mode', !(referralOutreach.review_mode !== undefined ? referralOutreach.review_mode : connect.review_mode));
         setVal('connect-max-connections', connect.max_connections_per_company || connect.max_connections_per_run || '5');
         setVal('connect-message-template', connect.message_template);
         setVal('referral-message-template', referralOutreach.message_template || '');
