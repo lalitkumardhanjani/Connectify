@@ -58,6 +58,103 @@ goldStarImg.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/sv
 goldStarImg.width = 18;
 goldStarImg.height = 18;
 
+function computeStreaks(subset, type) {
+    let currentStreak = 0;
+    let maxStreak = 0;
+    let tempStreak = 0;
+    
+    // Sort subset by date ascending to compute chronological streaks
+    const sorted = [...subset].sort((a, b) => a.date.localeCompare(b.date));
+    
+    sorted.forEach(r => {
+        let isStreakDay = false;
+        if (type === 'email') {
+            const gen = r.generated || r.count || 0;
+            const sent = r.sent || 0;
+            isStreakDay = gen > 0 && sent >= gen;
+        } else if (type === 'company') {
+            const added = r.companies_added || 0;
+            const sent = r.connections_sent || 0;
+            isStreakDay = added > 0 && sent >= (added * 5);
+        }
+        
+        if (isStreakDay) {
+            tempStreak++;
+            if (tempStreak > maxStreak) {
+                maxStreak = tempStreak;
+            }
+        } else {
+            tempStreak = 0;
+        }
+    });
+    
+    // Compute current streak starting from today/recently backwards
+    let idx = sorted.length - 1;
+    while (idx >= 0) {
+        const r = sorted[idx];
+        let isStreakDay = false;
+        if (type === 'email') {
+            const gen = r.generated || r.count || 0;
+            const sent = r.sent || 0;
+            isStreakDay = gen > 0 && sent >= gen;
+        } else if (type === 'company') {
+            const added = r.companies_added || 0;
+            const sent = r.connections_sent || 0;
+            isStreakDay = added > 0 && sent >= (added * 5);
+        }
+        
+        if (isStreakDay) {
+            currentStreak++;
+            idx--;
+        } else {
+            // If the very last day has no activity, allow evaluating starting from yesterday
+            if (idx === sorted.length - 1) {
+                let hasActivity = false;
+                if (type === 'email') {
+                    hasActivity = (r.generated || r.count || 0) > 0 || (r.sent || 0) > 0;
+                } else if (type === 'company') {
+                    hasActivity = (r.companies_added || 0) > 0 || (r.connections_sent || 0) > 0;
+                }
+                if (!hasActivity) {
+                    idx--;
+                    continue;
+                }
+            }
+            break;
+        }
+    }
+    
+    return { currentStreak, maxStreak };
+}
+
+function updateStreakDisplay(type, currentCountId, maxCountId, currentBadgeId, maxBadgeId, rawData) {
+    const { currentStreak, maxStreak } = computeStreaks(rawData, type);
+    
+    const curCount = document.getElementById(currentCountId);
+    const curBadge = document.getElementById(currentBadgeId);
+    const mxCount = document.getElementById(maxCountId);
+    const mxBadge = document.getElementById(maxBadgeId);
+    
+    if (curCount && curBadge) {
+        if (currentStreak > 0) {
+            curCount.textContent = currentStreak;
+            curBadge.style.display = 'inline-flex';
+        } else {
+            curBadge.style.display = 'none';
+        }
+    }
+    
+    if (mxCount && mxBadge) {
+        if (maxStreak > 0) {
+            mxCount.textContent = maxStreak;
+            mxBadge.style.display = 'inline-flex';
+        } else {
+            mxBadge.style.display = 'none';
+        }
+    }
+}
+
+
 // Pending Queue Pagination State
 let pendingCurrentPage = 1;
 const pendingRecordsPerPage = 10;
@@ -472,12 +569,13 @@ function renderEmailDailyChart() {
     const sentPointBgColors = [];
     const sentPointBorderColors = [];
     
+    const isStarView = currentEmailTimeframe > 7;
     subset.forEach(r => {
         const gen = r.generated || r.count || 0;
         const sent = r.sent || 0;
         const isAchieved = gen > 0 && sent >= gen;
         
-        if (isAchieved) {
+        if (isAchieved && isStarView) {
             achievementsCount++;
             
             // Hide diamond Generated point at this overlap index
@@ -492,6 +590,9 @@ function renderEmailDailyChart() {
             sentPointBgColors.push('#ffb300');
             sentPointBorderColors.push('#ffb300');
         } else {
+            if (isAchieved) {
+                achievementsCount++;
+            }
             // Normal diamond shape
             genPointStyles.push('rectRot');
             genPointRadii.push(5);
@@ -516,6 +617,8 @@ function renderEmailDailyChart() {
             badge.style.display = 'none';
         }
     }
+
+    updateStreakDisplay('email', 'email-current-streak-count', 'email-max-streak-count', 'email-current-streak-badge', 'email-max-streak-badge', rawEmailDailyCounts);
 
     if (emailDailyChartInst) {
         emailDailyChartInst.rawSubset = subset;
@@ -578,12 +681,13 @@ function renderCompanyDailyChart() {
     const sentPointBgColors = [];
     const sentPointBorderColors = [];
     
+    const isStarView = currentCompanyTimeframe > 7;
     subset.forEach(r => {
         const added = r.companies_added || 0;
         const sent = r.connections_sent || 0;
         const isAchieved = added > 0 && sent >= (added * 5);
         
-        if (isAchieved) {
+        if (isAchieved && isStarView) {
             achievementsCount++;
             
             // Hide triangle Added point at this overlap index
@@ -598,6 +702,9 @@ function renderCompanyDailyChart() {
             sentPointBgColors.push('#ffb300');
             sentPointBorderColors.push('#ffb300');
         } else {
+            if (isAchieved) {
+                achievementsCount++;
+            }
             // Normal triangle shape
             addPointStyles.push('triangle');
             addPointRadii.push(5);
@@ -622,6 +729,8 @@ function renderCompanyDailyChart() {
             badge.style.display = 'none';
         }
     }
+
+    updateStreakDisplay('company', 'company-current-streak-count', 'company-max-streak-count', 'company-current-streak-badge', 'company-max-streak-badge', rawCompanyDailyCounts);
 
     if (coDailyChartInst) {
         coDailyChartInst.rawSubset = subset;
