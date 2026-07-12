@@ -993,7 +993,23 @@ def send_connection_request(driver, person, message, review_mode=None):
             return "skipped"
     except Exception as e:
         logger.error(f"Error sending connection request: {str(e)}")
-        close_dialog(driver)
+        error_msg = str(e).lower()
+        is_connection_error = (
+            "connection" in error_msg or 
+            "refused" in error_msg or 
+            "max retries" in error_msg or 
+            "invalid session id" in error_msg or 
+            "no such window" in error_msg or 
+            "chrome not reachable" in error_msg or
+            "disconnected" in error_msg
+        )
+        if is_connection_error:
+            logger.error("Lost connection to Chrome browser. Terminating request.")
+            return "browser_error"
+        try:
+            close_dialog(driver)
+        except Exception:
+            pass
         return False
 
 def send_direct_message(driver, person, message):
@@ -1276,6 +1292,13 @@ def run_connector():
             if outreach_mode in ("connect_only", "both"):
                 page_number = 1
                 while success_count < max_apply:
+                    # Check if browser is still open/alive
+                    try:
+                        _ = driver.title
+                    except Exception:
+                        logger.error("Chrome browser was closed or crashed. Terminating connection requests.")
+                        break
+
                     logger.info(f"\nProcessing page {page_number} for connect requests")
                     remaining = max_apply - success_count
                     people = find_people_with_connect_button(driver, max_people=remaining)
@@ -1291,6 +1314,13 @@ def run_connector():
                     for person in people:
                         if success_count >= max_apply:
                             break
+                        # Check if browser is still open/alive
+                        try:
+                            _ = driver.title
+                        except Exception:
+                            logger.error("Chrome browser was closed or crashed. Terminating connection requests.")
+                            break
+
                         try:
                             raw_name = person.get('name') or ''
                             first_name = raw_name.split()[0] if raw_name else "there"
@@ -1309,7 +1339,10 @@ def run_connector():
                             
                             status_val = 'Sent'
                             error_reason = ''
-                            if sent == "skipped":
+                            if sent == "browser_error":
+                                logger.error("Browser connection was lost. Exiting run...")
+                                return
+                            elif sent == "skipped":
                                 logger.info(f"Skipping connect request to {person.get('name', 'unknown')}")
                                 status_val = 'Skipped'
                             elif sent == "quit":
