@@ -236,8 +236,10 @@ def save_job(data, path=None):
     return True
 
 def load_jobs_for_referral(path=None, status_filter='Asked for Referral'):
-    """Loads all job leads matching the target status filter."""
+    """Loads all job leads matching the target status filter. If status_filter is None, returns all job leads."""
     rows = read_database_rows("jobs")
+    if status_filter is None:
+        return rows
     return [r for r in rows if str(r.get('Status')).strip().lower() == status_filter.lower()]
 
 def update_status_by_id(job_id, status, path=None):
