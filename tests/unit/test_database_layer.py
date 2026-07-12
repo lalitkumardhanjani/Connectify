@@ -281,13 +281,13 @@ class TestGetSheetsConfig:
 
 
 class TestCompositeUniquenessConstraints:
-    def test_append_email_composite_uniqueness(self, local_user):
+    def test_append_email_email_only_uniqueness(self, local_user):
         from core.storage.database import append_email, read_database_rows
         assert append_email("test@domain.com", post_url="https://post.com/1") is True
         assert append_email("test@domain.com", post_url="https://post.com/1") is False
-        assert append_email("test@domain.com", post_url="https://post.com/2") is True
+        assert append_email("test@domain.com", post_url="https://post.com/2") is False
         assert append_email("other@domain.com", post_url="https://post.com/1") is True
-        assert len(read_database_rows("emails")) == 3
+        assert len(read_database_rows("emails")) == 2
 
     def test_save_job_composite_uniqueness(self, local_user):
         from core.storage.database import save_job, load_saved_jobs
