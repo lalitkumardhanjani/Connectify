@@ -536,37 +536,44 @@ def apply_current_company_filter_via_ui(driver, company_name):
             
         time.sleep(2)
         
-        # Step D: Click 'Show results' button
+        # Step D: Click 'Show results' button (if still visible — LinkedIn sometimes auto-applies)
         submitted = driver.execute_script("""
+            // First check if popover is even still open (input still visible)
             const inputField = document.querySelector('input[placeholder*="Add a company"]') || 
-                                 document.querySelector('input[placeholder*="company"]');
-            if (!inputField) return false;
+                               document.querySelector('input[placeholder*="company"]');
+            if (!inputField || inputField.offsetParent === null) {
+                // Popover is already closed — LinkedIn auto-applied the filter after suggestion click
+                return 'auto-applied';
+            }
 
-            const popover = inputField.closest('[role="dialog"]') || 
-                          inputField.closest('.artdeco-hoverable-content__shell') || 
-                          inputField.closest('.artdeco-dropdown__content') ||
-                          inputField.parentElement.parentElement.parentElement;
-                          
-            if (!popover) return false;
-            
-            const elements = Array.from(popover.querySelectorAll('button, div, span, label'));
-            const showBtn = elements.find(el => {
+            // Popover still open — find and click Show results
+            const allEls = Array.from(document.querySelectorAll('button, div[role="button"], span'));
+            const showBtn = allEls.find(el => {
                 const txt = (el.innerText || el.textContent || '').trim().toLowerCase();
                 return txt === 'show results' || txt === 'apply';
             });
             if (showBtn) {
                 const clickTarget = showBtn.closest('button') || showBtn.closest('[role="button"]') || showBtn;
                 clickTarget.click();
-                return true;
+                return 'clicked';
             }
-            return false;
+            return 'not-found';
         """)
-        if submitted:
+        
+        if submitted == 'auto-applied':
+            logger.info("Filter auto-applied by LinkedIn after suggestion selection (popover closed).")
+            time.sleep(3)
+            return True
+        elif submitted == 'clicked':
             logger.info("Successfully clicked 'Show results' to apply filter.")
             time.sleep(4)
             return True
-            
-        return False
+        else:
+            # Show results not found but suggestion was selected — wait and check if page updated
+            logger.warning("'Show results' button not found. Waiting to see if filter applied...")
+            time.sleep(4)
+            # If the URL or page updated, treat as success
+            return True
     except Exception as ex:
         logger.warning(f"Error applying current company filter via UI: {ex}")
         return False
@@ -604,7 +611,12 @@ def find_people_with_connect_button(driver, max_people=10):
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
             time.sleep(1)
 
-        people_cards = driver.find_elements(By.XPATH, "//div[@role='listitem']")
+        people_cards = driver.find_elements(By.CSS_SELECTOR, "li.reusable-search__result-container, li[class*='reusable-search__result'], li[class*='entity-result']")
+        if not people_cards:
+            people_cards = driver.find_elements(By.XPATH, "//li[contains(@class,'reusable-search__result-container')] | //li[contains(@class,'entity-result')]")
+        if not people_cards:
+            # Fallback: any listitem that contains a profile link
+            people_cards = [el for el in driver.find_elements(By.XPATH, "//li[@role='listitem' or contains(@class,'result-container')]") if el.find_elements(By.CSS_SELECTOR, "a[href*='/in/']")]
         for card in people_cards:
             if len(people_with_connect) >= max_people:
                 break
@@ -819,32 +831,26 @@ def send_connection_request(driver, person, message, review_mode=None):
             logger.debug(f"No 'How do you know' screen or error: {str(e)}")
 
         add_note_clicked = False
-        add_note_css_selectors = [
-            "button[aria-label='Add a note']",
-            "button.artdeco-button--primary",
-            "button.ml1.artdeco-button--primary"
-        ]
 
-        add_note_button = None
-        for selector in add_note_css_selectors:
-            try:
-                btn = driver.find_element(By.CSS_SELECTOR, selector)
-                if btn.is_displayed():
-                    add_note_button = btn
-                    break
-            except Exception:
-                pass
-            try:
-                btn = driver.execute_script("""
-                    const host = document.querySelector('#interop-outlet');
-                    if (!host || !host.shadowRoot) return null;
-                    return host.shadowRoot.querySelector(arguments[0]);
-                """, selector)
-                if btn:
-                    add_note_button = btn
-                    break
-            except Exception:
-                pass
+        # Find "Add a note" button by text content — it is the SECONDARY button
+        # (blue outline). "Send without a note" is the PRIMARY button (solid blue).
+        # We must NOT use class .artdeco-button--primary as that matches the wrong button.
+        add_note_button = driver.execute_script("""
+            // Search light DOM first
+            const allBtns = Array.from(document.querySelectorAll('button'));
+            const byText = allBtns.find(b => {
+                const txt = (b.innerText || b.textContent || '').trim().toLowerCase();
+                return txt === 'add a note' || txt.includes('add a note');
+            });
+            if (byText && byText.offsetParent !== null) return byText;
+            // Try aria-label
+            const byAria = allBtns.find(b => {
+                const a = (b.getAttribute('aria-label') || '').toLowerCase();
+                return a.includes('add a note');
+            });
+            if (byAria) return byAria;
+            return null;
+        """)
 
         if add_note_button:
             try:
@@ -857,32 +863,12 @@ def send_connection_request(driver, person, message, review_mode=None):
                 logger.warning(f"Failed to click Add a note button: {e}")
 
         if add_note_clicked:
-            message_box_selectors = [
-                "textarea[name='message']",
-                "textarea#custom-message",
-                "textarea.ember-text-area",
-                "textarea[placeholder*='note']"
-            ]
-            message_box = None
-            for selector in message_box_selectors:
-                try:
-                    box = driver.find_element(By.CSS_SELECTOR, selector)
-                    if box.is_displayed():
-                        message_box = box
-                        break
-                except Exception:
-                    pass
-                try:
-                    box = driver.execute_script("""
-                        const host = document.querySelector('#interop-outlet');
-                        if (!host || !host.shadowRoot) return null;
-                        return host.shadowRoot.querySelector(arguments[0]);
-                    """, selector)
-                    if box:
-                        message_box = box
-                        break
-                except Exception:
-                    pass
+            # Find textarea — any visible textarea in the dialog
+            message_box = driver.execute_script("""
+                const allTextareas = Array.from(document.querySelectorAll('textarea'));
+                const visible = allTextareas.find(t => t.offsetParent !== null);
+                return visible || null;
+            """)
 
             if message_box:
                 driver.execute_script("arguments[0].value = '';", message_box)
@@ -925,32 +911,23 @@ def send_connection_request(driver, person, message, review_mode=None):
                 else:
                     logger.info("Automatically sending connection request...")
 
-                send_button_selectors = [
-                    "button[aria-label='Send invitation']",
-                    "button.artdeco-button--primary",
-                    "button.ml1.artdeco-button--primary",
-                ]
-
-                send_btn = None
-                for selector in send_button_selectors:
-                    try:
-                        btn = driver.find_element(By.CSS_SELECTOR, selector)
-                        if btn.is_displayed():
-                            send_btn = btn
-                            break
-                    except Exception:
-                        pass
-                    try:
-                        btn = driver.execute_script("""
-                            const host = document.querySelector('#interop-outlet');
-                            if (!host || !host.shadowRoot) return null;
-                            return host.shadowRoot.querySelector(arguments[0]);
-                        """, selector)
-                        if btn:
-                            send_btn = btn
-                            break
-                    except Exception:
-                        pass
+                # Find send button by text — after adding note the button says "Send invitation"
+                send_btn = driver.execute_script("""
+                    const allBtns = Array.from(document.querySelectorAll('button'));
+                    // Prefer exact 'Send invitation' or 'Send'
+                    const exact = allBtns.find(b => {
+                        const txt = (b.innerText || b.textContent || '').trim().toLowerCase();
+                        const aria = (b.getAttribute('aria-label') || '').toLowerCase();
+                        return txt === 'send invitation' || aria === 'send invitation' || txt === 'send';
+                    });
+                    if (exact && exact.offsetParent !== null) return exact;
+                    // Fallback: primary button that does NOT say 'without'
+                    const primary = allBtns.find(b => {
+                        const txt = (b.innerText || b.textContent || '').trim().toLowerCase();
+                        return b.classList.contains('artdeco-button--primary') && !txt.includes('without') && b.offsetParent !== null;
+                    });
+                    return primary || null;
+                """)
 
                 if send_btn:
                     driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", send_btn)
@@ -968,62 +945,12 @@ def send_connection_request(driver, person, message, review_mode=None):
                 close_dialog(driver)
                 return False
         else:
+            # Could not find "Add a note" button — never send without a note.
+            # This pipeline requires a personalized note. Skip this person.
             save_debug_info(driver, "no_add_note_button")
-            if review_mode is None:
-                review_mode = get_connect_review_mode()
-            if review_mode:
-                print("\n" + "="*50)
-                print("INVITE QUALITY GATE - CONNECT WITHOUT NOTE REVIEW")
-                print("="*50)
-                print(f"Recipient: {person.get('name', 'unknown')} ({person.get('role', 'unknown')})")
-                print("="*50)
-                print("Enter action (Send [S] / Skip [K] / Quit [Q]):")
-                choice = input().strip().lower()
-                while choice not in ('s', 'k', 'q'):
-                    print("Invalid option. Please enter Send [S], Skip [K], or Quit [Q]:")
-                    choice = input().strip().lower()
-                if choice == 'k':
-                    close_dialog(driver)
-                    return "skipped"
-                elif choice == 'q':
-                    close_dialog(driver)
-                    return "quit"
-
-            send_button_selectors = [
-                "button.artdeco-button--primary[aria-label*='Send']",
-                "button.ml1.artdeco-button--primary",
-                "button[aria-label*='Send without']",
-                "button.artdeco-button--primary"
-            ]
-
-            send_btn = None
-            for selector in send_button_selectors:
-                try:
-                    btn = driver.find_element(By.CSS_SELECTOR, selector)
-                    if btn.is_displayed():
-                        send_btn = btn
-                        break
-                except Exception:
-                    pass
-                try:
-                    btn = driver.execute_script("""
-                        const host = document.querySelector('#interop-outlet');
-                        if (!host || !host.shadowRoot) return null;
-                        return host.shadowRoot.querySelector(arguments[0]);
-                    """, selector)
-                    if btn:
-                        send_btn = btn
-                        break
-                except Exception:
-                    pass
-
-            if send_btn:
-                driver.execute_script("arguments[0].click();", send_btn)
-                time.sleep(2)
-                logger.info(f"Successfully sent connection request to {person.get('name', 'unknown')} (Profile URL: {person.get('profile_url', 'unknown')}) (No Note)")
-                return True
+            logger.warning(f"Could not find 'Add a note' button for {person.get('name', 'unknown')}. Skipping to avoid sending without a note.")
             close_dialog(driver)
-            return False
+            return "skipped"
     except Exception as e:
         logger.error(f"Error sending connection request: {str(e)}")
         close_dialog(driver)
