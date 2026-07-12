@@ -555,7 +555,8 @@ def apply_current_company_filter_via_ui(driver, company_name):
                 return txt === 'show results' || txt === 'apply';
             });
             if (showBtn) {
-                showBtn.click();
+                const clickTarget = showBtn.closest('button') || showBtn.closest('[role="button"]') || showBtn;
+                clickTarget.click();
                 return true;
             }
             return false;
@@ -1322,14 +1323,6 @@ def run_connector():
                             break
                         try:
                             raw_name = person.get('name') or ''
-                            role_text = person.get('role') or ''
-                            
-                            # Extra safety check: verify the person's headline matches the target company
-                            from pipelines.linkedin_outreach.services.referral_outreach import company_names_match
-                            if not company_names_match(company, role_text):
-                                logger.warning(f"⚠️ Precautionary Skip: {raw_name}'s headline ('{role_text}') does not appear to match target company '{company}'.")
-                                continue
-                                
                             first_name = raw_name.split()[0] if raw_name else "there"
                             message = get_message(
                                 position=position,
