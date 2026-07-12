@@ -423,11 +423,11 @@ class LocalStorageProvider(BaseStorageProvider):
                         break
             elif table_key == "referrals":
                 new_profile = normalize_external_url(row.get("Referral_Person_Profile_URL") or "")
-                new_job_url = normalize_external_url(row.get("Company_URL") or "")
+                new_job_url = normalize_external_url(row.get("Job_URL") or "")
                 new_job_id = str(row.get("JobID") or "").strip()
                 for er in existing_rows:
                     er_profile = normalize_external_url(er.get("Referral_Person_Profile_URL") or "")
-                    er_job_url = normalize_external_url(er.get("Company_URL") or "")
+                    er_job_url = normalize_external_url(er.get("Job_URL") or "")
                     er_job_id = str(er.get("JobID") or "").strip()
                     if er_profile == new_profile and (er_job_url == new_job_url or (new_job_id and er_job_id == new_job_id)):
                         is_duplicate = True
@@ -916,11 +916,11 @@ class GoogleSheetsStorageProvider(BaseStorageProvider):
                         break
             elif table_key == "referrals":
                 new_profile = normalize_external_url(row.get("Referral_Person_Profile_URL") or "")
-                new_job_url = normalize_external_url(row.get("Company_URL") or "")
+                new_job_url = normalize_external_url(row.get("Job_URL") or "")
                 new_job_id = str(row.get("JobID") or "").strip()
                 for er in existing_rows:
                     er_profile = normalize_external_url(er.get("Referral_Person_Profile_URL") or "")
-                    er_job_url = normalize_external_url(er.get("Company_URL") or "")
+                    er_job_url = normalize_external_url(er.get("Job_URL") or "")
                     er_job_id = str(er.get("JobID") or "").strip()
                     if er_profile == new_profile and (er_job_url == new_job_url or (new_job_id and er_job_id == new_job_id)):
                         is_duplicate = True

@@ -218,7 +218,6 @@ class TestAddOrUpdateReferral:
         return {
             "JobID": job_id,
             "CompanyName": company,
-            "Company_URL": f"https://linkedin.com/company/{company.lower()}/",
             "JobTitle": "Data Engineer",
             "Job_URL": "https://co.com/j/1",
             "Referral_Person_Name": "Test Person",
@@ -301,8 +300,8 @@ class TestCompositeUniquenessConstraints:
 
     def test_add_or_update_referral_composite_uniqueness(self, local_user):
         from core.storage.database import add_or_update_referral, load_all_referrals
-        r1 = {"JobID": "1", "JobTitle": "SWE", "CompanyName": "CoA", "Company_URL": "https://apply.com/1", "Referral_Person_Name": "P1", "Referral_Person_Profile_URL": "https://li.com/in/p1", "Referral_Status": "NEW"}
-        r2 = {"JobID": "2", "JobTitle": "SWE", "CompanyName": "CoB", "Company_URL": "https://apply.com/2", "Referral_Person_Name": "P1", "Referral_Person_Profile_URL": "https://li.com/in/p1", "Referral_Status": "NEW"}
+        r1 = {"JobID": "1", "JobTitle": "SWE", "CompanyName": "CoA", "Job_URL": "https://apply.com/1", "Referral_Person_Name": "P1", "Referral_Person_Profile_URL": "https://li.com/in/p1", "Referral_Status": "NEW"}
+        r2 = {"JobID": "2", "JobTitle": "SWE", "CompanyName": "CoB", "Job_URL": "https://apply.com/2", "Referral_Person_Name": "P1", "Referral_Person_Profile_URL": "https://li.com/in/p1", "Referral_Status": "NEW"}
         
         assert add_or_update_referral(r1) is True
         assert add_or_update_referral(r1) is True

@@ -305,16 +305,27 @@ def add_or_update_referral(referral_data, path=None):
     """Inserts a new referral outreach row or updates an existing one if matching."""
     rows = read_database_rows("referrals", bypass_cache=True)
     target_profile = str(referral_data.get('Referral_Person_Profile_URL') or '').strip().lower()
-    target_job_url = str(referral_data.get('Company_URL') or '').strip().lower()
+    target_job_url = str(referral_data.get('Job_URL') or '').strip().lower()
     target_job_id = str(referral_data.get('JobID') or '').strip()
     
     updated = False
     for r in rows:
         curr_profile = str(r.get('Referral_Person_Profile_URL') or '').strip().lower()
-        curr_job_url = str(r.get('Company_URL') or '').strip().lower()
+        curr_job_url = str(r.get('Job_URL') or '').strip().lower()
         curr_job_id = str(r.get('JobID') or '').strip()
         
-        if curr_profile == target_profile and (curr_job_url == target_job_url or (target_job_id and curr_job_id == target_job_id)):
+        is_match = False
+        if curr_profile == target_profile:
+            if target_job_id and curr_job_id:
+                if curr_job_id == target_job_id:
+                    is_match = True
+            elif curr_job_url and target_job_url:
+                if curr_job_url == target_job_url:
+                    is_match = True
+            elif not target_job_id and not curr_job_id and not target_job_url and not curr_job_url:
+                is_match = True
+                
+        if is_match:
             for k, v in referral_data.items():
                 if k != 'ReferralID':
                     r[k] = v
@@ -336,7 +347,7 @@ def add_or_update_referral(referral_data, path=None):
             'JobID': referral_data.get('JobID', ''),
             'JobTitle': referral_data.get('JobTitle', ''),
             'CompanyName': referral_data.get('CompanyName', ''),
-            'Company_URL': referral_data.get('Company_URL', ''),
+            'Job_URL': referral_data.get('Job_URL', ''),
             'Referral_Person_Name': referral_data.get('Referral_Person_Name', ''),
             'Referral_Person_Profile_URL': referral_data.get('Referral_Person_Profile_URL', ''),
             'Referral_Source': referral_data.get('Referral_Source', ''),
@@ -354,7 +365,7 @@ def is_profile_already_contacted(profile_url, job_url=None, path=None):
     target_job_url = str(job_url or '').strip().lower()
     for r in rows:
         curr_profile = str(r.get('Referral_Person_Profile_URL') or '').strip().lower()
-        curr_job_url = str(r.get('Company_URL') or '').strip().lower()
+        curr_job_url = str(r.get('Job_URL') or '').strip().lower()
         if curr_profile == target_profile:
             if not target_job_url or curr_job_url == target_job_url:
                 return True
@@ -484,7 +495,7 @@ def sync_job_lead_referral_statuses(path=None):
         company_data = {}
         for ref in referrals:
             c_name = str(ref.get("CompanyName") or "").strip().lower()
-            c_url = clean_company_url(ref.get("Company_URL") or "")
+            c_url = clean_company_url(ref.get("Job_URL") or "")
             job_id_val = str(ref.get("JobID") or "").strip()
             ref_source = str(ref.get("Referral_Source") or "").strip().lower()
             ref_status = str(ref.get("Referral_Status") or "").strip().lower()
@@ -516,7 +527,9 @@ def sync_job_lead_referral_statuses(path=None):
                 
             completed_count = 0
             for (cn, cu, jid), count in company_data.items():
-                if cn == c_name_lower and jid == row_job_id:
+                if row_job_id and jid == row_job_id:
+                    completed_count += count
+                elif not row_job_id and not jid and cn == c_name_lower:
                     if not company_url or not cu or company_url == cu:
                         completed_count += count
                         
@@ -558,7 +571,7 @@ def load_job_leads_with_referral_counts():
     company_data = {}
     for ref in referrals:
         c_name = str(ref.get("CompanyName") or "").strip().lower()
-        c_url = clean_company_url(ref.get("Company_URL") or "")
+        c_url = clean_company_url(ref.get("Job_URL") or "")
         job_id_val = str(ref.get("JobID") or "").strip()
         ref_source = str(ref.get("Referral_Source") or "").strip().lower()
         ref_status = str(ref.get("Referral_Status") or "").strip().lower()
@@ -605,7 +618,9 @@ def load_job_leads_with_referral_counts():
 
         completed_count = 0
         for (cn, cu, jid), data in company_data.items():
-            if cn == c_name_lower and jid == lead_job_id:
+            if lead_job_id and jid == lead_job_id:
+                completed_count += data["completed"]
+            elif not lead_job_id and not jid and cn == c_name_lower:
                 if not company_url or not cu or company_url == cu:
                     completed_count += data["completed"]
 
@@ -659,7 +674,7 @@ def deduplicate_all_tables(username):
         unique_referrals = []
         seen_referrals = set()
         for r in referral_rows:
-            job_url_val = str(r.get('Company_URL') or '').strip().lower()
+            job_url_val = str(r.get('Job_URL') or '').strip().lower()
             profile_url_val = str(r.get('Referral_Person_Profile_URL') or '').strip().lower()
             key = (job_url_val, profile_url_val)
             if key not in seen_referrals:
