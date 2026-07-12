@@ -22,32 +22,7 @@ logger = setup_logger(LINKEDIN_CONNECT_LOG_FILE)
 
 def _inject_login_banner(driver):
     """Injects a clear red warning banner to alert the user to log in manually."""
-    try:
-        driver.execute_script(r"""
-            (function(){
-                const id = 'connectify-login-banner';
-                if (document.getElementById(id)) return;
-                const banner = document.createElement('div');
-                banner.id = id;
-                banner.style.position = 'fixed';
-                banner.style.top = '0';
-                banner.style.left = '0';
-                banner.style.width = '100%';
-                banner.style.backgroundColor = '#ef4444';
-                banner.style.color = '#ffffff';
-                banner.style.textAlign = 'center';
-                banner.style.padding = '15px';
-                banner.style.fontSize = '18px';
-                banner.style.fontWeight = 'bold';
-                banner.style.zIndex = '999999';
-                banner.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
-                banner.innerText = '⚠️ Action Required: Please log in to LinkedIn now. The pipeline will resume automatically once you are logged in.';
-                document.body.appendChild(banner);
-                document.body.style.marginTop = '50px';
-            })();
-        """)
-    except Exception:
-        pass
+    pass
 
 # ============== HELPER FUNCTIONS ==============
 
