@@ -3753,7 +3753,7 @@ async function initPipelineStatus() {
         pipelines.forEach(p => {
             const pipelineKey = `${p}_pipeline`;
             const entry = Object.entries(tasks).find(
-                ([tid, t]) => t.username === activeUser && tid.endsWith(`::${pipelineKey}`)
+                ([tid, t]) => t.username === activeUser && tid.split('::').includes(pipelineKey)
             );
             const taskId = entry ? entry[0] : null;
             const task = entry ? entry[1] : null;
@@ -3776,7 +3776,7 @@ async function initPipelineStatus() {
                 if (runBtn) runBtn.classList.remove('hidden');
                 if (killBtn) killBtn.classList.add('hidden');
                 // If the active log view was polling a task for a different user, stop it
-                if (activeTaskId && activeTaskId.endsWith(`::${pipelineKey}`) && !activeTaskId.startsWith(`${activeUser}::`)) {
+                if (activeTaskId && activeTaskId.split('::').includes(pipelineKey) && !activeTaskId.startsWith(`${activeUser}::`)) {
                     stopPolling();
                     activeTaskId = null;
                     const consoleLogs = document.getElementById('console-logs');
