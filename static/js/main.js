@@ -1704,10 +1704,27 @@ async function selectUser(username) {
         const data = await response.json();
         if (data.status === 'success') {
             document.getElementById('user-select-dropdown').classList.add('hidden');
-            // Force a fully fresh reload (bypass_cache=true) so we get the switched user's data
-            cachedConfig = null;
+            // Clear old user's logs and tasks state
+            polledTasks = {};
+            clearedTaskIds.clear();
+            activeTaskId = null;
+            const logContainer = document.getElementById('console-logs');
+            if (logContainer) {
+                logContainer.innerHTML = '<div class="log-line system">Switched profile. Loading active logs...</div>';
+            }
+            const wrapper = document.getElementById('console-logs-wrapper');
+            if (wrapper) {
+                // Remove all sub-terminals since we switched profile
+                wrapper.querySelectorAll('.terminal-logs').forEach(el => {
+                    if (el.id !== 'console-logs') {
+                        el.remove();
+                    }
+                });
+            }
+
             await loadUsers();
             await loadSettings();
+            await initPipelineStatus();
             // Navigate to dashboard
             const dashboardTab = document.querySelector('.nav-menu .nav-item[data-tab="dashboard"]');
             if (dashboardTab) dashboardTab.click();
