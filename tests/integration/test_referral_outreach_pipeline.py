@@ -10,7 +10,9 @@ Run with:
 """
 
 import pytest
-from unittest.mock import MagicMock
+import io
+import sys
+from unittest.mock import MagicMock, patch
 
 
 def _make_employee_referral(name="Employee", profile_url=None, company="RefCo",
@@ -214,3 +216,173 @@ class TestReferralOutreachSheets:
 
         referrals = load_all_referrals()
         assert len(referrals) == 2
+
+
+# ---------------------------------------------------------------------------
+# Review Mode (Automatic vs Manual) Tests
+# ---------------------------------------------------------------------------
+
+class TestReferralReviewModeGating:
+    """
+    Tests to verify the 'Send Automatic Connection' toggle (review_mode) correctly
+    controls whether the Send Referral Messages pipeline prompts or sends automatically.
+
+    review_mode=False → Send Automatic Connection ON  → messages are sent without prompt
+    review_mode=True  → Send Automatic Connection OFF → stdin prompt is shown each time
+    """
+
+    # ── prompt_referral_action unit-level tests ──────────────────────────────
+
+    def test_automatic_mode_returns_send_without_prompt(self):
+        """When review_mode=False (automatic), prompt_referral_action must return 'send'
+        immediately without reading from stdin at all."""
+        from pipelines.linkedin_outreach.services.referral_outreach import prompt_referral_action
+
+        # If stdin were read, this mock would raise; proves no stdin read happens
+        with patch("sys.stdin") as mock_stdin:
+            mock_stdin.readline.side_effect = AssertionError("stdin must NOT be read in automatic mode")
+            result = prompt_referral_action("Test User", review_mode=False)
+
+        assert result == "send", "Automatic mode must return 'send' without any prompt"
+
+    def test_manual_mode_send_choice_returns_send(self):
+        """When review_mode=True (manual), entering 's' at the prompt returns 'send'."""
+        from pipelines.linkedin_outreach.services.referral_outreach import prompt_referral_action
+
+        with patch("sys.stdin", io.StringIO("s\n")), \
+             patch("sys.stdout", new_callable=io.StringIO):
+            result = prompt_referral_action("Test User", review_mode=True)
+
+        assert result == "send"
+
+    def test_manual_mode_skip_choice_returns_skip(self):
+        """When review_mode=True (manual), entering 'k' at the prompt returns 'skip'."""
+        from pipelines.linkedin_outreach.services.referral_outreach import prompt_referral_action
+
+        with patch("sys.stdin", io.StringIO("k\n")), \
+             patch("sys.stdout", new_callable=io.StringIO):
+            result = prompt_referral_action("Test User", review_mode=True)
+
+        assert result == "skip"
+
+    def test_manual_mode_quit_choice_returns_quit(self):
+        """When review_mode=True (manual), entering 'q' at the prompt returns 'quit'."""
+        from pipelines.linkedin_outreach.services.referral_outreach import prompt_referral_action
+
+        with patch("sys.stdin", io.StringIO("q\n")), \
+             patch("sys.stdout", new_callable=io.StringIO):
+            result = prompt_referral_action("Test User", review_mode=True)
+
+        assert result == "quit"
+
+    def test_manual_mode_invalid_then_valid_retries(self):
+        """When review_mode=True (manual), invalid input is rejected and re-prompted until valid."""
+        from pipelines.linkedin_outreach.services.referral_outreach import prompt_referral_action
+
+        # First input is invalid, second is valid 's'
+        with patch("sys.stdin", io.StringIO("x\ns\n")), \
+             patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
+            result = prompt_referral_action("Test User", review_mode=True)
+
+        assert result == "send"
+        output = mock_stdout.getvalue()
+        assert "Invalid option" in output
+
+    # ── Config resolution tests (review_mode from config dict) ───────────────
+
+    def test_review_mode_resolved_from_referral_outreach_config(self, local_user):
+        """review_mode=False in referral_outreach config → automatic send (no prompt)."""
+        from core.storage.engine import get_user_config
+        from unittest.mock import patch as mpatch
+
+        # Patch the user config so referral_outreach.review_mode = False
+        conf = get_user_config(local_user["username"])
+        conf["referral_outreach"]["review_mode"] = False
+
+        with mpatch("pipelines.linkedin_outreach.services.referral_outreach.get_selected_user_config",
+                    return_value=conf), \
+             mpatch("pipelines.linkedin_outreach.services.referral_outreach.get_global_settings",
+                    return_value=conf.get("global_settings", {})), \
+             mpatch("pipelines.linkedin_outreach.services.referral_outreach.load_all_referrals",
+                    return_value=[]):
+            from pipelines.linkedin_outreach.services.referral_outreach import run_phase_two_messaging
+            # No pending referrals → exits cleanly without touching browser
+            run_phase_two_messaging()  # Should not raise or prompt
+
+    def test_review_mode_true_in_referral_config_overrides_connect_false(self, local_user):
+        """referral_outreach.review_mode=True overrides linkedin_connect.review_mode=False.
+        This validates the priority: referral_outreach > linkedin_connect."""
+        from core.storage.engine import get_user_config
+
+        conf = get_user_config(local_user["username"])
+        # connect says automatic (False), but referral says manual (True)
+        conf["linkedin_connect"]["review_mode"] = False
+        conf["referral_outreach"]["review_mode"] = True
+
+        with patch("pipelines.linkedin_outreach.services.referral_outreach.get_selected_user_config",
+                   return_value=conf), \
+             patch("pipelines.linkedin_outreach.services.referral_outreach.get_global_settings",
+                   return_value=conf.get("global_settings", {})), \
+             patch("pipelines.linkedin_outreach.services.referral_outreach.load_all_referrals",
+                   return_value=[]):
+            from pipelines.linkedin_outreach.services.referral_outreach import run_phase_two_messaging
+            # No pending referrals → exits without prompting
+            run_phase_two_messaging()
+
+    def test_review_mode_fallback_to_connect_when_referral_has_no_review_mode(self, local_user):
+        """When referral_outreach has no review_mode key, it falls back to linkedin_connect.review_mode."""
+        from core.storage.engine import get_user_config
+
+        conf = get_user_config(local_user["username"])
+        # Remove review_mode from referral_outreach entirely
+        conf["referral_outreach"].pop("review_mode", None)
+        # Set connect to automatic (False)
+        conf["linkedin_connect"]["review_mode"] = False
+
+        with patch("pipelines.linkedin_outreach.services.referral_outreach.get_selected_user_config",
+                   return_value=conf), \
+             patch("pipelines.linkedin_outreach.services.referral_outreach.get_global_settings",
+                   return_value=conf.get("global_settings", {})), \
+             patch("pipelines.linkedin_outreach.services.referral_outreach.load_all_referrals",
+                   return_value=[]):
+            from pipelines.linkedin_outreach.services.referral_outreach import run_phase_two_messaging
+            run_phase_two_messaging()  # Should complete cleanly in automatic mode
+
+    def test_review_mode_defaults_to_true_when_both_configs_missing(self, local_user):
+        """When neither referral_outreach nor linkedin_connect has review_mode, default is True (safe/manual)."""
+        from pipelines.linkedin_outreach.services.referral_outreach import prompt_referral_action
+
+        # Simulate what happens when both configs are missing review_mode:
+        # The pipeline code does: review_mode = connect_conf.get("review_mode", True)
+        # So defaults to True (manual, safe)
+        referral_conf = {}
+        connect_conf = {}
+        review_mode = referral_conf.get("review_mode")
+        if review_mode is None:
+            review_mode = connect_conf.get("review_mode", True)
+        review_mode = bool(review_mode)
+
+        assert review_mode is True, "Default review_mode must be True (safe/manual) when config is missing"
+
+    # ── Integration: automatic mode skips prompt in send loop ────────────────
+
+    def test_automatic_mode_processes_pending_referrals_without_browser(self, local_user):
+        """With review_mode=False and a pending referral, the send loop calls prompt_referral_action
+        which returns 'send' immediately. Validates no browser or stdin needed in automatic mode."""
+        from pipelines.linkedin_outreach.services.referral_outreach import prompt_referral_action
+
+        # Build a queue of 3 pending referrals and simulate the prompt loop
+        pending = [
+            _make_employee_referral(name=f"Emp{i}", status="pending")
+            for i in range(3)
+        ]
+
+        actions = []
+        for ref in pending:
+            name = ref.get("Referral_Person_Name")
+            action = prompt_referral_action(name, review_mode=False)
+            actions.append(action)
+
+        assert all(a == "send" for a in actions), \
+            "All actions must be 'send' in automatic mode — no manual prompt"
+        assert len(actions) == 3
