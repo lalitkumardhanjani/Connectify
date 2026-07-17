@@ -380,11 +380,7 @@ _WORK_MODE_PATTERNS = [
 
 _LOCATION_PATTERNS = [
     # ── Explicit label patterns (highest confidence) ──────────────────────────
-    r"(?:Job\s+)?Location\s*[:\-–|]\s*([A-Za-z][A-Za-z,\s\.\-()&]{3,80}?)(?=\s*[\n\r|•]|$)",
-    r"Work\s+Location\s*[:\-–|]\s*([A-Za-z][A-Za-z,\s\.\-()&]{3,80}?)(?=\s*[\n\r|•]|$)",
-    r"Office(?:\s+Location)?\s*[:\-–|]\s*([A-Za-z][A-Za-z,\s\.\-()&]{3,80}?)(?=\s*[\n\r|•]|$)",
-    r"Base(?:d)?(?:\s+Location)?\s*[:\-–|]\s*([A-Za-z][A-Za-z,\s\.\-()&]{3,80}?)(?=\s*[\n\r|•]|$)",
-    r"Place\s*[:\-–|]\s*([A-Za-z][A-Za-z,\s\.\-()&]{3,80}?)(?=\s*[\n\r|•]|$)",
+    r"(?:Job\s+|Work\s+|Office\s+|Base(?:d)?\s+|Place\s+|Main\s+|Primary\s+|Home\s+)?Location\s*[:\-–|]\s*([A-Za-z][A-Za-z,\s\.\-()&]{3,80}?)(?=\s*[\n\r|•]|$)",
     # "City: Pune" — return just the city name
     r"City\s*[:\-–|]\s*([A-Za-z][A-Za-z\s]{2,40}?)(?=\s*[\n\r|,\.]|$)",
 

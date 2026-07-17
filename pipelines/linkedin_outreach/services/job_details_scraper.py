@@ -219,9 +219,10 @@ def extract_details_from_html(html_text, url):
     # 3. Extract Job ID from URL path or query parameters (relying on redirected final URL)
     if not is_valid_job_id(job_id):
         parsed_url = urlparse(url)
-        # Search query params (e.g. opportunityId, job_id, reqId, role)
-        qs = parse_qs(parsed_url.query)
-        for param in ["opportunityId", "jobId", "job_id", "reqId", "role", "id"]:
+        # Search query params case-insensitively, cleaning up any HTML ampersand encoding artifacts
+        query_str = parsed_url.query.replace("&amp;", "&").replace("&amp;amp;", "&")
+        qs = {k.lower().strip().replace("amp;", ""): v for k, v in parse_qs(query_str).items()}
+        for param in ["opportunityid", "jobid", "job_id", "reqid", "role", "id"]:
             if param in qs and qs[param]:
                 job_id = qs[param][0]
                 break
@@ -243,9 +244,9 @@ def extract_details_from_html(html_text, url):
     # Requisition ID pattern from text
     if not is_valid_job_id(job_id):
         id_patterns = [
-            r'(?:job|req|reference|posting|requisition)\s*(?:id|number|no|#)?\s*[:\-#]?\s*([A-Za-z0-9_\-]+)',
-            r'JR\d+',
-            r'NTT\d+[A-Z0-9]+'
+            r'\b(?:job|req|reference|posting|requisition|position)\b\s*(?:id|number|no|#)?\s*[:\-#]?\s*\b([A-Za-z0-9_\-]+)',
+            r'\bJR\d+\b',
+            r'\bNTT\d+[A-Z0-9]+\b'
         ]
         for pat in id_patterns:
             matches = re.findall(pat, clean_text, re.IGNORECASE)
@@ -307,6 +308,9 @@ def scrape_job_details(url):
         if res.status_code == 200:
             # Pass the final redirected URL (res.url) instead of the original short URL
             details = extract_details_from_html(res.text, res.url)
+            # Optimization: If requests successfully extracted either location or job ID, bypass Selenium fallback
+            if details["location"] != "Not Specified" or details["job_id"] != "N/A":
+                return details
     except Exception as e:
         logger.warning(f"Error requesting {url} directly: {e}")
         
@@ -327,7 +331,12 @@ def scrape_job_details(url):
             from core.integrations.selenium_driver import get_driver
             driver = get_driver("chrome-profile-details-extractor")
             driver.get(url)
-            time.sleep(4)
+            # Wait up to 10 seconds for dynamic AJAX / Single Page App content to load
+            from selenium.webdriver.support.ui import WebDriverWait
+            try:
+                WebDriverWait(driver, 10).until(lambda d: len(d.find_element(by="tag name", value="body").text) > 1000)
+            except Exception:
+                time.sleep(4)
             html = driver.page_source
             # Pass the final browser URL (driver.current_url) instead of the original short URL
             selenium_details = extract_details_from_html(html, driver.current_url)
