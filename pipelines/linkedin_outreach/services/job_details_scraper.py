@@ -147,16 +147,17 @@ def extract_from_html_tags(html_text):
                     break
     return location
 
-def extract_details_from_html(html_text, url):
+def extract_details_from_html(html_text, url, visible_text=None):
     """
     Parses Job ID, Location, and Experience from the job posting HTML.
+    Uses browser's visible_text directly if provided (essential for dynamic SPAs parsed via Selenium).
     """
     job_id = ""
     location = ""
     experience = ""
 
     # Get clean visible text
-    clean_text = get_clean_text(html_text)
+    clean_text = visible_text if visible_text is not None else get_clean_text(html_text)
 
     # 1. Parse JSON-LD JobPosting schema
     parser = LDJSONParser()
@@ -308,8 +309,8 @@ def scrape_job_details(url):
         if res.status_code == 200:
             # Pass the final redirected URL (res.url) instead of the original short URL
             details = extract_details_from_html(res.text, res.url)
-            # Optimization: If requests successfully extracted either location or job ID, bypass Selenium fallback
-            if details["location"] != "Not Specified" or details["job_id"] != "N/A":
+            # Optimization: Bypass Selenium ONLY if requests successfully found BOTH location and Job ID (since SPAs return blank HTML with ID parsed from URL)
+            if details["location"] != "Not Specified" and details["job_id"] != "N/A":
                 return details
     except Exception as e:
         logger.warning(f"Error requesting {url} directly: {e}")
@@ -318,28 +319,34 @@ def scrape_job_details(url):
     if details["location"] == "Not Specified" or details["job_id"] == "N/A" or details["experience"] == "Not Specified":
         logger.info(f"Requests returned incomplete details for {url}. Falling back to Selenium headless Chrome...")
         driver = None
+        profile_suffix = f"chrome-profile-details-extractor-temp-{int(time.time() * 1000)}"
         try:
             from selenium.webdriver.chrome.options import Options
-            # Patch chrome options for headless mode dynamically
+            # Patch chrome options for headless mode dynamically and mask user agent to bypass bot detection
             original_add_argument = Options.add_argument
             def patched_add_argument(self, arg):
                 original_add_argument(self, arg)
                 if arg == "--no-sandbox":
                     original_add_argument(self, "--headless=new")
+                    original_add_argument(self, "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
             Options.add_argument = patched_add_argument
             
             from core.integrations.selenium_driver import get_driver
-            driver = get_driver("chrome-profile-details-extractor")
+            driver = get_driver(profile_suffix)
             driver.get(url)
             # Wait up to 10 seconds for dynamic AJAX / Single Page App content to load
             from selenium.webdriver.support.ui import WebDriverWait
             try:
                 WebDriverWait(driver, 10).until(lambda d: len(d.find_element(by="tag name", value="body").text) > 1000)
             except Exception:
-                time.sleep(4)
+                pass
             html = driver.page_source
-            # Pass the final browser URL (driver.current_url) instead of the original short URL
-            selenium_details = extract_details_from_html(html, driver.current_url)
+            try:
+                visible_text = driver.find_element(by="tag name", value="body").text
+            except Exception:
+                visible_text = None
+            # Pass the final browser URL (driver.current_url) and the gold-standard browser visible text
+            selenium_details = extract_details_from_html(html, driver.current_url, visible_text=visible_text)
             
             # Keep whichever details are better
             if selenium_details["location"] != "Not Specified":
@@ -356,5 +363,14 @@ def scrape_job_details(url):
                     driver.quit()
                 except Exception:
                     pass
+            # Clean up the temporary profile folder to avoid disk bloat
+            try:
+                from config.settings import get_user_dir
+                profile_dir = os.path.join(get_user_dir(), profile_suffix)
+                if os.path.exists(profile_dir):
+                    import shutil
+                    shutil.rmtree(profile_dir, ignore_errors=True)
+            except Exception:
+                pass
                 
     return details
