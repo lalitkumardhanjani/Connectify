@@ -1329,18 +1329,22 @@ def run_phase_one_discovery():
                 logger.warning(f"Failed to update status to In Progress: {e}")
 
             # Check company target connections progress (active connection outreach/discovery count)
-            from core.storage.database import get_completed_referral_count, load_all_referrals
+            from core.storage.database import get_completed_referral_count, load_all_referrals, is_job_lead_match
             referrals = load_all_referrals()
             completed_progress = get_completed_referral_count(company, job_url, job_id=job_id)
             
-            # Count existing pending employee connections in database
-            pending_count = sum(
-                1 for r_item in referrals
-                if str(r_item.get("CompanyName") or "").strip().lower() == company.strip().lower()
-                and str(r_item.get("JobID") or "").strip() == str(job_id).strip()
-                and str(r_item.get("Referral_Source") or "").strip().lower() in ("existing employee", "sent employee connection")
-                and str(r_item.get("Referral_Status") or "").strip().lower() == "pending"
-            )
+            pending_count = 0
+            for r_item in referrals:
+                curr_company = str(r_item.get("CompanyName") or "").strip()
+                curr_job_id = str(r_item.get("JobID") or "").strip()
+                curr_source = str(r_item.get("Referral_Source") or "").strip().lower()
+                curr_status = str(r_item.get("Referral_Status") or "").strip().lower()
+                
+                if curr_source not in ("existing employee", "sent employee connection") or curr_status != "pending":
+                    continue
+                    
+                if is_job_lead_match(company, job_id, curr_company, curr_job_id):
+                    pending_count += 1
             
             total_exist = completed_progress + pending_count
             

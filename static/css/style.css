@@ -2735,11 +2735,25 @@ details[open] > * {
     margin-bottom: 1.2rem;
 }
 
+.kpi-grid-8 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.2rem;
+}
+
+.kpi-grid-10 {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.2rem;
+}
+
 .kpi-card {
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 1.2rem 1.4rem;
+    gap: 10px;
+    padding: 1.2rem 0.9rem;
     border-radius: 14px;
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
@@ -2770,6 +2784,7 @@ details[open] > * {
 .kpi-card.kpi-teal::before  { background: var(--accent-teal); }
 .kpi-card.kpi-red::before   { background: var(--accent-red); }
 .kpi-card.kpi-orange::before{ background: #ff6d00; }
+.kpi-card.kpi-blue::before  { background: #2979ff; }
 
 .kpi-icon {
     width: 46px;
@@ -2790,6 +2805,7 @@ details[open] > * {
 .kpi-teal  .kpi-icon { background: rgba(44,182,125,0.15);  color: var(--accent-teal); }
 .kpi-red   .kpi-icon { background: rgba(255,61,0,0.15);    color: var(--accent-red); }
 .kpi-orange .kpi-icon{ background: rgba(255,109,0,0.15);   color: #ff6d00; }
+.kpi-blue   .kpi-icon{ background: rgba(41,121,255,0.15);   color: #2979ff; }
 
 .kpi-body {
     display: flex;
@@ -2798,7 +2814,7 @@ details[open] > * {
 }
 
 .kpi-label {
-    font-size: 0.78rem;
+    font-size: 0.72rem;
     color: var(--text-secondary);
     font-weight: 500;
     text-transform: uppercase;
@@ -3078,12 +3094,19 @@ details[open] > * {
     color: var(--accent-cyan);
 }
 
-/* Responsive Ã¢â‚¬â€ collapse to 2-col KPI on smaller screens */
+/* Responsive — collapse to 2-col KPI on smaller screens */
+@media (max-width: 1400px) {
+    .kpi-grid-8 { grid-template-columns: repeat(4, 1fr); }
+    .kpi-grid-10 { grid-template-columns: repeat(4, 1fr); }
+}
+
 @media (max-width: 950px) {
     .kpi-grid { grid-template-columns: repeat(2, 1fr); }
     .kpi-grid-5 { grid-template-columns: repeat(3, 1fr); }
     .kpi-grid-6 { grid-template-columns: repeat(3, 1fr); }
     .kpi-grid-7 { grid-template-columns: repeat(4, 1fr); }
+    .kpi-grid-8 { grid-template-columns: repeat(3, 1fr); }
+    .kpi-grid-10 { grid-template-columns: repeat(3, 1fr); }
     .charts-grid { grid-template-columns: 1fr 1fr; }
     .chart-card-wide { grid-column: span 2; }
 }
@@ -3093,6 +3116,8 @@ details[open] > * {
     .kpi-grid-5 { grid-template-columns: 1fr 1fr; }
     .kpi-grid-6 { grid-template-columns: 1fr 1fr; }
     .kpi-grid-7 { grid-template-columns: 1fr 1fr; }
+    .kpi-grid-8 { grid-template-columns: 1fr 1fr; }
+    .kpi-grid-10 { grid-template-columns: 1fr 1fr; }
     .charts-grid { grid-template-columns: 1fr; }
     .charts-grid-equal { grid-template-columns: 1fr; }
     .chart-card-wide { grid-column: span 1; }
@@ -5340,4 +5365,61 @@ body.light-theme .pipeline-tab-btn.active {
 body.light-theme .pipeline-actions .btn {
     border: 1px solid rgba(196,207,226,0.80);
 }
+
+/* Global Custom Scrollbars for Dark Glassmorphism */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(127, 90, 240, 0.35);
+    border-radius: 4px;
+    border: 2px solid var(--bg-primary);
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(127, 90, 240, 0.6);
+}
+
+/* Modal and Overlay Backdrop Blur Adjustments */
+.modal-overlay {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    background: rgba(10, 8, 19, 0.7);
+    transition: opacity 0.3s ease;
+}
+
+/* Glow Transitions for Form Inputs & Filter Selects */
+.col-filter-input:focus,
+.col-filter-select:focus,
+.search-box input:focus {
+    outline: none;
+    border-color: var(--accent-purple);
+    box-shadow: 0 0 10px rgba(127, 90, 240, 0.35);
+}
+
+/* Smooth Transition Animations for Hover States */
+.nav-item,
+.dash-module-btn,
+.btn,
+.table-action-btn,
+.btn-step-run {
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Interactive Scale Up for Main Cards & Buttons */
+.kpi-card:hover,
+.pipeline-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px 0 rgba(127, 90, 240, 0.25);
+    border-color: var(--glass-glow-border);
+}
+
+.nav-item:hover {
+    transform: translateX(3px);
+}
+
 

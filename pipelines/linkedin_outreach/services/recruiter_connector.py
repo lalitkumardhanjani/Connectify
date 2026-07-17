@@ -158,15 +158,15 @@ def run_recruiter_discovery():
 
             # Check company target recruiters progress (total active/pending recruiter outreach count)
             total_progress = get_recruiter_outreach_progress(company)
-            if total_progress >= max_recruits:
-                logger.info(f"Target recruiter count of {max_recruits} already reached/discovered for {company} (progress: {total_progress}). Skipping discovery.")
+            if total_progress["sent"] >= max_recruits:
+                logger.info(f"Target recruiter count of {max_recruits} already reached/discovered for {company} (progress: {total_progress['sent']}). Skipping discovery.")
                 try:
                     update_status_by_id(job_id, 'Done')
                 except Exception as e:
                     logger.warning(f"Failed to update Job status to Done: {e}")
                 continue
 
-            remaining_cap = max_recruits - total_progress
+            remaining_cap = max_recruits - total_progress["sent"]
             logger.info(f"\nProcessing company for recruiter discovery: {company} (JobID {job_id}). Remaining target capacity: {remaining_cap}")
             
             search_query = f"{company} Talent Acquisition"
@@ -282,8 +282,8 @@ def run_recruiter_messaging():
             
             # Check company target recruiters progress
             total_progress = get_recruiter_outreach_progress(company)
-            if total_progress >= max_recruits:
-                logger.info(f"Target recruiter count of {max_recruits} already reached for {company} (progress: {total_progress}). Skipping messaging.")
+            if total_progress["sent"] >= max_recruits:
+                logger.info(f"Target recruiter count of {max_recruits} already reached for {company} (progress: {total_progress['sent']}). Skipping messaging.")
                 continue
 
             logger.info("\n" + "=" * 60)
@@ -437,8 +437,8 @@ def run_recruiter_connector():
 
             # Check company target recruiters progress
             total_progress = get_recruiter_outreach_progress(company)
-            if total_progress >= target_count:
-                logger.info(f"Company '{company}' has already reached its target recruiter count of {target_count} (progress: {total_progress}). Skipping.")
+            if total_progress["sent"] >= target_count:
+                logger.info(f"Company '{company}' has already reached its target recruiter count of {target_count} (progress: {total_progress['sent']}). Skipping.")
                 try:
                     update_status_by_id(job_id, 'Done')
                 except Exception as e:
@@ -550,7 +550,7 @@ def run_recruiter_connector():
             # Mark this job as Done after outreach attempts if recruiter target reached
             # Calculate total recruiter outreach progress
             total_recruits_progress = get_recruiter_outreach_progress(company)
-            if total_recruits_progress >= target_count:
+            if total_recruits_progress["sent"] >= target_count:
                 try:
                     update_status_by_id(job_id, 'Done')
                     logger.info(f"Updated company '{company}' status in tracker to 'Done'.")
@@ -559,7 +559,7 @@ def run_recruiter_connector():
             else:
                 try:
                     update_status_by_id(job_id, 'Completed – Target Not Met')
-                    logger.info(f"Finished recruiter processing for '{company}' but target count {target_count} not reached (current progress: {total_recruits_progress}). Updated status to 'Completed – Target Not Met'.")
+                    logger.info(f"Finished recruiter processing for '{company}' but target count {target_count} not reached (current progress: {total_recruits_progress['sent']}). Updated status to 'Completed – Target Not Met'.")
                 except Exception as e:
                     logger.warning(f"Failed to record status update: {e}")
 

@@ -249,7 +249,11 @@ def get_company_metrics():
         "keyword_counts": {},
         "keyword_status": {},
         "top_hiring_companies": {},
-        "daily_counts": []
+        "daily_counts": [],
+        "connections_sent_today": 0,
+        "companies_added_today": 0,
+        "total_connections": 0,
+        "total_referrals": 0
     }
 
     if df.empty:
@@ -407,6 +411,44 @@ def get_company_metrics():
     except Exception as e:
         print(f"Daily company analytics count error: {e}")
 
+    connections_sent_today = 0
+    companies_added_today = 0
+    today_str = datetime.now().strftime("%Y-%m-%d")
+
+    # Connections sent today
+    if not ref_df.empty:
+        status_col = _find_col(ref_df, 'Referral_Status', 'Referral Status', 'Status')
+        source_col = _find_col(ref_df, 'Referral_Source', 'Referral Source', 'Source')
+        sent_time_col = _find_col(ref_df, 'Sent_Time', 'Sent Time')
+        
+        if status_col and source_col and sent_time_col:
+            cond_source = ref_df[source_col].astype(str).str.strip().str.lower().isin(['sent employee connection', 'sent recruiter connection'])
+            cond_status = ref_df[status_col].astype(str).str.strip().str.lower().isin(['sent', 'replied', 'referral received'])
+            cond_time = ref_df[sent_time_col].astype(str).str.strip().str.startswith(today_str)
+            connections_sent_today = int((cond_source & cond_status & cond_time).sum())
+
+    # Companies added today
+    created_col = _find_col(df, 'CreatedDateTime', 'Created DateTime', 'Timestamp')
+    if created_col:
+        companies_added_today = int(df[created_col].astype(str).str.strip().str.startswith(today_str).sum())
+
+    # Total connection requests and total referrals
+    total_connections = 0
+    total_referrals = 0
+    
+    # Calculate total referrals as how many companies have status as 'referred'
+    status_col_jobs = _find_col(df, 'Status', 'status')
+    if status_col_jobs:
+        total_referrals = int(df[status_col_jobs].astype(str).str.strip().str.lower().eq('referred').sum())
+
+    if not ref_df.empty:
+        status_col = _find_col(ref_df, 'Referral_Status', 'Referral Status', 'Status')
+        source_col = _find_col(ref_df, 'Referral_Source', 'Referral Source', 'Source')
+        if status_col and source_col:
+            cond_source = ref_df[source_col].astype(str).str.strip().str.lower().isin(['sent employee connection', 'sent recruiter connection'])
+            cond_status = ref_df[status_col].astype(str).str.strip().str.lower().isin(['sent', 'replied', 'referral received'])
+            total_connections = int((cond_source & cond_status).sum())
+
     return {
         "total_companies":    total_companies,
         "new":                new,
@@ -418,7 +460,11 @@ def get_company_metrics():
         "keyword_counts":     keyword_counts,
         "keyword_status":     keyword_status,
         "top_hiring_companies": top_hiring_companies,
-        "daily_counts":       daily_counts
+        "daily_counts":       daily_counts,
+        "connections_sent_today": connections_sent_today,
+        "companies_added_today": companies_added_today,
+        "total_connections": total_connections,
+        "total_referrals": total_referrals
     }
 
 

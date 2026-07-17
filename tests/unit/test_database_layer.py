@@ -385,3 +385,102 @@ class TestCompositeUniquenessConstraints:
         assert metrics["total_companies"] == 2
         assert metrics["interested"] == 1
         assert metrics["referral_outreach"] == 1
+
+class TestRobustMatching:
+    def test_clean_company_name_for_match(self):
+        from core.storage.database import clean_company_name_for_match
+        assert clean_company_name_for_match("FetchJobs.co") == "fetchjobsco"
+        assert clean_company_name_for_match("micro1") == "micro1"
+        assert clean_company_name_for_match("Google, Inc.") == "google"
+        assert clean_company_name_for_match("EXL Corp") == "exl"
+        assert clean_company_name_for_match("General Mills India") == "generalmillsindia"
+        assert clean_company_name_for_match("") == ""
+        assert clean_company_name_for_match(None) == ""
+
+    def test_compare_job_ids(self):
+        from core.storage.database import compare_job_ids
+        assert compare_job_ids("123", 123.0) is True
+        assert compare_job_ids(123.0, 123) is True
+        assert compare_job_ids("abc", "abc") is True
+        assert compare_job_ids("abc", "123") is False
+        assert compare_job_ids("15820_4420791253", "15820_4420791253") is True
+        assert compare_job_ids(None, "") is True
+        assert compare_job_ids("N/A", "n/a") is False  # Case sensitive exact match or type check, wait "N/A" and "n/a" don't match or maybe they do? Wait, compare_job_ids does id1_str == id2_str, which is "N/A" == "n/a" (False)
+        assert compare_job_ids("N/A", "N/A") is True
+
+    def test_get_company_metrics_today_counters(self, local_user):
+        from core.storage.database import save_job, add_or_update_referral
+        from core.analytics.metrics import get_company_metrics
+        from datetime import datetime
+        
+        today_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        job = {
+            "JobTitle": "Data Engineer",
+            "CompanyName": "Tech Corp",
+            "Location": "India",
+            "CompanyURL": "http://techcorp.com",
+            "Status": "referred",
+            "CreatedDateTime": today_str
+        }
+        save_job(job)
+        
+        ref = {
+            "JobID": "123",
+            "CompanyName": "Tech Corp",
+            "Referral_Source": "Sent Employee Connection",
+            "Referral_Status": "Sent",
+            "Sent_Time": today_str
+        }
+        add_or_update_referral(ref)
+        
+        metrics = get_company_metrics()
+        assert metrics["companies_added_today"] == 1
+        assert metrics["connections_sent_today"] == 1
+        assert metrics["total_connections"] == 1
+        assert metrics["total_referrals"] == 1
+
+class TestStatusSync:
+    def test_sync_job_lead_referral_statuses_does_not_override_milestone_statuses(self, local_user):
+        import core.storage.database as db
+        from core.storage.engine import read_database_rows, write_database_rows
+        
+        # 1. Setup jobs with different statuses
+        jobs = [
+            {"JobID": 1001, "CompanyName": "Company A", "Status": "Interested"},
+            {"JobID": 1002, "CompanyName": "Company B", "Status": "Referred"},
+            {"JobID": 1003, "CompanyName": "Company C", "Status": "Applied"},
+            {"JobID": 1004, "CompanyName": "Company D", "Status": "New"}
+        ]
+        write_database_rows("jobs", jobs)
+        
+        # 2. Setup referrals matching all of them (reaching target of 5)
+        referrals = []
+        for job_id, company in [(1001, "Company A"), (1002, "Company B"), (1003, "Company C"), (1004, "Company D")]:
+            for i in range(5):
+                referrals.append({
+                    "ReferralID": len(referrals) + 1,
+                    "JobID": job_id,
+                    "CompanyName": company,
+                    "Referral_Source": "Sent Employee Connection",
+                    "Referral_Status": "Sent"
+                })
+        write_database_rows("referrals", referrals)
+        
+        # Reset the sync throttle timer
+        db._last_sync_time = 0
+        
+        # Run sync
+        db.sync_job_lead_referral_statuses()
+        
+        # Reload jobs and verify statuses
+        synced_jobs = {j["JobID"]: j["Status"] for j in read_database_rows("jobs")}
+        
+        # 'Interested' and 'New' should be transitioned to 'Referral Outreach Completed'
+        assert synced_jobs[1001] == "Referral Outreach Completed"
+        assert synced_jobs[1004] == "Referral Outreach Completed"
+        
+        # 'Referred' and 'Applied' should remain completely untouched
+        assert synced_jobs[1002] == "Referred"
+        assert synced_jobs[1003] == "Applied"
+

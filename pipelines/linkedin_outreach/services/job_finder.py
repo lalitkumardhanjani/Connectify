@@ -877,9 +877,29 @@ def run_job_finder(target_url=None):
                                 continue
 
                             driver.switch_to.window(new_handle)
-                            time.sleep(5)
-
-                            external_url = driver.current_url
+                            
+                            # Wait for the external URL to resolve/settle to a non-empty, non-blank destination
+                            settled_url = ""
+                            start_wait = time.time()
+                            while time.time() - start_wait < 8:  # max 8 seconds timeout
+                                try:
+                                    curr_url = driver.current_url
+                                    if curr_url and curr_url != "about:blank" and "linkedin.com/safety/go" not in curr_url:
+                                        settled_url = curr_url
+                                        # If it's a known applicant tracking system/job portal, we can stop waiting early
+                                        if any(domain in curr_url for domain in ["greenhouse.io", "lever.co", "myworkdayjobs.com", "ashbyhq.com"]):
+                                            break
+                                except Exception:
+                                    pass
+                                time.sleep(0.5)
+                            
+                            if not settled_url:
+                                try:
+                                    settled_url = driver.current_url
+                                except Exception:
+                                    pass
+                            
+                            external_url = settled_url
                             logger.info(f"  Settled External URL: {external_url}")
 
                             # Perform filters and validations after clicking and confirming the Apply link
@@ -923,6 +943,10 @@ def run_job_finder(target_url=None):
                             driver.switch_to.window(original_tab)
                             time.sleep(2)
 
+                        except (InvalidSessionIdException, WebDriverException) as e:
+                            logger.error(f"  Critical session error processing job {index + 1}: {str(e)}")
+                            session_lost = True
+                            raise e
                         except Exception as e:
                             logger.error(f"  Error processing job {index + 1}: {str(e)}")
                             try:

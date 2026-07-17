@@ -5,7 +5,7 @@ from urllib.parse import quote
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException, StaleElementReferenceException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, StaleElementReferenceException, WebDriverException
 from config.user_profiles import get_selected_user_config, get_global_settings
 from config.constants import DBA_KEYWORDS_DEFAULT
 from core.utils.string_utils import extract_emails
@@ -271,13 +271,41 @@ class LinkedInScraper:
         """Navigate to the LinkedIn search page for a given keyword and ensure the Posts/LATEST view is active."""
         search_query = quote(keyword)
         url = f"https://www.linkedin.com/search/results/content/?datePosted=%22past-week%22&keywords={search_query}&origin=GLOBAL_SEARCH_HEADER&sortBy=%22date_posted%22"
-        logger.info(f"Navigating to: {url}")
-        self.driver.get(url)
-        time.sleep(5)
-        if "search/results/content" not in self.driver.current_url:
+        
+        max_retries = 3
+        nav_success = False
+        for attempt in range(1, max_retries + 1):
+            try:
+                logger.info(f"Navigating to: {url} (Attempt {attempt}/{max_retries})")
+                self.driver.get(url)
+                time.sleep(5)
+                nav_success = True
+                break
+            except WebDriverException as e:
+                logger.warning(f"WebDriverException during search navigation (attempt {attempt}/{max_retries}): {e}")
+                if attempt == max_retries:
+                    logger.error("Max retries reached for direct search navigation. Falling back to manual UI steps.")
+                    break
+                sleep_time = random.uniform(10, 20)
+                logger.info(f"Waiting {sleep_time:.1f} seconds before retrying...")
+                time.sleep(sleep_time)
+                # Attempt to load a simpler page first to clear connection issues
+                try:
+                    self.driver.get("https://www.linkedin.com/feed/")
+                    time.sleep(3)
+                except Exception:
+                    pass
+
+        # Check current URL. If direct navigation failed/threw exception or we ended up on the wrong page
+        if not nav_success or "search/results/content" not in self.driver.current_url:
             logger.warning("Direct navigation failed – falling back to manual UI steps.")
-            self.driver.get("https://www.linkedin.com/feed/")
-            time.sleep(3)
+            try:
+                self.driver.get("https://www.linkedin.com/feed/")
+                time.sleep(3)
+            except WebDriverException as e:
+                logger.error(f"Failed to navigate to feed during manual fallback: {e}")
+                return False
+                
             try:
                 search_input = self.driver.find_element(By.CLASS_NAME, "search-global-typeahead__input")
                 search_input.send_keys(keyword)
@@ -394,10 +422,10 @@ class LinkedInScraper:
                                 import platform
                                 try:
                                     if platform.system() == 'Windows':
-                                        # Use PowerShell on Windows to get clipboard text
-                                        clipboard_val = subprocess.check_output(['powershell', '-NoProfile', '-Command', 'Get-Clipboard'], text=True).strip()
+                                        # Use PowerShell on Windows to get clipboard text (with 5s timeout to prevent infinite hangs on locked clipboards)
+                                        clipboard_val = subprocess.check_output(['powershell', '-NoProfile', '-Command', 'Get-Clipboard'], text=True, timeout=5).strip()
                                     else:
-                                        clipboard_val = subprocess.check_output('pbpaste', env={'LANG': 'en_US.UTF-8'}).decode('utf-8').strip()
+                                        clipboard_val = subprocess.check_output('pbpaste', env={'LANG': 'en_US.UTF-8'}, timeout=5).decode('utf-8').strip()
                                     
                                     extracted = extract_canonical_linkedin_url(clipboard_val)
                                     if extracted:
@@ -446,35 +474,42 @@ class LinkedInScraper:
                 except Exception as urn_err:
                     logger.debug(f"Could not read data-urn: {urn_err}")
 
-            content_selectors = [
-                ".//*[contains(@class, 'feed-shared-text')]",
-                ".//*[contains(@class, 'update-components-text')]",
-                ".//div[contains(@data-display-contents, 'true')]",
-                ".//div[contains(@class, 'show-more-less-html')]",
-                ".//div[@data-test-id='feed-item-text']",
-                ".//p",
-                ".//span",
-                "."
-            ]
-            post_content = ""
-            for selector in content_selectors:
+            # Fast JS-based text extraction to avoid massive remote webdriver roundtrips
+            try:
+                post_content = self.driver.execute_script("""
+                    const el = arguments[0];
+                    const selectors = [
+                        '.feed-shared-text',
+                        '.update-components-text',
+                        'div[data-display-contents="true"]',
+                        '.show-more-less-html',
+                        'div[data-test-id="feed-item-text"]',
+                        'p'
+                    ];
+                    for (const sel of selectors) {
+                        const matched = el.querySelectorAll(sel);
+                        if (matched.length > 0) {
+                            let texts = [];
+                            matched.forEach(item => {
+                                const txt = (item.innerText || item.textContent || '').trim();
+                                if (txt.length > 5) texts.push(txt);
+                            });
+                            const combined = texts.join(' ').trim();
+                            if (combined.length > 50) return combined;
+                        }
+                    }
+                    return (el.innerText || el.textContent || '').trim();
+                """, post_element)
+            except Exception as js_err:
+                logger.debug(f"JS text extraction failed: {js_err}")
+                post_content = ""
+
+            if not post_content:
                 try:
-                    elements = post_element.find_elements(By.XPATH, selector)
-                    if not elements:
-                        continue
-                    texts = []
-                    for el in elements:
-                        try:
-                            txt = el.text.strip()
-                            if txt and len(txt) > 5:
-                                texts.append(txt)
-                        except Exception:
-                            continue
-                    post_content = " ".join(texts).strip()
-                    if len(post_content) > 50:
-                        break
+                    post_content = post_element.text or ""
                 except Exception:
-                    continue
+                    post_content = ""
+
             post_content = re.sub(r"\s+", " ", post_content).replace("… more", "").strip()
             return {"content": post_content, "post_url": post_url}
         except StaleElementReferenceException:
