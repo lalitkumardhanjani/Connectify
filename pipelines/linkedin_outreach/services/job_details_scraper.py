@@ -64,13 +64,14 @@ def is_valid_location(loc):
         "cookie", "privacy", "terms", "submit", "login", "register", "signup",
         "discrimination", "illegal", "discuss", "dedicated", "policy", "browser",
         "javascript", "error", "website", "content", "page", "form", "select",
-        "button", "click", "required", "optional", "details", "contact", "home"
+        "button", "click", "required", "optional", "details", "contact", "home",
+        "mapsettings", "found", "interaction", "around the world"
     ]
     
     if loc_lower in invalid_keywords:
         return False
         
-    if len(loc) > 40 or len(loc) < 2:
+    if len(loc) > 80 or len(loc) < 2:
         return False
         
     # Check if contains any invalid phrases
@@ -105,6 +106,46 @@ def is_valid_job_id(jid):
         return False
         
     return True
+
+def extract_from_html_tags(html_text):
+    """
+    Extracts location values from common metadata tag selectors and semantic layout classes.
+    """
+    location = ""
+    # 1. Standard og/meta tags
+    meta_pats = [
+        r'<meta\s+[^>]*name=["\']location["\']\s+content=["\']([^"\']+)["\']',
+        r'<meta\s+[^>]*property=["\']og:locality["\']\s+content=["\']([^"\']+)["\']',
+        r'<meta\s+[^>]*name=["\']city["\']\s+content=["\']([^"\']+)["\']',
+        r'<meta\s+[^>]*name=["\']country["\']\s+content=["\']([^"\']+)["\']',
+        r'<meta\s+[^>]*name=["\']twitter:label1["\']\s+content=["\']Location["\'][^>]*>\s*<meta\s+[^>]*name=["\']twitter:data1["\']\s+content=["\']([^"\']+)["\']',
+        r'<meta\s+[^>]*name=["\']twitter:data1["\']\s+content=["\']([^"\']+)["\'][^>]*>\s*<meta\s+[^>]*name=["\']twitter:label1["\']\s+content=["\']Location["\']'
+    ]
+    for pat in meta_pats:
+        m = re.search(pat, html_text, re.IGNORECASE)
+        if m:
+            cand = m.group(1).strip()
+            if is_valid_location(cand):
+                location = cand
+                break
+
+    # 2. Specific Greenhouse / Lever classes
+    if not location:
+        class_pats = [
+            r'<div\s+[^>]*class=["\']location["\'][^>]*>([^<]+)</div>',
+            r'<span\s+[^>]*class=["\']location["\'][^>]*>([^<]+)</span>',
+            r'<div\s+[^>]*class=["\']posting-categories["\'][\s\S]*?<div\s+[^>]*class=["\']location["\'][^>]*>([^<]+)</div>',
+            r'<div\s+[^>]*class=["\']posting-category\s+location["\'][^>]*>([^<]+)</div>'
+        ]
+        for pat in class_pats:
+            m = re.search(pat, html_text, re.IGNORECASE)
+            if m:
+                cand = m.group(1).strip()
+                cand = re.sub(r'<[^>]*>', '', cand).strip()
+                if is_valid_location(cand):
+                    location = cand
+                    break
+    return location
 
 def extract_details_from_html(html_text, url):
     """
@@ -171,8 +212,11 @@ def extract_details_from_html(html_text, url):
             else:
                 job_id = str(id_obj)
 
-    # 2. Fallbacks and enhancements
-    # Try to extract Job ID from URL path or query parameters
+    # 2. Try metadata / class HTML elements
+    if not is_valid_location(location):
+        location = extract_from_html_tags(html_text)
+
+    # 3. Extract Job ID from URL path or query parameters (relying on redirected final URL)
     if not is_valid_job_id(job_id):
         parsed_url = urlparse(url)
         # Search query params (e.g. opportunityId, job_id, reqId, role)
@@ -211,51 +255,24 @@ def extract_details_from_html(html_text, url):
                     job_id = cand
                     break
 
-    # Location pattern from text
+    # 4. Fallbacks to production-grade extractors from post_extractor.py
     if not is_valid_location(location):
-        loc_patterns = [
-            r'(?:location|workplace|office|based in)\s*[:\-#]?\s*([A-Z][a-zA-Z\s,]{2,30})',
-            r'([A-Z][a-zA-Z\s,]{2,30})\s*\|\s*(?:Remote|Hybrid|On-site)',
-            r'(?:Remote\s*-\s*India|Remote\s*,\s*India|India\s*-\s*Remote|India\s*,\s*Remote)',
-            r'\b(Remote|Hybrid|On-site)\b'
-        ]
-        for pat in loc_patterns:
-            matches = re.findall(pat, clean_text, re.IGNORECASE)
-            if matches:
-                cand = matches[0].strip()
-                if is_valid_location(cand):
-                    location = cand
-                    break
-        if not is_valid_location(location):
-            try:
-                from core.utils.post_extractor import extract_location as ext_loc
-                cand = ext_loc(clean_text)
-                if is_valid_location(cand):
-                    location = cand
-            except Exception:
-                pass
+        try:
+            from core.utils.post_extractor import extract_location as ext_loc
+            cand = ext_loc(clean_text)
+            if is_valid_location(cand):
+                location = cand
+        except Exception:
+            pass
 
-    # Experience requirement pattern from text
     if not experience or experience.lower() in ("not specified", "n/a"):
-        exp_patterns = [
-            r'(\d+(?:\s*-\s*\d+)?\s*\+?\s*years?)\s*(?:of)?\s*experience',
-            r'experience\s*(?:of)?\s*(\d+(?:\s*-\s*\d+)?\s*\+?\s*years?)',
-            r'(\d+\+?\s*yrs?)',
-            r'\b(\d+(?:\s*-\s*\d+)?\s*\+?\s*(?:years?|yrs?))\b'
-        ]
-        for pat in exp_patterns:
-            matches = re.findall(pat, clean_text, re.IGNORECASE)
-            if matches:
-                experience = matches[0].strip()
-                break
-        if not experience or experience.lower() in ("not specified", "n/a"):
-            try:
-                from core.utils.post_extractor import extract_experience as ext_exp
-                cand = ext_exp(clean_text)
-                if cand:
-                    experience = cand
-            except Exception:
-                pass
+        try:
+            from core.utils.post_extractor import extract_experience as ext_exp
+            cand = ext_exp(clean_text)
+            if cand:
+                experience = cand
+        except Exception:
+            pass
 
     # Sanitize outputs
     if job_id:
@@ -276,7 +293,8 @@ def extract_details_from_html(html_text, url):
 
 def scrape_job_details(url):
     """
-    Downloads the page using requests with fallback.
+    Downloads the page using requests with fallback to headless selenium.
+    Uses the final resolved redirected URL to accurately extract path parameters.
     """
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -287,7 +305,8 @@ def scrape_job_details(url):
         # Avoid heavy assets, fetch just the HTML text
         res = requests.get(url, headers=headers, timeout=10)
         if res.status_code == 200:
-            details = extract_details_from_html(res.text, url)
+            # Pass the final redirected URL (res.url) instead of the original short URL
+            details = extract_details_from_html(res.text, res.url)
     except Exception as e:
         logger.warning(f"Error requesting {url} directly: {e}")
         
@@ -310,7 +329,8 @@ def scrape_job_details(url):
             driver.get(url)
             time.sleep(4)
             html = driver.page_source
-            selenium_details = extract_details_from_html(html, url)
+            # Pass the final browser URL (driver.current_url) instead of the original short URL
+            selenium_details = extract_details_from_html(html, driver.current_url)
             
             # Keep whichever details are better
             if selenium_details["location"] != "Not Specified":
