@@ -128,10 +128,25 @@ def extract_job_reference_code(driver, current_url="", job_url=""):
         if m:
             results.append(m.group(1))
 
-    if "meesho.io" in host or "lever.co" in (current_url or "") or "meesho" in host:
+    if "meesho.io" in host or "lever.co" in (current_url or "") or "meesho" in host or "micro1.ai" in host or "micro1.ai" in (current_url or ""):
         m = re.search(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}", current_url or "")
         if m:
             results.append(m.group(0))
+
+    if "docs.google.com/forms" in (current_url or "") or "forms.gle" in (current_url or ""):
+        m = re.search(r"/d/e/([A-Za-z0-9_\-]+)", current_url or "")
+        if m:
+            results.append(m.group(1))
+
+    if "hsforms.com" in (current_url or ""):
+        m = re.search(r"hsforms\.com/([A-Za-z0-9_\-]+)", current_url or "")
+        if m:
+            results.append(m.group(1))
+
+    if "hirist" in (current_url or ""):
+        m = re.search(r"-(\d+)(?:\?|$)", current_url or "")
+        if m:
+            results.append(m.group(1))
 
     if "myworkdayjobs" in host or "workday" in host:
         m = re.search(r"(R\d+)", source, re.IGNORECASE)

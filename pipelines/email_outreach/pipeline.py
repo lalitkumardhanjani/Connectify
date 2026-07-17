@@ -1,4 +1,6 @@
 import os
+import time
+import random
 from config.settings import get_job_tracker_file
 from config.user_profiles import get_selected_user_config
 from config.constants import DBA_KEYWORDS_DEFAULT
@@ -34,8 +36,17 @@ def run_phase_one(scraper):
         locations = [""]
     
     try:
+        first_query = True
         for loc in locations:
             for kw in keywords:
+                if not first_query:
+                    cool_down = random.uniform(10, 20)
+                    logger.info(f"Cooling down for {cool_down:.1f} seconds before next keyword query to prevent rate limits...")
+                    import sys
+                    if "pytest" not in sys.modules:
+                        time.sleep(cool_down)
+                first_query = False
+
                 search_query = f"{kw} hiring {loc}".strip() if loc else f"{kw} hiring"
                 logger.info(f"=== Processing keyword: '{kw}' at location: '{loc}' (Search query: '{search_query}') ===")
                 if scraper.search_for_keyword(search_query):

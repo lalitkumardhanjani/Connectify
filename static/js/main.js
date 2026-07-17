@@ -1202,8 +1202,9 @@ function applyReferralsFiltersAndRender() {
         // 2. Status Match
         let statusMatch = true;
         if (statusVal !== 'all') {
-            const currentStatus = (row.Referral_Status || 'pending').toLowerCase().trim();
-            statusMatch = currentStatus === statusVal;
+            const normStatusVal = statusVal.replace(/–/g, '-').replace(/\s+/g, ' ');
+            const currentStatus = (row.Referral_Status || 'pending').toLowerCase().trim().replace(/–/g, '-').replace(/\s+/g, ' ');
+            statusMatch = currentStatus === normStatusVal;
         }
         
         // 3. Source Match
@@ -2574,6 +2575,24 @@ async function saveSettingsForm(event) {
     }
 }
 
+function parseDateRobust(dateStr) {
+    if (!dateStr) return null;
+    let s = String(dateStr).trim();
+    if (/^\d+$/.test(s)) {
+        return new Date(parseInt(s));
+    }
+    // Clean ISO / other formats
+    s = s.replace('T', ' ').split('.')[0]; // e.g. "2026-07-12 18:25:43"
+    s = s.replace(/-/g, '/');
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) return d;
+    
+    // Fallback: try raw Date constructor
+    const dRaw = new Date(dateStr);
+    if (!isNaN(dRaw.getTime())) return dRaw;
+    return null;
+}
+
 // Multi-criteria filter controller
 function applyFilters(type) {
     const searchVal = document.getElementById(`search-${type}`).value.toLowerCase().trim();
@@ -2598,11 +2617,12 @@ function applyFilters(type) {
         // 2. Status Match
         let statusMatch = true;
         if (statusVal !== 'all') {
-            const currentStatus = (row.Status || 'pending').toLowerCase().trim();
-            if (statusVal === 'asked for referral' || statusVal === 'ask for referral') {
+            const normStatusVal = statusVal.replace(/–/g, '-').replace(/\s+/g, ' ');
+            const currentStatus = (row.Status || 'pending').toLowerCase().trim().replace(/–/g, '-').replace(/\s+/g, ' ');
+            if (normStatusVal === 'asked for referral' || normStatusVal === 'ask for referral') {
                 statusMatch = (currentStatus === 'asked for referral' || currentStatus === 'ask for referral');
             } else {
-                statusMatch = currentStatus === statusVal;
+                statusMatch = currentStatus === normStatusVal;
             }
         }
         
@@ -2610,21 +2630,16 @@ function applyFilters(type) {
         let dateMatch = true;
         if (dateVal !== 'all') {
             const dateStr = type === 'scraper' ? row.Timestamp : row.CreatedDateTime;
-            if (dateStr) {
-                let cleanDateStr = dateStr;
-                if (dateStr.includes('T')) {
-                     cleanDateStr = dateStr.split('.')[0];
-                }
-                const rowDate = new Date(cleanDateStr.replace(/-/g, '/'));
+            const rowDate = parseDateRobust(dateStr);
+            if (rowDate) {
                 const today = new Date();
-                
-                const diffTime = Math.abs(today - rowDate);
+                const diffTime = today.getTime() - rowDate.getTime();
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                 
                 if (dateVal === 'today') {
                     dateMatch = rowDate.toDateString() === today.toDateString();
                 } else if (dateVal === 'week') {
-                    dateMatch = diffDays <= 7;
+                    dateMatch = diffDays >= 0 && diffDays <= 7;
                 }
             } else {
                 dateMatch = false;
@@ -3421,7 +3436,10 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function bindScraperColumnFilters() {
-    const filters = ['filter-col-email', 'filter-col-status', 'filter-col-keyword', 'filter-col-timestamp'];
+    const filters = [
+        'filter-col-email', 'filter-col-status', 'filter-col-keyword', 'filter-col-timestamp',
+        'filter-col-company', 'filter-col-experience', 'filter-col-location'
+    ];
     filters.forEach(id => {
         const el = document.getElementById(id);
         if (el) {

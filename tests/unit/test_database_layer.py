@@ -385,3 +385,57 @@ class TestCompositeUniquenessConstraints:
         assert metrics["total_companies"] == 2
         assert metrics["interested"] == 1
         assert metrics["referral_outreach"] == 1
+
+class TestRobustMatching:
+    def test_clean_company_name_for_match(self):
+        from core.storage.database import clean_company_name_for_match
+        assert clean_company_name_for_match("FetchJobs.co") == "fetchjobsco"
+        assert clean_company_name_for_match("micro1") == "micro1"
+        assert clean_company_name_for_match("Google, Inc.") == "google"
+        assert clean_company_name_for_match("EXL Corp") == "exl"
+        assert clean_company_name_for_match("General Mills India") == "generalmillsindia"
+        assert clean_company_name_for_match("") == ""
+        assert clean_company_name_for_match(None) == ""
+
+    def test_compare_job_ids(self):
+        from core.storage.database import compare_job_ids
+        assert compare_job_ids("123", 123.0) is True
+        assert compare_job_ids(123.0, 123) is True
+        assert compare_job_ids("abc", "abc") is True
+        assert compare_job_ids("abc", "123") is False
+        assert compare_job_ids("15820_4420791253", "15820_4420791253") is True
+        assert compare_job_ids(None, "") is True
+        assert compare_job_ids("N/A", "n/a") is False  # Case sensitive exact match or type check, wait "N/A" and "n/a" don't match or maybe they do? Wait, compare_job_ids does id1_str == id2_str, which is "N/A" == "n/a" (False)
+        assert compare_job_ids("N/A", "N/A") is True
+
+    def test_get_company_metrics_today_counters(self, local_user):
+        from core.storage.database import save_job, add_or_update_referral
+        from core.analytics.metrics import get_company_metrics
+        from datetime import datetime
+        
+        today_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        job = {
+            "JobTitle": "Data Engineer",
+            "CompanyName": "Tech Corp",
+            "Location": "India",
+            "CompanyURL": "http://techcorp.com",
+            "Status": "referred",
+            "CreatedDateTime": today_str
+        }
+        save_job(job)
+        
+        ref = {
+            "JobID": "123",
+            "CompanyName": "Tech Corp",
+            "Referral_Source": "Sent Employee Connection",
+            "Referral_Status": "Sent",
+            "Sent_Time": today_str
+        }
+        add_or_update_referral(ref)
+        
+        metrics = get_company_metrics()
+        assert metrics["companies_added_today"] == 1
+        assert metrics["connections_sent_today"] == 1
+        assert metrics["total_connections"] == 1
+        assert metrics["total_referrals"] == 1

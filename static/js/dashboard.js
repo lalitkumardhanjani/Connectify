@@ -326,6 +326,22 @@ function makeBarChart(canvasId, labels, data, color = PALETTE.purple) {
     });
 }
 
+function updatePieChart(chart, labels, data, colors) {
+    chart.data.labels = labels;
+    chart.data.datasets[0].data = data;
+    chart.data.datasets[0].backgroundColor = colors.map(c => c + '33');
+    chart.data.datasets[0].borderColor = colors;
+    chart.update('none');
+}
+
+function updateBarChart(chart, labels, data) {
+    chart.data.labels = labels;
+    chart.data.datasets[0].data = data;
+    chart.data.datasets[0].backgroundColor = BAR_COLORS.slice(0, labels.length).map(c => c + '55');
+    chart.data.datasets[0].borderColor = BAR_COLORS.slice(0, labels.length);
+    chart.update('none');
+}
+
 function makeLineChart(canvasId, labels, data) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return null;
@@ -830,18 +846,24 @@ async function loadEmailDashboard() {
     const statusData = [sentVal, pendingVal, skippedVal];
     const statusColors = [PALETTE.cyan, PALETTE.yellow, PALETTE.gray];
 
-    if (emailStatusChartInst) emailStatusChartInst.destroy();
-    emailStatusChartInst = makePieChart('emailStatusChart', statusLabels, statusData, statusColors);
+    if (emailStatusChartInst) {
+        updatePieChart(emailStatusChartInst, statusLabels, statusData, statusColors);
+    } else {
+        emailStatusChartInst = makePieChart('emailStatusChart', statusLabels, statusData, statusColors);
+    }
     renderLegend('email-status-legend', statusLabels, statusColors, statusData);
 
     // Keyword Bar Chart (top 8)
     const topKws = kwEntries.slice(0, 8);
-    if (emailKeywordChartInst) emailKeywordChartInst.destroy();
-    emailKeywordChartInst = makeBarChart(
-        'emailKeywordChart',
-        topKws.map(([k]) => k),
-        topKws.map(([, v]) => v)
-    );
+    if (emailKeywordChartInst) {
+        updateBarChart(emailKeywordChartInst, topKws.map(([k]) => k), topKws.map(([, v]) => v));
+    } else {
+        emailKeywordChartInst = makeBarChart(
+            'emailKeywordChart',
+            topKws.map(([k]) => k),
+            topKws.map(([, v]) => v)
+        );
+    }
 
     // Daily Line Chart
     rawEmailDailyCounts = d.daily_counts || [];
@@ -895,6 +917,16 @@ async function loadCompanyDashboard() {
     document.getElementById('co-done').textContent = fmt(d.done);
     document.getElementById('co-ni').textContent = fmt(d.not_interested);
 
+    const coConnSentTodayEl = document.getElementById('co-conn-sent-today');
+    if (coConnSentTodayEl) coConnSentTodayEl.textContent = fmt(d.connections_sent_today || 0);
+    const coAddedTodayEl = document.getElementById('co-added-today');
+    if (coAddedTodayEl) coAddedTodayEl.textContent = fmt(d.companies_added_today || 0);
+
+    const coTotalConnectionsEl = document.getElementById('co-total-connections');
+    if (coTotalConnectionsEl) coTotalConnectionsEl.textContent = fmt(d.total_connections || 0);
+    const coTotalReferralsEl = document.getElementById('co-total-referrals');
+    if (coTotalReferralsEl) coTotalReferralsEl.textContent = fmt(d.total_referrals || 0);
+
     // Leaderboard
     const coKwEntries = Object.entries(d.keyword_counts || {}).sort((a, b) => b[1] - a[1]);
     const topCoKw = coKwEntries[0];
@@ -934,18 +966,24 @@ async function loadCompanyDashboard() {
         PALETTE.red     // Not Interested -> Red
     ];
 
-    if (coStatusChartInst) coStatusChartInst.destroy();
-    coStatusChartInst = makePieChart('coStatusChart', coStatusLabels, coStatusData, coStatusColors);
+    if (coStatusChartInst) {
+        updatePieChart(coStatusChartInst, coStatusLabels, coStatusData, coStatusColors);
+    } else {
+        coStatusChartInst = makePieChart('coStatusChart', coStatusLabels, coStatusData, coStatusColors);
+    }
     renderLegend('co-status-legend', coStatusLabels, coStatusColors, coStatusData);
 
     // Keyword Bar Chart (top 8)
     const topCoKws = coKwEntries.slice(0, 8);
-    if (coKeywordChartInst) coKeywordChartInst.destroy();
-    coKeywordChartInst = makeBarChart(
-        'coKeywordChart',
-        topCoKws.map(([k]) => k),
-        topCoKws.map(([, v]) => v)
-    );
+    if (coKeywordChartInst) {
+        updateBarChart(coKeywordChartInst, topCoKws.map(([k]) => k), topCoKws.map(([, v]) => v));
+    } else {
+        coKeywordChartInst = makeBarChart(
+            'coKeywordChart',
+            topCoKws.map(([k]) => k),
+            topCoKws.map(([, v]) => v)
+        );
+    }
 
     // Keyword Analysis Table
     const coKwTbody = document.querySelector('#co-keyword-table tbody');
@@ -1017,18 +1055,24 @@ async function loadOutreachDashboard() {
     };
     const statusColors = Object.keys(d.status_distribution || {}).map(s => statusColorsMap[s.toLowerCase()] || PALETTE.gray);
 
-    if (outreachStatusChartInst) outreachStatusChartInst.destroy();
-    outreachStatusChartInst = makePieChart('outreachStatusChart', statusLabels, statusData, statusColors);
+    if (outreachStatusChartInst) {
+        updatePieChart(outreachStatusChartInst, statusLabels, statusData, statusColors);
+    } else {
+        outreachStatusChartInst = makePieChart('outreachStatusChart', statusLabels, statusData, statusColors);
+    }
     renderLegend('outreach-status-legend', statusLabels, statusColors, statusData);
 
     // Source Bar Chart
     const sourceEntries = Object.entries(d.source_distribution || {}).sort((a, b) => b[1] - a[1]);
-    if (outreachSourceChartInst) outreachSourceChartInst.destroy();
-    outreachSourceChartInst = makeBarChart(
-        'outreachSourceChart',
-        sourceEntries.map(([k]) => k),
-        sourceEntries.map(([, v]) => v)
-    );
+    if (outreachSourceChartInst) {
+        updateBarChart(outreachSourceChartInst, sourceEntries.map(([k]) => k), sourceEntries.map(([, v]) => v));
+    } else {
+        outreachSourceChartInst = makeBarChart(
+            'outreachSourceChart',
+            sourceEntries.map(([k]) => k),
+            sourceEntries.map(([, v]) => v)
+        );
+    }
 
     // Daily Line Chart
     const daily = d.daily_counts || [];

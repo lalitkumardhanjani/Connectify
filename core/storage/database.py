@@ -214,7 +214,8 @@ def save_job(data, path=None):
         for r in rows:
             try:
                 val = int(float(r.get('JobID') or 0))
-                if val > max_id:
+                # Ignore very large IDs (e.g. 18-digit LinkedIn IDs or float roundoffs) to prevent sequential ID collisions
+                if val < 1000000 and val > max_id:
                     max_id = val
             except (ValueError, TypeError):
                 pass
@@ -235,6 +236,47 @@ def save_job(data, path=None):
     seen_external_urls.add(cache_key)
     return True
 
+def clean_company_name_for_match(name):
+    if not name:
+        return ""
+    n = str(name).strip().lower()
+    for suffix in [" inc.", " inc", " corp.", " corp", " co.", " co", " ltd.", " ltd", " llc.", " llc"]:
+        if n.endswith(suffix):
+            n = n[:-len(suffix)].strip()
+    return n.replace(".", "").replace(",", "").replace(" ", "")
+
+def compare_job_ids(id1, id2):
+    id1_str = str(id1 or '').strip()
+    id2_str = str(id2 or '').strip()
+    if id1_str == id2_str:
+        return True
+    try:
+        f1 = float(id1_str)
+        f2 = float(id2_str)
+        return f1 == f2
+    except (ValueError, TypeError):
+        return False
+
+def is_job_lead_match(lead_company, lead_job_id, ref_company, ref_job_id):
+    """Determines if a referral matches a job lead, preventing false matches on placeholder/colliding JobIDs if company names are different."""
+    lead_cn = clean_company_name_for_match(lead_company)
+    ref_cn = clean_company_name_for_match(ref_company)
+    
+    # If both company names are specified and they are different, it's NOT a match
+    if lead_cn and ref_cn and lead_cn != ref_cn:
+        return False
+        
+    # Match by JobID if valid and matching
+    is_valid_lead_jid = lead_job_id and str(lead_job_id).strip().lower() not in ("", "n/a", "none")
+    is_valid_ref_jid = ref_job_id and str(ref_job_id).strip().lower() not in ("", "n/a", "none")
+    
+    # If both are valid, they must match to be considered a match
+    if is_valid_lead_jid and is_valid_ref_jid:
+        return compare_job_ids(ref_job_id, lead_job_id)
+        
+    # Fallback to company name match if one or both JobIDs are missing
+    return lead_cn == ref_cn
+
 def load_jobs_for_referral(path=None, status_filter='Asked for Referral'):
     """Loads all job leads matching the target status filter. If status_filter is None, returns all job leads."""
     rows = read_database_rows("jobs")
@@ -246,17 +288,8 @@ def update_status_by_id(job_id, status, path=None):
     """Updates the status of a specific job lead by ID."""
     rows = read_database_rows("jobs", bypass_cache=True)
     updated = False
-    try:
-        target_id = int(float(job_id))
-    except (ValueError, TypeError):
-        return False
-
     for r in rows:
-        try:
-            curr_id = int(float(r.get('JobID') or 0))
-        except (ValueError, TypeError):
-            continue
-        if curr_id == target_id:
+        if compare_job_ids(r.get('JobID'), job_id):
             r['Status'] = status
             updated = True
             break
@@ -269,17 +302,8 @@ def edit_lead_row(job_id, company, url, shorten, keyword, position, status, path
     """Edits all columns in a job lead row."""
     rows = read_database_rows("jobs", bypass_cache=True)
     updated = False
-    try:
-        target_id = int(float(job_id))
-    except (ValueError, TypeError):
-        return False
-
     for r in rows:
-        try:
-            curr_id = int(float(r.get('JobID') or 0))
-        except (ValueError, TypeError):
-            continue
-        if curr_id == target_id:
+        if compare_job_ids(r.get('JobID'), job_id):
             r['CompanyName'] = company
             r['LinkedIn_Company_URL'] = url
             r['ShortenURL'] = shorten
@@ -464,20 +488,19 @@ def clean_company_url(url):
 
 def get_completed_referral_count(company_name, job_url=None, job_id=None, path=None):
     rows = read_database_rows("referrals")
-    c_name = str(company_name or '').strip().lower()
-    job_id_str = str(job_id or '').strip()
-    
     count = 0
     for r in rows:
-        curr_company = str(r.get('CompanyName')).strip().lower()
+        curr_company = str(r.get('CompanyName') or '').strip()
         curr_job_id = str(r.get('JobID') or '').strip()
         status = str(r.get('Referral_Status') or '').strip().lower()
         source = str(r.get('Referral_Source') or '').strip().lower()
         is_employee = source in ('existing employee', 'sent employee connection')
         
-        if curr_company == c_name and curr_job_id == job_id_str:
-            if is_employee and status in ('sent', 'replied', 'referral received'):
-                count += 1
+        if not is_employee or status not in ('sent', 'replied', 'referral received'):
+            continue
+            
+        if is_job_lead_match(company_name, job_id, curr_company, curr_job_id):
+            count += 1
     return count
 
 def sync_job_lead_referral_statuses(path=None):
@@ -532,11 +555,8 @@ def sync_job_lead_referral_statuses(path=None):
                 
             completed_count = 0
             for (cn, cu, jid), count in company_data.items():
-                if row_job_id and jid == row_job_id:
+                if is_job_lead_match(company_name, row_job_id, cn, jid):
                     completed_count += count
-                elif not row_job_id and not jid and cn == c_name_lower:
-                    if not company_url or not cu or company_url == cu:
-                        completed_count += count
                         
             if completed_count >= target:
                 current_status = str(r.get("Status") or "").strip()
@@ -623,11 +643,8 @@ def load_job_leads_with_referral_counts():
 
         completed_count = 0
         for (cn, cu, jid), data in company_data.items():
-            if lead_job_id and jid == lead_job_id:
+            if is_job_lead_match(company_name, lead_job_id, cn, jid):
                 completed_count += data["completed"]
-            elif not lead_job_id and not jid and cn == c_name_lower:
-                if not company_url or not cu or company_url == cu:
-                    completed_count += data["completed"]
 
         remaining = max(0, target - completed_count)
         lead["LinkedIn_Company_URL"] = company_url

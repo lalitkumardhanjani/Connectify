@@ -226,19 +226,36 @@ def extract_details_from_html(html_text, url):
                 if is_valid_location(cand):
                     location = cand
                     break
+        if not is_valid_location(location):
+            try:
+                from core.utils.post_extractor import extract_location as ext_loc
+                cand = ext_loc(clean_text)
+                if is_valid_location(cand):
+                    location = cand
+            except Exception:
+                pass
 
     # Experience requirement pattern from text
-    exp_patterns = [
-        r'(\d+(?:\s*-\s*\d+)?\s*\+?\s*years?)\s*(?:of)?\s*experience',
-        r'experience\s*(?:of)?\s*(\d+(?:\s*-\s*\d+)?\s*\+?\s*years?)',
-        r'(\d+\+?\s*yrs?)',
-        r'\b(\d+(?:\s*-\s*\d+)?\s*\+?\s*(?:years?|yrs?))\b'
-    ]
-    for pat in exp_patterns:
-        matches = re.findall(pat, clean_text, re.IGNORECASE)
-        if matches:
-            experience = matches[0].strip()
-            break
+    if not experience or experience.lower() in ("not specified", "n/a"):
+        exp_patterns = [
+            r'(\d+(?:\s*-\s*\d+)?\s*\+?\s*years?)\s*(?:of)?\s*experience',
+            r'experience\s*(?:of)?\s*(\d+(?:\s*-\s*\d+)?\s*\+?\s*years?)',
+            r'(\d+\+?\s*yrs?)',
+            r'\b(\d+(?:\s*-\s*\d+)?\s*\+?\s*(?:years?|yrs?))\b'
+        ]
+        for pat in exp_patterns:
+            matches = re.findall(pat, clean_text, re.IGNORECASE)
+            if matches:
+                experience = matches[0].strip()
+                break
+        if not experience or experience.lower() in ("not specified", "n/a"):
+            try:
+                from core.utils.post_extractor import extract_experience as ext_exp
+                cand = ext_exp(clean_text)
+                if cand:
+                    experience = cand
+            except Exception:
+                pass
 
     # Sanitize outputs
     if job_id:
