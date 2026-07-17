@@ -439,3 +439,48 @@ class TestRobustMatching:
         assert metrics["connections_sent_today"] == 1
         assert metrics["total_connections"] == 1
         assert metrics["total_referrals"] == 1
+
+class TestStatusSync:
+    def test_sync_job_lead_referral_statuses_does_not_override_milestone_statuses(self, local_user):
+        import core.storage.database as db
+        from core.storage.engine import read_database_rows, write_database_rows
+        
+        # 1. Setup jobs with different statuses
+        jobs = [
+            {"JobID": 1001, "CompanyName": "Company A", "Status": "Interested"},
+            {"JobID": 1002, "CompanyName": "Company B", "Status": "Referred"},
+            {"JobID": 1003, "CompanyName": "Company C", "Status": "Applied"},
+            {"JobID": 1004, "CompanyName": "Company D", "Status": "New"}
+        ]
+        write_database_rows("jobs", jobs)
+        
+        # 2. Setup referrals matching all of them (reaching target of 5)
+        referrals = []
+        for job_id, company in [(1001, "Company A"), (1002, "Company B"), (1003, "Company C"), (1004, "Company D")]:
+            for i in range(5):
+                referrals.append({
+                    "ReferralID": len(referrals) + 1,
+                    "JobID": job_id,
+                    "CompanyName": company,
+                    "Referral_Source": "Sent Employee Connection",
+                    "Referral_Status": "Sent"
+                })
+        write_database_rows("referrals", referrals)
+        
+        # Reset the sync throttle timer
+        db._last_sync_time = 0
+        
+        # Run sync
+        db.sync_job_lead_referral_statuses()
+        
+        # Reload jobs and verify statuses
+        synced_jobs = {j["JobID"]: j["Status"] for j in read_database_rows("jobs")}
+        
+        # 'Interested' and 'New' should be transitioned to 'Referral Outreach Completed'
+        assert synced_jobs[1001] == "Referral Outreach Completed"
+        assert synced_jobs[1004] == "Referral Outreach Completed"
+        
+        # 'Referred' and 'Applied' should remain completely untouched
+        assert synced_jobs[1002] == "Referred"
+        assert synced_jobs[1003] == "Applied"
+

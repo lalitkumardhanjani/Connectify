@@ -559,8 +559,8 @@ def sync_job_lead_referral_statuses(path=None):
                     completed_count += count
                         
             if completed_count >= target:
-                current_status = str(r.get("Status") or "").strip()
-                if current_status != 'Referral Outreach Completed' and current_status.lower() != 'done':
+                current_status = str(r.get("Status") or "").strip().lower()
+                if current_status in ('new', 'interested', 'asked for referral', 'ask for referral', 'in progress', ''):
                     r['Status'] = 'Referral Outreach Completed'
                     updated = True
                     
