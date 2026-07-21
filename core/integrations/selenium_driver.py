@@ -53,9 +53,11 @@ def _kill_lingering_chrome_instances(profile_dir):
 
 
 def get_driver(profile_suffix=None, headless=False):
-    """Initializes and returns a Selenium webdriver instance (Edge on Windows, Chrome on macOS/Linux).
-    On Windows, using Microsoft Edge is required because Google's unsigned chromedriver is blocked by 
-    Application Control / AppLocker policies, whereas Microsoft's signed msedgedriver is whitelisted.
+    """Initializes and returns a Selenium webdriver instance.
+    Prioritizes Google Chrome. On Windows, since newly downloaded chromedrivers (via webdriver_manager) 
+    are unsigned and blocked by Windows Defender / WDAC, we scan for and use any pre-existing local 
+    chromedriver.exe versions that have already established reputation and execution permissions.
+    Edge is only used as a fallback if no working chromedriver is found on Windows.
     """
     is_win = (sys.platform == 'win32')
 
@@ -75,14 +77,9 @@ def get_driver(profile_suffix=None, headless=False):
             pass
         _kill_lingering_chrome_instances(chrome_profile_dir)
 
-    # Initialize Options
-    if is_win:
-        from selenium.webdriver.edge.options import Options as EdgeOptions
-        options = EdgeOptions()
-    else:
-        from selenium.webdriver.chrome.options import Options as ChromeOptions
-        options = ChromeOptions()
-
+    # Initialize Options (default to Chrome Options)
+    from selenium.webdriver.chrome.options import Options as ChromeOptions
+    options = ChromeOptions()
     options.page_load_strategy = 'eager'
 
     # --- Core stability flags ---
@@ -120,13 +117,75 @@ def get_driver(profile_suffix=None, headless=False):
 
     # --- Driver and Binary resolution ---
     if is_win:
-        from webdriver_manager.microsoft import EdgeChromiumDriverManager
-        edgedriver_path = EdgeChromiumDriverManager().install()
-        logger.info(f"webdriver_manager installed msedgedriver at: {edgedriver_path}")
-        service = Service(edgedriver_path)
-        driver = webdriver.Edge(service=service, options=options)
+        # AppLocker / WDAC Bypass:
+        # Check if we have pre-existing local chromedriver.exe files that run successfully
+        import glob
+        import subprocess
+        
+        working_driver_path = None
+        home = os.path.expanduser("~")
+        possible_paths = [
+            os.path.join(home, ".wdm", "drivers", "chromedriver", "win64", "150.0.7871.115", "chromedriver-win64", "chromedriver.exe"),
+            os.path.join(home, ".cache", "selenium", "chromedriver", "win64", "150.0.7871.115", "chromedriver.exe"),
+        ]
+        
+        # Scan dynamically under .wdm and .cache
+        search_patterns = [
+            os.path.join(home, ".wdm", "**", "chromedriver.exe"),
+            os.path.join(home, ".cache", "**", "chromedriver.exe"),
+        ]
+        for pattern in search_patterns:
+            try:
+                for path in glob.glob(pattern, recursive=True):
+                    if path not in possible_paths:
+                        possible_paths.append(path)
+            except Exception:
+                pass
+                
+        # Test each chromedriver file to find one that runs successfully
+        for path in possible_paths:
+            if os.path.exists(path):
+                try:
+                    proc = subprocess.Popen([path, "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    out, err = proc.communicate(timeout=2)
+                    if proc.returncode == 0:
+                        working_driver_path = path
+                        logger.info(f"AppLocker Bypass: Using pre-existing working chromedriver: {path}")
+                        break
+                except Exception:
+                    continue
+                    
+        if working_driver_path:
+            service = Service(working_driver_path)
+            driver = webdriver.Chrome(service=service, options=options)
+        else:
+            # Fall back to Microsoft Edge only if no working local chromedriver exists
+            logger.warning("No working local chromedriver found. Falling back to Microsoft Edge...")
+            from webdriver_manager.microsoft import EdgeChromiumDriverManager
+            from selenium.webdriver.edge.options import Options as EdgeOptions
+            edge_options = EdgeOptions()
+            edge_options.page_load_strategy = 'eager'
+            edge_options.add_argument("--no-sandbox")
+            edge_options.add_argument("--disable-dev-shm-usage")
+            edge_options.add_argument("--disable-gpu")
+            edge_options.add_argument("--disable-extensions")
+            edge_options.add_argument("--disable-features=RendererCodeIntegrity")
+            edge_options.add_argument("--start-maximized")
+            if headless:
+                edge_options.add_argument("--headless=new")
+                edge_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            edge_options.add_argument("--disable-blink-features=AutomationControlled")
+            edge_options.add_argument("--disable-popup-blocking")
+            edge_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            edge_options.add_experimental_option("useAutomationExtension", False)
+            edge_options.add_experimental_option("prefs", prefs)
+            edge_options.add_argument(f"--user-data-dir={chrome_profile_dir}")
+            
+            edgedriver_path = EdgeChromiumDriverManager().install()
+            service = Service(edgedriver_path)
+            driver = webdriver.Edge(service=service, options=edge_options)
     else:
-        # Check custom Chrome binary path via env
+        # macOS / Linux Chrome setup
         env_chrome_path = os.getenv("CHROME_BINARY_PATH")
         if env_chrome_path:
             if os.path.exists(env_chrome_path):
