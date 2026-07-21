@@ -409,12 +409,19 @@ def wait_for_search_results(driver, timeout=30):
     except Exception:
         return False
 
-def build_search_url(keyword, search_location, search_time_range):
+def build_search_url(keyword, search_location, search_time_range, global_location=None):
     quoted = urllib.parse.quote_plus(keyword)
     if search_location.lower() == "remote":
+        # Target remote jobs within the user's primary/global country to prevent worldwide leakage
+        country = "India"
+        if global_location:
+            parts = [p.strip() for p in global_location.split(",") if p.strip()]
+            if parts:
+                country = parts[-1]
+        quoted_country = urllib.parse.quote_plus(country)
         return (
             f"https://www.linkedin.com/jobs/search/?keywords={quoted}"
-            f"&f_WT=2&f_TPR={search_time_range}"
+            f"&location={quoted_country}&f_WT=2&f_TPR={search_time_range}"
             f"&trk=public_jobs_jobs-search-bar_search-submit&position=1&pageNum=0"
         )
     elif not search_location:
@@ -515,6 +522,9 @@ def run_job_finder(target_url=None):
         pref_location_str = profile.get("preferred_locations", "")
         locations = parse_preferred_locations(pref_location_str)
         
+        # Retrieve global location unconditionally to restrict remote searches to primary country
+        global_loc = global_conf.get("search_location", "").strip()
+        
         # Fallback to current location if preferred locations are empty
         if not locations:
             current_loc = profile.get("current_location", "").strip()
@@ -523,7 +533,6 @@ def run_job_finder(target_url=None):
                 
         # If still empty, fall back to global search location (only if not India fallback)
         if not locations:
-            global_loc = global_conf.get("search_location", "").strip()
             if global_loc and "india" not in global_loc.lower():
                 locations = parse_preferred_locations(global_loc)
                 
@@ -534,7 +543,7 @@ def run_job_finder(target_url=None):
         search_combinations = []
         for loc in locations:
             for kw in search_keywords:
-                url = build_search_url(kw, loc, search_time_range)
+                url = build_search_url(kw, loc, search_time_range, global_location=global_loc)
                 search_combinations.append((kw, loc, url))
         
         connect_conf = user_conf.get("linkedin_connect", {})

@@ -125,8 +125,13 @@ class TestJobSearchLocal:
         
         # Remote location
         url2 = build_search_url("Data Engineer", "Remote", "r604800")
-        assert "location=" not in url2
+        assert "location=India" in url2
         assert "f_WT=2" in url2
+        
+        # Remote location with custom global country
+        url2_us = build_search_url("Data Engineer", "Remote", "r604800", global_location="Chicago, IL, United States")
+        assert "location=United+States" in url2_us
+        assert "f_WT=2" in url2_us
         
         # Empty location
         url3 = build_search_url("Data Engineer", "", "r604800")

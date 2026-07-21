@@ -1,5 +1,8 @@
 import os
 import sys
+# Configure stdout/stderr to use UTF-8 to prevent console printing crashes on Windows
+sys.stdout.reconfigure(encoding='utf-8', errors='ignore')
+sys.stderr.reconfigure(encoding='utf-8', errors='ignore')
 import openpyxl
 from datetime import datetime
 
@@ -58,13 +61,19 @@ def run_extraction():
         company = row.get("CompanyName") or "Unknown"
         
         # Check if the details are already populated (so we don't scrape unnecessarily)
-        current_exp = str(row.get("Experience") or "").strip()
-        current_loc = str(row.get("Location") or "").strip()
-        current_id = str(row.get("JobID") or "").strip()
+        current_exp = str(row.get("Experience") or "").strip().lower()
+        current_loc = str(row.get("Location") or "").strip().lower()
         
-        # If both Location and Experience are already set and not default placeholders, skip
-        if current_exp and current_loc and current_exp != "Not Specified" and current_loc != "Remote / India":
-            print(f"[{idx}/{total_jobs}] Skipping {company} (already has Location: {current_loc} | Experience: {current_exp})")
+        # Determine if we need to scrape details (treating nan/empty/n/a as invalid placeholders)
+        placeholders = {"not specified", "remote / india", "nan", "n/a", "none", ""}
+        has_valid_exp = current_exp and current_exp not in placeholders
+        has_valid_loc = current_loc and current_loc not in placeholders
+        
+        # If both Location and Experience are already validly set, skip
+        if has_valid_exp and has_valid_loc:
+            orig_exp = str(row.get("Experience") or "").strip()
+            orig_loc = str(row.get("Location") or "").strip()
+            print(f"[{idx}/{total_jobs}] Skipping {company} (already has Location: {orig_loc} | Experience: {orig_exp})")
             continue
 
         if not url or "forms/d" in url or "hsforms.com" in url:
