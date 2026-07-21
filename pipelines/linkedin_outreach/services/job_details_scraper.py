@@ -321,18 +321,8 @@ def scrape_job_details(url):
         driver = None
         profile_suffix = f"chrome-profile-details-extractor-temp-{int(time.time() * 1000)}"
         try:
-            from selenium.webdriver.chrome.options import Options
-            # Patch chrome options for headless mode dynamically and mask user agent to bypass bot detection
-            original_add_argument = Options.add_argument
-            def patched_add_argument(self, arg):
-                original_add_argument(self, arg)
-                if arg == "--no-sandbox":
-                    original_add_argument(self, "--headless=new")
-                    original_add_argument(self, "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-            Options.add_argument = patched_add_argument
-            
             from core.integrations.selenium_driver import get_driver
-            driver = get_driver(profile_suffix)
+            driver = get_driver(profile_suffix, headless=True)
             driver.get(url)
             # Wait up to 10 seconds for dynamic AJAX / Single Page App content to load
             from selenium.webdriver.support.ui import WebDriverWait

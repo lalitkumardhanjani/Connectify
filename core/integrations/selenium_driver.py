@@ -52,8 +52,13 @@ def _kill_lingering_chrome_instances(profile_dir):
         logger.warning(f"Could not check/kill lingering Chrome processes: {e}")
 
 
-def get_driver(profile_suffix=None):
-    """Initializes and returns a Selenium webdriver.Chrome instance with the configured profile and options."""
+def get_driver(profile_suffix=None, headless=False):
+    """Initializes and returns a Selenium webdriver instance (Edge on Windows, Chrome on macOS/Linux).
+    On Windows, using Microsoft Edge is required because Google's unsigned chromedriver is blocked by 
+    Application Control / AppLocker policies, whereas Microsoft's signed msedgedriver is whitelisted.
+    """
+    is_win = (sys.platform == 'win32')
+
     if profile_suffix:
         from config.settings import get_user_dir
         chrome_profile_dir = os.path.join(get_user_dir(), profile_suffix)
@@ -61,24 +66,45 @@ def get_driver(profile_suffix=None):
     else:
         chrome_profile_dir = get_chrome_profile_dir()
 
-    # Kill any lingering Chrome/ChromeDriver processes (Windows only)
-    _kill_stale_chrome_processes()
-    _kill_lingering_chrome_instances(chrome_profile_dir)
+    # Kill any lingering Chrome/Edge / ChromeDriver processes (Windows only)
+    if is_win:
+        _kill_stale_chrome_processes()
+        try:
+            os.system("taskkill /F /IM msedgedriver.exe /T >nul 2>&1")
+        except Exception:
+            pass
+        _kill_lingering_chrome_instances(chrome_profile_dir)
 
-    options = Options()
+    # Initialize Options
+    if is_win:
+        from selenium.webdriver.edge.options import Options as EdgeOptions
+        options = EdgeOptions()
+    else:
+        from selenium.webdriver.chrome.options import Options as ChromeOptions
+        options = ChromeOptions()
+
     options.page_load_strategy = 'eager'
 
-    # --- Core stability flags (important on Windows to prevent renderer crashes) ---
+    # --- Core stability flags ---
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
     options.add_argument("--disable-extensions")
-    options.add_argument("--disable-features=RendererCodeIntegrity,VizDisplayCompositor")
+    if is_win:
+        options.add_argument("--disable-features=RendererCodeIntegrity")
+    else:
+        options.add_argument("--disable-features=RendererCodeIntegrity,VizDisplayCompositor")
     options.add_argument("--start-maximized")
+
+    # Headless mode config
+    if headless:
+        options.add_argument("--headless=new")
+        options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
     # --- Anti-detection & behaviour flags ---
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument("--disable-popup-blocking")
+    
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option("useAutomationExtension", False)
 
@@ -88,108 +114,59 @@ def get_driver(profile_suffix=None):
     }
     options.add_experimental_option("prefs", prefs)
 
-    # --- Chrome profile setup (clean stale locks first) ---
+    # --- Profile setup (clean stale locks first) ---
     _cleanup_chrome_locks(chrome_profile_dir)
     options.add_argument(f"--user-data-dir={chrome_profile_dir}")
 
-    # --- Chrome binary resolution ---
-    # Check if custom Chrome binary path is provided via env (highest priority)
-    env_chrome_path = os.getenv("CHROME_BINARY_PATH")
-    if env_chrome_path:
-        if os.path.exists(env_chrome_path):
-            options.binary_location = env_chrome_path
-            logger.info(f"Using custom Chrome binary from CHROME_BINARY_PATH: {env_chrome_path}")
-        else:
-            logger.error(f"CHROME_BINARY_PATH specified in env does not exist: {env_chrome_path}")
+    # --- Driver and Binary resolution ---
+    if is_win:
+        from webdriver_manager.microsoft import EdgeChromiumDriverManager
+        edgedriver_path = EdgeChromiumDriverManager().install()
+        logger.info(f"webdriver_manager installed msedgedriver at: {edgedriver_path}")
+        service = Service(edgedriver_path)
+        driver = webdriver.Edge(service=service, options=options)
     else:
-        # MacOS Chrome Binary check
-        if sys.platform == 'darwin' and os.path.exists(MAC_CHROME_BINARY):
-            options.binary_location = MAC_CHROME_BINARY
-            logger.info(f"Using custom Chrome binary location: {MAC_CHROME_BINARY}")
+        # Check custom Chrome binary path via env
+        env_chrome_path = os.getenv("CHROME_BINARY_PATH")
+        if env_chrome_path:
+            if os.path.exists(env_chrome_path):
+                options.binary_location = env_chrome_path
+                logger.info(f"Using custom Chrome binary from CHROME_BINARY_PATH: {env_chrome_path}")
+            else:
+                logger.error(f"CHROME_BINARY_PATH specified in env does not exist: {env_chrome_path}")
+        else:
+            if sys.platform == 'darwin' and os.path.exists(MAC_CHROME_BINARY):
+                options.binary_location = MAC_CHROME_BINARY
+                logger.info(f"Using custom Chrome binary location: {MAC_CHROME_BINARY}")
 
-        # Windows Chrome Binary check
-        elif sys.platform == 'win32':
-            chrome_path = None
+        if os.path.exists(CHROMEDRIVER_PATH):
+            logger.info(f"Using local chromedriver binary: {CHROMEDRIVER_PATH}")
+            service = Service(CHROMEDRIVER_PATH)
+        else:
+            logger.info("Local chromedriver not found, installing via webdriver_manager...")
+            
+            # Cleanup any stale webdriver_manager lock files
             try:
-                import winreg
-                reg_paths = [
-                    (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe"),
-                    (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe"),
-                    (winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe")
-                ]
-                for hkey, subkey in reg_paths:
-                    try:
-                        with winreg.OpenKey(hkey, subkey) as key:
-                            val, _ = winreg.QueryValueEx(key, "")
-                            if val and os.path.exists(val):
-                                # Skip if Edge has hijacked the Chrome registry key
-                                if "edge" in val.lower() or "msedge" in val.lower():
-                                    continue
-                                chrome_path = val
-                                break
-                    except OSError:
-                        continue
-            except ImportError:
+                wdm_dir = os.path.expanduser("~/.wdm")
+                if os.path.exists(wdm_dir):
+                    for root, dirs, files in os.walk(wdm_dir):
+                        for file in files:
+                            if "lock" in file.lower() or file.endswith(".lock") or file.startswith(".wdm-lock-"):
+                                lock_file_path = os.path.join(root, file)
+                                try:
+                                    os.remove(lock_file_path)
+                                except Exception:
+                                    pass
+            except Exception:
                 pass
 
-            # Fallback to multi-drive search
-            if not chrome_path:
-                win_paths = []
-                for drive in ["C", "D", "E", "F", "G", "H"]:
-                    win_paths.extend([
-                        f"{drive}:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-                        f"{drive}:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
-                    ])
-                win_paths.append(os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"))
-                
-                for path in win_paths:
-                    if os.path.exists(path):
-                        if "edge" in path.lower() or "msedge" in path.lower():
-                            continue
-                        chrome_path = path
-                        break
+            from webdriver_manager.chrome import ChromeDriverManager
+            chromedriver_path = ChromeDriverManager().install()
+            logger.info(f"webdriver_manager installed chromedriver at: {chromedriver_path}")
+            service = Service(chromedriver_path)
 
-            if chrome_path:
-                options.binary_location = chrome_path
-                logger.info(f"Using custom Chrome binary location: {chrome_path}")
-            else:
-                logger.warning(
-                    "Google Chrome binary not found in standard registry or program paths! "
-                    "Selenium will rely on default system path resolution. If you get browser version errors "
-                    "(e.g., unrecognized Chrome version/Edge launching), please set CHROME_BINARY_PATH "
-                    "in your .env file to the absolute path of your actual Google Chrome installation (e.g., "
-                    "CHROME_BINARY_PATH=C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe)."
-                )
+        driver = webdriver.Chrome(service=service, options=options)
 
-    # --- Chromedriver setup ---
-    if os.path.exists(CHROMEDRIVER_PATH):
-        logger.info(f"Using local chromedriver binary: {CHROMEDRIVER_PATH}")
-        service = Service(CHROMEDRIVER_PATH)
-    else:
-        logger.info("Local chromedriver not found, installing via webdriver_manager...")
-        
-        # Cleanup any stale webdriver_manager lock files to prevent lock-wait timeouts
-        try:
-            wdm_dir = os.path.expanduser("~/.wdm")
-            if os.path.exists(wdm_dir):
-                for root, dirs, files in os.walk(wdm_dir):
-                    for file in files:
-                        if "lock" in file.lower() or file.endswith(".lock") or file.startswith(".wdm-lock-"):
-                            lock_file_path = os.path.join(root, file)
-                            try:
-                                os.remove(lock_file_path)
-                                logger.info(f"Cleaned up stale webdriver_manager lock file: {lock_file_path}")
-                            except Exception as le:
-                                logger.warning(f"Could not remove lock file {lock_file_path}: {le}")
-        except Exception as we:
-            logger.warning(f"Failed to scan and cleanup webdriver_manager locks: {we}")
-
-        from webdriver_manager.chrome import ChromeDriverManager
-        chromedriver_path = ChromeDriverManager().install()
-        logger.info(f"webdriver_manager installed chromedriver at: {chromedriver_path}")
-        service = Service(chromedriver_path)
-
-    driver = webdriver.Chrome(service=service, options=options)
     try:
         driver.set_page_load_timeout(60)
     except Exception:

@@ -1,7 +1,6 @@
 import os
 import sys
 import pytest
-from selenium.webdriver.chrome.options import Options
 
 def test_get_chrome_profile_dir_env_override(monkeypatch):
     monkeypatch.setenv("CHROME_PROFILE_DIR", "/custom/profile/dir")
@@ -39,19 +38,30 @@ def test_get_driver_custom_profile_suffix(monkeypatch):
     monkeypatch.setattr("core.integrations.selenium_driver._kill_lingering_chrome_instances", lambda x: None)
     monkeypatch.setattr("core.integrations.selenium_driver._cleanup_chrome_locks", lambda x: None)
     
-    # Mock webdriver.Chrome constructor
-    class MockedChrome:
+    # Mock webdriver.Chrome and webdriver.Edge constructors
+    class MockedBrowser:
         def __init__(self, service=None, options=None):
             self.options = options
             
-    monkeypatch.setattr("selenium.webdriver.Chrome", MockedChrome)
+    monkeypatch.setattr("selenium.webdriver.Chrome", MockedBrowser)
+    monkeypatch.setattr("selenium.webdriver.Edge", MockedBrowser)
     
+    # Mock Options arguments
     arguments_added = []
-    original_add_argument = Options.add_argument
-    def mock_add_argument(self, arg):
+    from selenium.webdriver.chrome.options import Options as ChromeOptions
+    from selenium.webdriver.edge.options import Options as EdgeOptions
+    
+    original_chrome_add = ChromeOptions.add_argument
+    def mock_chrome_add(self, arg):
         arguments_added.append(arg)
-        original_add_argument(self, arg)
-    monkeypatch.setattr(Options, "add_argument", mock_add_argument)
+        original_chrome_add(self, arg)
+    monkeypatch.setattr(ChromeOptions, "add_argument", mock_chrome_add)
+    
+    original_edge_add = EdgeOptions.add_argument
+    def mock_edge_add(self, arg):
+        arguments_added.append(arg)
+        original_edge_add(self, arg)
+    monkeypatch.setattr(EdgeOptions, "add_argument", mock_edge_add)
 
     from core.integrations.selenium_driver import get_driver
     driver = get_driver(profile_suffix="test-custom-suffix")
