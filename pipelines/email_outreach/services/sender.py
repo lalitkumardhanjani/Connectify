@@ -182,11 +182,12 @@ def send_email_via_gmail(driver, to_email, post_url='', review_mode=None):
             return False
 
     try:
-        # Navigate to Gmail if not already there
-        if "mail.google.com" not in driver.current_url:
+        # Navigate to Gmail if not already there, checking for Google Accounts redirect (signed out state)
+        current_url = driver.current_url
+        if "mail.google.com" not in current_url or "accounts.google.com" in current_url:
             logger.info("Navigating to Gmail...")
             driver.get("https://mail.google.com/mail/u/0/")
-            time.sleep(3)
+            time.sleep(5)
         
         # Click "Compose" button
         compose_selectors = [
@@ -199,17 +200,24 @@ def send_email_via_gmail(driver, to_email, post_url='', review_mode=None):
             ".T-I.T-I-KE.L3"
         ]
         
+        # Poll up to 10 seconds for the compose button to be loaded and visible
         compose_btn = None
-        for selector in compose_selectors:
-            try:
-                if selector.startswith("//") or selector.startswith(".//"):
-                    compose_btn = driver.find_element(By.XPATH, selector)
-                else:
-                    compose_btn = driver.find_element(By.CSS_SELECTOR, selector)
-                if compose_btn:
-                    break
-            except Exception:
-                continue
+        start_time = time.time()
+        while time.time() - start_time < 10:
+            for selector in compose_selectors:
+                try:
+                    if selector.startswith("//") or selector.startswith(".//"):
+                        btn = driver.find_element(By.XPATH, selector)
+                    else:
+                        btn = driver.find_element(By.CSS_SELECTOR, selector)
+                    if btn and btn.is_displayed():
+                        compose_btn = btn
+                        break
+                except Exception:
+                    continue
+            if compose_btn:
+                break
+            time.sleep(1)
         
         if compose_btn:
             try:
@@ -222,6 +230,14 @@ def send_email_via_gmail(driver, to_email, post_url='', review_mode=None):
             time.sleep(1.5)
         else:
             logger.warning("Could not find Gmail compose button")
+            # Save a diagnostic screenshot of the blocked view
+            try:
+                os.makedirs("logs", exist_ok=True)
+                screenshot_path = os.path.join("logs", f"gmail_error_{int(time.time())}.png")
+                driver.save_screenshot(screenshot_path)
+                logger.info(f"Saved diagnostic screenshot of Gmail error to: {screenshot_path}")
+            except Exception:
+                pass
             return False
         
         time.sleep(0.5)
