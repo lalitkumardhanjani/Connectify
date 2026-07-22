@@ -367,18 +367,14 @@ async function pollAllLogs() {
                     }
                 }
                 
-                // Check if waiting for input to trigger quality gate popups (only on active tab)
-                const isForActiveTab = tid.split('::').includes(activePipelineType);
-                if (data.waiting_for_input && isForActiveTab) {
-                    anyWaitingForInput = true;
-                    activeTaskId = tid;
-                    
-                    const stdinOverlay = document.getElementById('stdin-overlay');
-                    if (stdinOverlay) {
-                        stdinOverlay.classList.remove('hidden');
-                        const refButtons = document.getElementById('stdin-referral-buttons');
-                        const outButtons = document.getElementById('stdin-outreach-buttons');
-                        const promptText = document.getElementById('stdin-prompt-text');
+                // Render inline interactive action prompt in this specific task's sub-terminal
+                const safeId = tid.replace(/::/g, '_');
+                const stdinBox = document.getElementById(`stdin-${safeId}`);
+                if (stdinBox) {
+                    if (data.waiting_for_input && isForActiveTab) {
+                        stdinBox.classList.remove('hidden');
+                        const stdinPrompt = document.getElementById(`stdin-prompt-${safeId}`);
+                        const stdinBtns = document.getElementById(`stdin-btns-${safeId}`);
                         
                         const isConnector = (data.current_step_name && data.current_step_name.includes("linkedin_connect")) ||
                                             (data.current_step_name && data.current_step_name.includes("recruiter_outreach")) ||
@@ -386,18 +382,38 @@ async function pollAllLogs() {
                                             (tid.split('::')[1] || '') === 'recruiter_pipeline';
                                             
                         if ((tid.split('::')[1] || '') === 'scraper_pipeline' || isConnector) {
-                            if (refButtons) refButtons.classList.add('hidden');
-                            if (outButtons) outButtons.classList.remove('hidden');
-                            if ((tid.split('::')[1] || '') === 'scraper_pipeline') {
-                                if (promptText) promptText.innerText = `Outreach Quality Gate for ${tInfo.label} is waiting for your choice. Please review the generated email and select:`;
-                            } else {
-                                if (promptText) promptText.innerText = `Invite Quality Gate for ${tInfo.label} is waiting for your choice. Please review the LinkedIn window and select:`;
+                            if (stdinPrompt) stdinPrompt.innerText = `Action Required for ${tInfo.label}: Review email/invite in Chrome and select option:`;
+                            if (stdinBtns) {
+                                stdinBtns.innerHTML = `
+                                    <button class="btn btn-success btn-sm" onclick="sendStdin('s', '${tid}')" style="padding: 4px 12px; font-size: 12px; border-radius: 4px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+                                        <i class="fa-solid fa-paper-plane"></i> Send (s)
+                                    </button>
+                                    <button class="btn btn-warning btn-sm" onclick="sendStdin('k', '${tid}')" style="padding: 4px 12px; font-size: 12px; border-radius: 4px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+                                        <i class="fa-solid fa-forward"></i> Skip (k)
+                                    </button>
+                                    <button class="btn btn-danger btn-sm" onclick="sendStdin('q', '${tid}')" style="padding: 4px 12px; font-size: 12px; border-radius: 4px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+                                        <i class="fa-solid fa-circle-xmark"></i> Quit (q)
+                                    </button>
+                                `;
                             }
                         } else {
-                            if (refButtons) refButtons.classList.remove('hidden');
-                            if (outButtons) outButtons.classList.add('hidden');
-                            if (promptText) promptText.innerText = `Manual review script for ${tInfo.label} is waiting for your choice. Please review the Chrome window and make a selection:`;
+                            if (stdinPrompt) stdinPrompt.innerText = `Action Required for ${tInfo.label}: Review job details in Chrome and select status:`;
+                            if (stdinBtns) {
+                                stdinBtns.innerHTML = `
+                                    <button class="btn btn-success btn-sm" onclick="sendStdin('1', '${tid}')" style="padding: 4px 12px; font-size: 12px; border-radius: 4px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+                                        <i class="fa-solid fa-thumbs-up"></i> (1) Interested
+                                    </button>
+                                    <button class="btn btn-warning btn-sm" onclick="sendStdin('2', '${tid}')" style="padding: 4px 12px; font-size: 12px; border-radius: 4px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+                                        <i class="fa-solid fa-thumbs-down"></i> (2) Not Interested
+                                    </button>
+                                    <button class="btn btn-danger btn-sm" onclick="sendStdin('q', '${tid}')" style="padding: 4px 12px; font-size: 12px; border-radius: 4px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+                                        <i class="fa-solid fa-circle-xmark"></i> (q) Quit
+                                    </button>
+                                `;
+                            }
                         }
+                    } else {
+                        stdinBox.classList.add('hidden');
                     }
                 }
                 
@@ -531,8 +547,15 @@ function createSubTerminalDOM(taskId, label, status = 'running') {
                 <span class="sub-terminal-status status-badge status-${initialStatus}" id="status-${safeId}" style="font-size: 11px; padding: 2px 8px; border-radius: 4px; text-transform: uppercase;">${initialStatus}</span>
             </div>
         </div>
-        <div class="terminal-logs" id="logs-${safeId}" style="height: 410px; flex: 1; overflow-y: auto; padding: 15px; box-sizing: border-box;">
+        <div class="terminal-logs" id="logs-${safeId}" style="flex: 1; min-height: 250px; overflow-y: auto; padding: 15px; box-sizing: border-box;">
             <div class="log-line system">Waiting for process logs...</div>
+        </div>
+        <div class="sub-terminal-stdin hidden" id="stdin-${safeId}" style="background: rgba(255, 193, 7, 0.08); border-top: 1px solid rgba(255, 193, 7, 0.25); padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; transition: all 0.3s ease;">
+            <div style="font-size: 12px; font-weight: 600; color: #ffc107; display: flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-circle-question"></i> <span id="stdin-prompt-${safeId}">Action Required</span>
+            </div>
+            <div class="stdin-buttons" id="stdin-btns-${safeId}" style="display: flex; gap: 8px; flex-wrap: wrap;">
+            </div>
         </div>
     `;
     wrapper.appendChild(term);
@@ -1180,18 +1203,24 @@ async function killPipeline(type) {
 
 
 // Send interactive inputs
-async function sendStdin(choice) {
-    if (!activeTaskId) return;
+async function sendStdin(choice, targetTaskId = null) {
+    const tidToSend = targetTaskId || activeTaskId;
+    if (!tidToSend) return;
     
     try {
-        const response = await fetch(`/api/task/${activeTaskId}/input`, {
+        const response = await fetch(`/api/task/${encodeURIComponent(tidToSend)}/input`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ "input": choice })
         });
         const data = await response.json();
         if (data.status === 'success') {
-            document.getElementById('stdin-overlay').classList.add('hidden');
+            const safeId = tidToSend.replace(/::/g, '_');
+            const stdinBox = document.getElementById(`stdin-${safeId}`);
+            if (stdinBox) stdinBox.classList.add('hidden');
+
+            const stdinOverlay = document.getElementById('stdin-overlay');
+            if (stdinOverlay) stdinOverlay.classList.add('hidden');
             
             // Refresh UI after a delay to give the subprocess time to write the
             // status update to disk before the dashboard reads the metrics back.

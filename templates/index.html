@@ -861,8 +861,8 @@
                         </div>
                     </div>
 
-                    <!-- STDIN POPUP OVERLAY (Shows when wait_for_input is True) -->
-                    <div class="stdin-overlay hidden" id="stdin-overlay">
+                    <!-- STDIN POPUP OVERLAY (Replaced by per-subterminal inline controls; kept hidden for legacy fallback) -->
+                    <div class="stdin-overlay hidden" id="stdin-overlay" style="display: none !important;">
                         <div class="stdin-box">
                             <div class="stdin-header">
                                 <i class="fa-solid fa-circle-question"></i> Action Required
