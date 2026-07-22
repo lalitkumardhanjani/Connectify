@@ -79,6 +79,8 @@ def get_driver(profile_suffix=None, headless=False):
             pass
         _kill_lingering_chrome_instances(chrome_profile_dir)
 
+    _cleanup_chrome_locks(chrome_profile_dir)
+
     # Initialize Options (default to Chrome Options)
     from selenium.webdriver.chrome.options import Options as ChromeOptions
     options = ChromeOptions()
