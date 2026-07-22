@@ -717,7 +717,7 @@ async function updatePipelineLocks() {
                             };
                         } else {
                             btn.classList.remove('btn-step-stop');
-                            btn.disabled = isFullActive || isAnyRunning;
+                            btn.disabled = isFullActive;
                             btn.title = p === 'scraper' ? (stepNum === 1 ? "Run email fetching only" : "Run email sending only") : "Run this step only";
                             btn.innerHTML = '<i class="fa-solid fa-play"></i>';
                             if (p === 'scraper') {
@@ -853,7 +853,12 @@ async function runSingleStep(stepNum, event) {
             return false;
         });
         if (existing && (existing[1].status === 'running' || existing[1].status === 'queued')) {
-            alert("The Referral pipeline is already running. Please stop it or wait for it to finish first.");
+            const isFull = (existing[0].split('::')[2] || 'full') === 'full';
+            if (isFull) {
+                alert("The full Referral pipeline is currently running. Please wait for it to complete or stop it first.");
+            } else {
+                alert(`Step ${stepNum} of the Referral pipeline is already running.`);
+            }
             return;
         }
         
@@ -900,7 +905,12 @@ async function runRecruiterStep(stepNum, event) {
             return false;
         });
         if (existing && (existing[1].status === 'running' || existing[1].status === 'queued')) {
-            alert("The Recruiter pipeline is already running. Please stop it or wait for it to finish first.");
+            const isFull = (existing[0].split('::')[2] || 'full') === 'full';
+            if (isFull) {
+                alert("The full Recruiter pipeline is currently running. Please wait for it to complete or stop it first.");
+            } else {
+                alert(`Step ${stepNum} of the Recruiter pipeline is already running.`);
+            }
             return;
         }
         
@@ -946,7 +956,12 @@ async function runScraperStep(phase, event) {
             return false;
         });
         if (existing && (existing[1].status === 'running' || existing[1].status === 'queued')) {
-            alert("A conflicting scraper task is already running. Please stop it or wait for it to finish first.");
+            const isFull = (existing[0].split('::')[2] || 'full') === 'full';
+            if (isFull) {
+                alert("The full Scraper pipeline is currently running. Please wait for it to complete or stop it first.");
+            } else {
+                alert(`Scraper ${phase} is already running.`);
+            }
             return;
         }
         
