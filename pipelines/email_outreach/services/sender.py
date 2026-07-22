@@ -448,18 +448,21 @@ def send_email_via_gmail(driver, to_email, post_url='', review_mode=None):
                         pass
                 time.sleep(0.3)
                 
-                # Replace newlines with HTML line breaks for the contenteditable editor
-                body_html = body.replace('\r\n', '\n').replace('\n', '<br>')
                 driver.execute_script("""
                     var field = arguments[0];
-                    field.innerHTML = arguments[1];
+                    field.focus();
+                    if (document.queryCommandSupported && document.queryCommandSupported('insertText')) {
+                        document.execCommand('insertText', false, arguments[1]);
+                    } else {
+                        field.innerText = arguments[1];
+                    }
                     field.dispatchEvent(new Event('input', { bubbles: true }));
                     field.dispatchEvent(new Event('change', { bubbles: true }));
-                """, body_field, body_html)
+                """, body_field, body)
                 time.sleep(0.5)
-                logger.info("Successfully populated Message body via HTML")
+                logger.info("Successfully populated Body field via DOM text insertion")
             except Exception as e:
-                logger.warning(f"Failed to populate body field via HTML: {e}")
+                logger.warning(f"Failed to populate body field via DOM insertion: {e}")
                 try:
                     body_field.clear()
                 except Exception:
