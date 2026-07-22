@@ -81,6 +81,13 @@
         <main class="main-content">
             <!-- Active Profile Dropdown -->
             <div class="user-selector-container" style="display: flex; align-items: center; gap: 12px;">
+                <!-- Stop Server & Clean Browsers Button -->
+                <button id="btn-shutdown-server" class="btn btn-danger btn-sm" onclick="shutdownServer()"
+                    title="Stop all background tasks, close Chrome browser windows, and turn off server cleanly"
+                    style="padding: 6px 12px; font-size: 0.8rem; display: flex; align-items: center; gap: 6px; border-radius: 6px;">
+                    <i class="fa-solid fa-power-off"></i> <span>Stop Server & Browsers</span>
+                </button>
+
                 <!-- Active Storage Indicator -->
                 <div id="active-storage-indicator" class="active-storage-badge badge-local"
                     title="Current active database backend">

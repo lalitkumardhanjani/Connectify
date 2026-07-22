@@ -1110,6 +1110,34 @@ async function killPipeline(type) {
     await updatePipelineLocks();
 }
 
+// Shutdown server and terminate all browser instances cleanly
+async function shutdownServer() {
+    const confirmShutdown = confirm("Are you sure you want to stop all active tasks, close all Chrome browser windows, and shut down the server?");
+    if (!confirmShutdown) return;
+
+    try {
+        const btn = document.getElementById('btn-shutdown-server');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> <span>Shutting Down...</span>';
+        }
+        
+        await fetch('/api/server/shutdown', { method: 'POST' });
+        
+        alert("Server and browser processes have been shut down cleanly. You can close this tab.");
+        document.body.innerHTML = `
+            <div style="height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#0f172a; color:#f8fafc; font-family:sans-serif; text-align:center; padding:20px;">
+                <div style="font-size:3rem; margin-bottom:1rem; color:#ef4444;"><i class="fa-solid fa-power-off"></i></div>
+                <h1 style="font-size:1.8rem; margin-bottom:0.5rem;">Server Off & Browsers Closed</h1>
+                <p style="color:#94a3b8; max-width:500px;">All pipeline processes and Chrome browser instances have been cleanly terminated. You may close this tab or restart app.py from your terminal.</p>
+            </div>
+        `;
+    } catch (e) {
+        console.error("Error shutting down server:", e);
+        alert("Server shutdown command sent.");
+    }
+}
+
 // Send interactive inputs
 async function sendStdin(choice) {
     if (!activeTaskId) return;

@@ -595,6 +595,19 @@ def get_all_tasks():
     with task_lock:
         result = {}
         for tid, runner in active_tasks.items():
+            # Real-time process liveness check: if process exited unexpectedly, update status
+            if runner.status in ("running", "queued"):
+                if runner.process and runner.process.poll() is not None:
+                    exit_code = runner.process.poll()
+                    runner.waiting_for_input = False
+                    if runner.status not in ("stopped", "killed"):
+                        runner.status = "stopped" if exit_code in (0, 2, -9, 15) else "failed"
+                        runner.log(f"Detected process exit with code {exit_code}. Status updated to {runner.status}.")
+                elif runner.thread and not runner.thread.is_alive():
+                    if runner.status not in ("stopped", "killed", "success"):
+                        runner.status = "stopped"
+                        runner.waiting_for_input = False
+
             total_steps = len(runner.commands)
             if "scraper_pipeline" in tid and "full" in tid:
                 total_steps = 2
@@ -660,6 +673,31 @@ def kill_task(task_id):
         runner = active_tasks[task_id]
         runner.kill()
         return jsonify({"status": "success"})
+
+
+@app.route('/api/server/shutdown', methods=['POST'])
+def shutdown_server():
+    """Endpoint to stop all running tasks, clean up Chrome processes, and shut down the Flask server."""
+    with task_lock:
+        for tid, runner in list(active_tasks.items()):
+            if runner.status in ("running", "queued"):
+                try:
+                    runner.kill()
+                except Exception as e:
+                    sys.stderr.write(f"Error killing task {tid} on shutdown: {e}\n")
+    
+    try:
+        from core.system.recovery import cleanup_stale_system_state
+        cleanup_stale_system_state()
+    except Exception as e:
+        sys.stderr.write(f"Error running shutdown recovery: {e}\n")
+        
+    def _do_shutdown():
+        time.sleep(0.5)
+        os._exit(0)
+        
+    threading.Thread(target=_do_shutdown, daemon=True).start()
+    return jsonify({"status": "success", "message": "Server and browser processes shut down cleanly."})
 
 
 @app.route('/api/users', methods=['GET'])
@@ -2159,8 +2197,38 @@ def kill_lingering_instances():
 
 
 if __name__ == '__main__':
-    # Clean up lingering pipeline instances
+    # Clean up lingering pipeline instances & perform startup state recovery
     kill_lingering_instances()
+    try:
+        from core.system.recovery import cleanup_stale_system_state
+        cleanup_stale_system_state()
+    except Exception as re:
+        print(f"[Startup Recovery] Warning: Recovery scan failed: {re}")
+        
+    import atexit
+    import signal
+
+    def _handle_exit_cleanup(signum=None, frame=None):
+        print("[Connectify Server] Performing exit cleanup...")
+        with task_lock:
+            for tid, runner in list(active_tasks.items()):
+                if runner.status in ("running", "queued"):
+                    try:
+                        runner.kill()
+                    except Exception:
+                        pass
+        try:
+            from core.system.recovery import cleanup_stale_system_state
+            cleanup_stale_system_state()
+        except Exception:
+            pass
+
+    atexit.register(_handle_exit_cleanup)
+    try:
+        signal.signal(signal.SIGINT, _handle_exit_cleanup)
+        signal.signal(signal.SIGTERM, _handle_exit_cleanup)
+    except Exception:
+        pass
     
     # Ensure standard directories exist
     os.makedirs("templates", exist_ok=True)

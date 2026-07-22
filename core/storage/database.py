@@ -708,3 +708,21 @@ def deduplicate_all_tables(username):
 
     except Exception as e:
         logger.error(f"Error deduplicating tables for user {username}: {e}")
+
+
+def reset_orphaned_in_progress_statuses(username=None):
+    """Resets any job lead statuses that are stuck as 'In Progress' from a previous interrupted run/shutdown back to 'Interested'."""
+    try:
+        rows = read_database_rows("jobs", username=username, bypass_cache=True)
+        updated = False
+        for r in rows:
+            status = str(r.get("Status") or "").strip().lower()
+            if status == "in progress":
+                r["Status"] = "Interested"
+                updated = True
+                logger.info(f"[Database] Reset orphan 'In Progress' status for Job ID {r.get('JobID')} -> 'Interested'")
+        if updated:
+            write_database_rows("jobs", rows, username=username)
+    except Exception as e:
+        logger.error(f"[Database] Error resetting orphan 'In Progress' statuses: {e}")
+
