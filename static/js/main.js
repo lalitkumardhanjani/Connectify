@@ -368,7 +368,6 @@ async function pollAllLogs() {
                 }
                 
                 // Render inline interactive action prompt in this specific task's sub-terminal
-                const safeId = tid.replace(/::/g, '_');
                 const stdinBox = document.getElementById(`stdin-${safeId}`);
                 if (stdinBox) {
                     if (data.waiting_for_input) {
