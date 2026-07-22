@@ -169,18 +169,12 @@ class SubprocessRunner:
             # Derive per-user, per-pipeline Chrome profile directories
             user_dir_for_runner = os.path.join(BASE_DIR, "users", self.username)
             parts = self.task_id.split("::")
-            pipeline_type = parts[1] if len(parts) > 1 else ""
-            if pipeline_type == "scraper_pipeline":
-                if script == "run_email_scraper.py":
-                    env_copy["CHROME_PROFILE_DIR"] = os.path.join(user_dir_for_runner, "chrome-profile-email-scraper")
-                elif script == "run_email_sender.py":
-                    env_copy["CHROME_PROFILE_DIR"] = os.path.join(user_dir_for_runner, "chrome-profile-email-sender")
-                else:
-                    env_copy["CHROME_PROFILE_DIR"] = os.path.join(user_dir_for_runner, "chrome-profile-scraper")
-            elif pipeline_type == "referral_pipeline":
-                env_copy["CHROME_PROFILE_DIR"] = os.path.join(user_dir_for_runner, "chrome-profile-referral")
-            elif pipeline_type == "recruiter_pipeline":
-                env_copy["CHROME_PROFILE_DIR"] = os.path.join(user_dir_for_runner, "chrome-profile-recruiter")
+            pipeline_type = parts[1] if len(parts) > 1 else "pipeline"
+            step_suffix = parts[2] if len(parts) > 2 else "full"
+
+            clean_type = pipeline_type.replace("_pipeline", "")
+            profile_folder = f"chrome-profile-{clean_type}-{step_suffix}"
+            env_copy["CHROME_PROFILE_DIR"] = os.path.join(user_dir_for_runner, profile_folder)
 
             # Determine active storage type
             storage_type = "Local (Excel files)"
@@ -355,15 +349,11 @@ class SubprocessRunner:
             from core.integrations.selenium_driver import _kill_lingering_chrome_instances
             user_dir_for_runner = os.path.join(BASE_DIR, "users", self.username)
             parts = self.task_id.split("::")
-            pipeline_type = parts[1] if len(parts) > 1 else ""
-            if pipeline_type == "scraper_pipeline":
-                profile_dir = os.path.join(user_dir_for_runner, "chrome-profile-scraper")
-            elif pipeline_type == "referral_pipeline":
-                profile_dir = os.path.join(user_dir_for_runner, "chrome-profile-referral")
-            elif pipeline_type == "recruiter_pipeline":
-                profile_dir = os.path.join(user_dir_for_runner, "chrome-profile-recruiter")
-            else:
-                profile_dir = os.path.join(user_dir_for_runner, "chrome-profile")
+            pipeline_type = parts[1] if len(parts) > 1 else "pipeline"
+            step_suffix = parts[2] if len(parts) > 2 else "full"
+            clean_type = pipeline_type.replace("_pipeline", "")
+            profile_folder = f"chrome-profile-{clean_type}-{step_suffix}"
+            profile_dir = os.path.join(user_dir_for_runner, profile_folder)
             
             _kill_lingering_chrome_instances(profile_dir)
         except Exception as e:

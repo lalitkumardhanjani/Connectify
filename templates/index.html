@@ -835,14 +835,21 @@
 
                 <!-- Interactive Terminal & Stdin Card -->
                 <div class="terminal-layout card-glass">
-                    <div class="terminal-header">
+                    <div class="terminal-header" style="display: flex; justify-content: space-between; align-items: center;">
                         <div class="terminal-title">
                             <i class="fa-solid fa-terminal"></i> Console Log Output
                         </div>
-                        <div class="terminal-dots">
-                            <span></span>
-                            <span></span>
-                            <span></span>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <button class="btn-copy-all-logs" id="btn-copy-all-consoles" onclick="copyAllConsoles(this)"
+                                title="Copy all logs from all active consoles"
+                                style="background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: var(--text-secondary); padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s;">
+                                <i class="fa-regular fa-copy"></i> <span>Copy All Logs</span>
+                            </button>
+                            <div class="terminal-dots">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
                         </div>
                     </div>
 

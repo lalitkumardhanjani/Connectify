@@ -523,13 +523,68 @@ function createSubTerminalDOM(taskId, label) {
     term.innerHTML = `
         <div class="sub-terminal-header" style="background: rgba(255, 255, 255, 0.03); padding: 10px 14px; font-size: 13px; font-weight: 500; border-bottom: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: space-between; align-items: center; color: var(--text-secondary); height: 40px; box-sizing: border-box;">
             <span><i class="fa-solid fa-terminal" style="margin-right: 8px; color: var(--accent-blue);"></i> ${label}</span>
-            <span class="sub-terminal-status status-badge status-running" id="status-${safeId}" style="font-size: 11px; padding: 2px 8px; border-radius: 4px; text-transform: uppercase;">running</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button class="btn-copy-logs" onclick="copyTerminalLogs('${safeId}', this)" title="Copy all logs from this console" style="background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: var(--text-secondary); padding: 3px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all 0.2s;">
+                    <i class="fa-regular fa-copy"></i> <span>Copy Logs</span>
+                </button>
+                <span class="sub-terminal-status status-badge status-running" id="status-${safeId}" style="font-size: 11px; padding: 2px 8px; border-radius: 4px; text-transform: uppercase;">running</span>
+            </div>
         </div>
         <div class="terminal-logs" id="logs-${safeId}" style="height: 410px; flex: 1; overflow-y: auto; padding: 15px; box-sizing: border-box;">
             <div class="log-line system">Waiting for process logs...</div>
         </div>
     `;
     wrapper.appendChild(term);
+}
+
+// Copy logs from a specific console
+function copyTerminalLogs(safeId, btnElement) {
+    const logContainer = document.getElementById(`logs-${safeId}`);
+    if (!logContainer) return;
+    const lines = Array.from(logContainer.querySelectorAll('.log-line'))
+        .map(el => el.innerText)
+        .filter(Boolean);
+    const textToCopy = lines.join('\n');
+    if (!textToCopy) return;
+
+    navigator.clipboard.writeText(textToCopy).then(() => {
+        if (btnElement) {
+            const orig = btnElement.innerHTML;
+            btnElement.innerHTML = '<i class="fa-solid fa-check" style="color:#10b981;"></i> <span style="color:#10b981;">Copied!</span>';
+            setTimeout(() => { btnElement.innerHTML = orig; }, 1800);
+        }
+    }).catch(err => {
+        console.error("Failed to copy terminal logs:", err);
+    });
+}
+
+// Copy all logs across all active console terminals
+function copyAllConsoles(btnElement) {
+    const containers = document.querySelectorAll('.terminal-logs');
+    let allText = [];
+    containers.forEach(container => {
+        const header = container.parentElement ? container.parentElement.querySelector('.sub-terminal-header') : null;
+        const headerTitle = header ? header.innerText.split('\n')[0].trim() : 'Console Output';
+        allText.push(`=== ${headerTitle} ===`);
+        const lines = Array.from(container.querySelectorAll('.log-line'))
+            .map(el => el.innerText)
+            .filter(Boolean);
+        allText = allText.concat(lines);
+        allText.push('');
+    });
+    
+    const textToCopy = allText.join('\n');
+    if (!textToCopy) return;
+
+    navigator.clipboard.writeText(textToCopy).then(() => {
+        if (btnElement) {
+            const orig = btnElement.innerHTML;
+            btnElement.innerHTML = '<i class="fa-solid fa-check" style="color:#10b981;"></i> <span style="color:#10b981;">Copied All!</span>';
+            setTimeout(() => { btnElement.innerHTML = orig; }, 1800);
+        }
+    }).catch(err => {
+        console.error("Failed to copy all logs:", err);
+    });
 }
 
 // Update sub-terminal status badge in-place
