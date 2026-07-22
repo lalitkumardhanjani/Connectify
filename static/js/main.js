@@ -755,8 +755,18 @@ async function updatePipelineLocks() {
                     badge.innerText = status;
                     badge.className = `status-badge status-${status}`;
                 } else {
-                    badge.innerText = 'idle';
-                    badge.className = `status-badge status-idle`;
+                    const pipelineTasks = Object.entries(tasks).filter(
+                        ([tid, t]) => t.username === activeUser && tid.split('::').includes(pipelineKey)
+                    );
+                    if (pipelineTasks.length > 0) {
+                        pipelineTasks.sort((a, b) => (b[1].start_time || 0) - (a[1].start_time || 0));
+                        const lastStatus = pipelineTasks[0][1].status;
+                        badge.innerText = lastStatus;
+                        badge.className = `status-badge status-${lastStatus}`;
+                    } else {
+                        badge.innerText = 'idle';
+                        badge.className = `status-badge status-idle`;
+                    }
                 }
             }
         });

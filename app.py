@@ -595,18 +595,20 @@ def get_all_tasks():
     with task_lock:
         result = {}
         for tid, runner in active_tasks.items():
-            # Real-time process liveness check: if process exited unexpectedly, update status
-            if runner.status in ("running", "queued"):
+            # Real-time process liveness check: if process thread has ended but status wasn't updated, update status cleanly
+            if runner.status in ("running", "queued") and runner.thread and not runner.thread.is_alive():
+                runner.waiting_for_input = False
                 if runner.process and runner.process.poll() is not None:
-                    exit_code = runner.process.poll()
-                    runner.waiting_for_input = False
-                    if runner.status not in ("stopped", "killed"):
-                        runner.status = "stopped" if exit_code in (0, 2, -9, 15) else "failed"
-                        runner.log(f"Detected process exit with code {exit_code}. Status updated to {runner.status}.")
-                elif runner.thread and not runner.thread.is_alive():
-                    if runner.status not in ("stopped", "killed", "success"):
+                    code = runner.process.poll()
+                    if code == 0:
+                        runner.status = "success"
+                    elif code in (2, -9, 15):
                         runner.status = "stopped"
-                        runner.waiting_for_input = False
+                    else:
+                        runner.status = "failed"
+                else:
+                    runner.status = "stopped"
+                runner.log(f"Process thread ended. Status updated to {runner.status}.")
 
             total_steps = len(runner.commands)
             if "scraper_pipeline" in tid and "full" in tid:
