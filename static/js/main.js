@@ -698,13 +698,37 @@ async function updatePipelineLocks() {
                         }
                     }
                     
-                    // Lock control: disable individual step run button if the full pipeline is active,
-                    // or if this specific step is already running or queued.
+                    // Lock control: disable individual step run button if full pipeline or step is active,
+                    // OR transform it into a red Stop button if this specific step is currently running.
                     const isFullActive = fullTask && (fullTask.status === 'running' || fullTask.status === 'queued');
                     const isThisStepActive = stepTask && (stepTask.status === 'running' || stepTask.status === 'queued');
+                    const isThisStepExecutingInFull = isFullActive && (fullTask.current_step || 1) === stepNum;
                     
                     if (btn) {
-                        btn.disabled = isFullActive || isThisStepActive;
+                        if (isThisStepActive || isThisStepExecutingInFull) {
+                            const targetKillId = isThisStepActive ? stepTaskId : fullTaskId;
+                            btn.disabled = false;
+                            btn.classList.add('btn-step-stop');
+                            btn.title = "Stop this running step";
+                            btn.innerHTML = '<i class="fa-solid fa-stop"></i>';
+                            btn.onclick = (e) => {
+                                e.stopPropagation();
+                                killTask(targetKillId);
+                            };
+                        } else {
+                            btn.classList.remove('btn-step-stop');
+                            btn.disabled = isFullActive || isAnyRunning;
+                            btn.title = p === 'scraper' ? (stepNum === 1 ? "Run email fetching only" : "Run email sending only") : "Run this step only";
+                            btn.innerHTML = '<i class="fa-solid fa-play"></i>';
+                            if (p === 'scraper') {
+                                const phaseArg = stepNum === 1 ? 'phase1' : 'phase2';
+                                btn.onclick = (e) => runScraperStep(phaseArg, e);
+                            } else if (p === 'referral') {
+                                btn.onclick = (e) => runSingleStep(stepNum, e);
+                            } else if (p === 'recruiter') {
+                                btn.onclick = (e) => runRecruiterStep(stepNum, e);
+                            }
+                        }
                     }
                 });
             }
@@ -1044,6 +1068,17 @@ function updateRecruiterPipelineSteps(taskData) {
 
 
 
+// Kill a specific running task by ID with immediate UI feedback
+async function killTask(taskId) {
+    if (!taskId) return;
+    try {
+        await fetch(`/api/task/${encodeURIComponent(taskId)}/kill`, { method: 'POST' });
+    } catch (e) {
+        console.error(`Failed to terminate task ${taskId}:`, e);
+    }
+    await updatePipelineLocks();
+}
+
 // Kill running pipeline tasks — uses the namespaced task ID stored on the kill button
 async function killPipeline(type) {
     const killBtn = document.getElementById(`btn-kill-${type}`);
@@ -1057,6 +1092,7 @@ async function killPipeline(type) {
             console.error(`Failed to terminate task ${taskId}:`, e);
         }
     }
+    await updatePipelineLocks();
 }
 
 // Send interactive inputs
@@ -2422,7 +2458,8 @@ async function loadSettings() {
         // 3. LinkedIn Connect fields
         setVal('connect-search-pages', connect.search_pages || 2);
         setChecked('connect-review-mode', !(referralOutreach.review_mode !== undefined ? referralOutreach.review_mode : connect.review_mode));
-        setVal('connect-max-connections', connect.max_connections_per_company || connect.max_connections_per_run || '5');
+        setVal('connect-max-connections', connect.max_connections_per_company || '5');
+        setVal('connect-max-connections-per-run', connect.max_connections_per_run || '30');
         setVal('connect-message-template', connect.message_template);
         setVal('referral-message-template', referralOutreach.message_template || '');
         
@@ -3006,9 +3043,14 @@ async function saveConfiguration(module) {
             "filter_locations": scraperFilterLocations
         };
     } else if (module === 'connect') {
-        const maxConnsVal = parseInt(getVal('connect-max-connections'), 10);
-        if (isNaN(maxConnsVal) || maxConnsVal < 1 || maxConnsVal > 100) {
+        const maxConnsCompanyVal = parseInt(getVal('connect-max-connections'), 10);
+        if (isNaN(maxConnsCompanyVal) || maxConnsCompanyVal < 1 || maxConnsCompanyVal > 100) {
             showSaveError(statusEl, '✕ Target Connections Per Company must be between 1 and 100.');
+            return;
+        }
+        const maxConnsRunVal = parseInt(getVal('connect-max-connections-per-run'), 10);
+        if (isNaN(maxConnsRunVal) || maxConnsRunVal < 1 || maxConnsRunVal > 500) {
+            showSaveError(statusEl, '✕ Max Connections Per Run must be between 1 and 500.');
             return;
         }
         const noteTemplate = getVal('connect-message-template');
@@ -3021,8 +3063,8 @@ async function saveConfiguration(module) {
             "interval": "60",
             "search_pages": parseInt(getVal('connect-search-pages') || '2', 10),
             "review_mode": !getChecked('connect-review-mode'),
-            "max_connections_per_company": maxConnsVal.toString(),
-            "max_connections_per_run": maxConnsVal.toString(),
+            "max_connections_per_company": maxConnsCompanyVal.toString(),
+            "max_connections_per_run": maxConnsRunVal.toString(),
             "search_keywords": connectSearchKeywords,
             "title_keywords": connectTitleKeywords,
             "keywords": connectSearchKeywords,

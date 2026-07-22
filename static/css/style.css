@@ -905,6 +905,23 @@ details[open] > * {
     opacity: 0.3;
 }
 
+.btn-step-run.btn-step-stop,
+.p-step-seq.active .btn-step-run.btn-step-stop {
+    pointer-events: auto !important;
+    opacity: 1 !important;
+    background: rgba(255, 77, 77, 0.25) !important;
+    border-color: #ff4d4d !important;
+    color: #ff4d4d !important;
+    box-shadow: 0 0 12px rgba(255, 77, 77, 0.6) !important;
+}
+
+.btn-step-run.btn-step-stop:hover,
+.p-step-seq.active .btn-step-run.btn-step-stop:hover {
+    background: rgba(255, 77, 77, 0.45) !important;
+    box-shadow: 0 0 18px rgba(255, 77, 77, 0.9) !important;
+    transform: scale(1.15) !important;
+}
+
 .p-step-seq.active {
     border-color: rgba(0, 176, 255, 0.4);
     color: var(--text-primary);

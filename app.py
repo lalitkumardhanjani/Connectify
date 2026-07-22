@@ -342,10 +342,32 @@ class SubprocessRunner:
                     import subprocess as sp
                     sp.run(["taskkill", "/F", "/T", "/PID", str(self.process.pid)], capture_output=True, check=False)
                 else:
-                    os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
+                    try:
+                        os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
+                    except Exception:
+                        pass
                 self.log("Process terminated by user.")
             except Exception as e:
                 self.log(f"Error terminating process: {e}")
+
+        # Clean up any lingering Chrome/Edge browser processes using this user's profile
+        try:
+            from core.integrations.selenium_driver import _kill_lingering_chrome_instances
+            user_dir_for_runner = os.path.join(BASE_DIR, "users", self.username)
+            parts = self.task_id.split("::")
+            pipeline_type = parts[1] if len(parts) > 1 else ""
+            if pipeline_type == "scraper_pipeline":
+                profile_dir = os.path.join(user_dir_for_runner, "chrome-profile-scraper")
+            elif pipeline_type == "referral_pipeline":
+                profile_dir = os.path.join(user_dir_for_runner, "chrome-profile-referral")
+            elif pipeline_type == "recruiter_pipeline":
+                profile_dir = os.path.join(user_dir_for_runner, "chrome-profile-recruiter")
+            else:
+                profile_dir = os.path.join(user_dir_for_runner, "chrome-profile")
+            
+            _kill_lingering_chrome_instances(profile_dir)
+        except Exception as e:
+            sys.stderr.write(f"Error cleaning up Chrome processes on kill: {e}\n")
 
 
 def get_excel_data(file_path):
@@ -752,7 +774,7 @@ def create_user_profile():
             "search_pages": 2,
             "review_mode": True,
             "max_connections_per_company": "5",
-            "max_connections_per_run": "5"
+            "max_connections_per_run": "30"
         },
         "recruiter_outreach": {
             "message_template": "Hi {first_name}, let's connect! I saw you handle Talent Acquisition at {company}. I am interested in opportunities there. My resume: {resume}",
@@ -1417,7 +1439,7 @@ def save_user_configuration():
     # Apply connect defaults for missing fields
     connect_defaults = {
         "interval": "60", "search_pages": 2, "review_mode": True,
-        "max_connections_per_company": "5", "max_connections_per_run": "5",
+        "max_connections_per_company": "5", "max_connections_per_run": "30",
         "search_keywords": [], "title_keywords": [], "keywords": [],
         "excluded_keywords": [], "message_template": ""
     }

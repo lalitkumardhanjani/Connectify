@@ -1294,8 +1294,7 @@ def run_phase_one_discovery():
     
     user_conf = get_selected_user_config()
     global_conf = get_global_settings()
-    connect_conf = user_conf.get("linkedin_connect", {})
-    max_referrals = int(connect_conf.get("max_connections_per_company") or connect_conf.get("max_connections_per_run") or 5)
+    max_connections_per_company = int(connect_conf.get("max_connections_per_company") or 5)
     
     email = global_conf.get("linkedin_email")
     password = global_conf.get("linkedin_password")
@@ -1348,19 +1347,19 @@ def run_phase_one_discovery():
             
             total_exist = completed_progress + pending_count
             
-            if completed_progress >= max_referrals:
-                logger.info(f"Target connection count of {max_referrals} already reached/completed for {company} (completed progress: {completed_progress}). Skipping discovery.")
+            if completed_progress >= max_connections_per_company:
+                logger.info(f"Target connection count of {max_connections_per_company} already reached/completed for {company} (completed progress: {completed_progress}). Skipping discovery.")
                 try:
                     update_status_by_id(job_id, 'Referral Outreach Completed')
                 except Exception as e:
                     logger.warning(f"Failed to update status to Referral Outreach Completed: {e}")
                 continue
                 
-            if total_exist >= max_referrals:
-                logger.info(f"Total existing (completed: {completed_progress} + pending: {pending_count}) already meets target limit of {max_referrals} for {company}. Skipping discovery.")
+            if total_exist >= max_connections_per_company:
+                logger.info(f"Total existing (completed: {completed_progress} + pending: {pending_count}) already meets target limit of {max_connections_per_company} for {company}. Skipping discovery.")
                 continue
                 
-            remaining_cap = max_referrals - total_exist
+            remaining_cap = max_connections_per_company - total_exist
             logger.info(f"\nProcessing company: {company} (JobID {job_id}). Remaining discovery capacity: {remaining_cap}")
             
             search_url, actual_company_url = find_company_employees_search_url(driver, company)
@@ -1576,13 +1575,15 @@ def run_phase_two_messaging():
     if review_mode is None:
         review_mode = connect_conf.get("review_mode", True)
     review_mode = bool(review_mode)
-    interval = int(referral_conf.get("interval") or connect_conf.get("interval") or 5)
-    max_referrals = int(connect_conf.get("max_connections_per_company") or connect_conf.get("max_connections_per_run") or 5)
+    max_connections_per_company = int(connect_conf.get("max_connections_per_company") or 5)
+    max_connections_per_run = int(connect_conf.get("max_connections_per_run") or 30)
     
     email = global_conf.get("linkedin_email")
     password = global_conf.get("linkedin_password")
     
     logger.info(f"REVIEW_MODE (Quality Gate) : {review_mode}")
+    logger.info(f"MAX PER COMPANY            : {max_connections_per_company}")
+    logger.info(f"MAX PER RUN                : {max_connections_per_run}")
     
     all_referrals = load_all_referrals()
     pending = [
@@ -1624,8 +1625,8 @@ def run_phase_two_messaging():
         job_urls = {str(j.get('JobID')): (j.get('ShortenURL') or j.get('CompanyURL') or '') for j in job_data}
 
         for idx, ref in enumerate(pending):
-            if sent_count >= max_referrals:
-                logger.info(f"Max referrals limit of {max_referrals} reached. Stopping.")
+            if sent_count >= max_connections_per_run:
+                logger.info(f"Max connections per run limit of {max_connections_per_run} reached. Stopping run.")
                 break
                 
             ref_id = ref.get('ReferralID')
@@ -1635,8 +1636,8 @@ def run_phase_two_messaging():
             from core.storage.database import get_completed_referral_count
             job_url = ref.get("Job_URL") or job_urls.get(job_id) or ""
             completed_progress = get_completed_referral_count(company, job_url, job_id=job_id)
-            if completed_progress >= max_referrals:
-                logger.info(f"Target connection count of {max_referrals} already reached/completed for "
+            if completed_progress >= max_connections_per_company:
+                logger.info(f"Target connection count of {max_connections_per_company} per company already reached/completed for "
                             f"{company} (completed progress: {completed_progress}). "
                             f"Skipping message to {ref.get('Referral_Person_Name')}.")
                 try:
@@ -1802,8 +1803,8 @@ def run_phase_two_messaging():
             close_chat_window(driver)
             wait_for_chat_closed(driver, timeout=6)
             
-            logger.info(f"Referrals sent this run: {sent_count}/{max_referrals}")
-            if idx < len(pending) - 1 and sent_count < max_referrals and not user_quit:
+            logger.info(f"Referrals sent this run: {sent_count}/{max_connections_per_run}")
+            if idx < len(pending) - 1 and sent_count < max_connections_per_run and not user_quit:
                 logger.info(f"Waiting {interval}s before next contact...")
                 time.sleep(interval)
 
