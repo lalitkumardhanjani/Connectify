@@ -33,10 +33,20 @@ def _kill_lingering_chrome_instances(profile_dir):
         return
         
     try:
-        norm_path = os.path.abspath(profile_dir)
+        norm_path = os.path.abspath(profile_dir).rstrip("\\/")
+        folder_basename = os.path.basename(norm_path)
         import subprocess
-        # Query and kill chrome processes matching our custom profile directory path
-        ps_cmd = f'Get-CimInstance Win32_Process -Filter "name = \'chrome.exe\'" | Where-Object {{ $_.CommandLine -like \'*{norm_path}*\' }} | ForEach-Object {{ Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }}'
+        # Query and kill chrome processes matching our specific profile directory name with exact boundary matching
+        ps_cmd = (
+            f'Get-CimInstance Win32_Process -Filter "name = \'chrome.exe\'" | Where-Object {{ '
+            f'$_.CommandLine -like "*\\\\{folder_basename}\\\\*" -or '
+            f'$_.CommandLine -like "*\\\\{folder_basename}`"*" -or '
+            f'$_.CommandLine -like "*\\\\{folder_basename} *" -or '
+            f'$_.CommandLine -like "*/{folder_basename}/*" -or '
+            f'$_.CommandLine -like "*/{folder_basename}`"*" -or '
+            f'$_.CommandLine -like "*/{folder_basename} *" '
+            f'}} | ForEach-Object {{ Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }}'
+        )
         cmd = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_cmd]
         subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         logger.info(f"Cleaned up lingering Chrome processes using profile: {profile_dir}")

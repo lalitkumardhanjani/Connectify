@@ -14,23 +14,23 @@ def test_get_chrome_profile_dir_dynamic_suffix(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["run_email_scraper.py"])
     from config.settings import get_chrome_profile_dir
     path = get_chrome_profile_dir()
-    assert "chrome-profile-scraper-phase1" in path
+    assert "prof-email-phase1" in path
 
     # Mock sys.argv[0] for run_email_sender
     monkeypatch.setattr(sys, "argv", ["run_email_sender.py"])
     path = get_chrome_profile_dir()
-    assert "chrome-profile-scraper-phase2" in path
+    assert "prof-email-phase2" in path
 
     # Mock sys.argv[0] for run_recruiter
     monkeypatch.setattr(sys, "argv", ["run_recruiter_outreach.py"])
     path = get_chrome_profile_dir()
-    assert "chrome-profile-recruiter" in path
+    assert "prof-recruiter" in path
 
     # Mock sys.argv[0] for normal runs
     monkeypatch.setattr(sys, "argv", ["app.py"])
     path = get_chrome_profile_dir()
-    assert "chrome-profile" in path
-    assert "chrome-profile-scraper-phase1" not in path
+    assert "prof-default" in path
+    assert "prof-email-phase1" not in path
 
 def test_get_driver_custom_profile_suffix(monkeypatch):
     # Mock helper functions to avoid system modifications and real browser instantiation

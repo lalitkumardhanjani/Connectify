@@ -173,7 +173,7 @@ class SubprocessRunner:
             step_suffix = parts[2] if len(parts) > 2 else "full"
 
             clean_type = pipeline_type.replace("_pipeline", "")
-            profile_folder = f"chrome-profile-{clean_type}-{step_suffix}"
+            profile_folder = f"prof-{clean_type}-{step_suffix}"
             env_copy["CHROME_PROFILE_DIR"] = os.path.join(user_dir_for_runner, profile_folder)
 
             # Determine active storage type
