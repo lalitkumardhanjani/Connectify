@@ -84,20 +84,39 @@ def get_linkedin_connect_log_file():
 def get_chrome_profile_dir():
     env_path = os.getenv("CHROME_PROFILE_DIR")
     if env_path:
+        os.makedirs(env_path, exist_ok=True)
         return env_path
     
     import sys
     script_name = os.path.basename(sys.argv[0])
+    
+    # Map each specific runner script to its own isolated Chrome profile directory
     if "run_email_scraper" in script_name:
-        suffix = "chrome-profile-email-scraper"
+        suffix = "chrome-profile-scraper-phase1"
     elif "run_email_sender" in script_name:
-        suffix = "chrome-profile-email-sender"
+        suffix = "chrome-profile-scraper-phase2"
     elif "run_email_outreach" in script_name:
-        suffix = "chrome-profile-scraper"
-    elif "run_job_search" in script_name or "run_referral" in script_name:
-        suffix = "chrome-profile-referral"
+        suffix = "chrome-profile-scraper-full"
+    elif "run_job_search" in script_name:
+        suffix = "chrome-profile-referral-step1"
+    elif "run_referral_review" in script_name:
+        suffix = "chrome-profile-referral-step2"
+    elif "run_referral_outreach_discover" in script_name:
+        suffix = "chrome-profile-referral-step3"
+    elif "run_referral_outreach_send" in script_name:
+        suffix = "chrome-profile-referral-step4"
+    elif "run_url_shortener" in script_name:
+        suffix = "chrome-profile-referral-step5"
+    elif "run_linkedin_connect" in script_name:
+        suffix = "chrome-profile-referral-step6"
+    elif "run_referral" in script_name:
+        suffix = "chrome-profile-referral-full"
+    elif "run_recruiter_outreach_discover" in script_name:
+        suffix = "chrome-profile-recruiter-step1"
+    elif "run_recruiter_outreach_send" in script_name:
+        suffix = "chrome-profile-recruiter-step2"
     elif "run_recruiter" in script_name:
-        suffix = "chrome-profile-recruiter"
+        suffix = "chrome-profile-recruiter-step3"
     else:
         suffix = "chrome-profile"
 
