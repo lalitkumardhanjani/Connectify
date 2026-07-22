@@ -371,7 +371,9 @@ async function pollAllLogs() {
                 const safeId = tid.replace(/::/g, '_');
                 const stdinBox = document.getElementById(`stdin-${safeId}`);
                 if (stdinBox) {
-                    if (data.waiting_for_input && isForActiveTab) {
+                    if (data.waiting_for_input) {
+                        anyWaitingForInput = true;
+                        activeTaskId = tid;
                         stdinBox.classList.remove('hidden');
                         const stdinPrompt = document.getElementById(`stdin-prompt-${safeId}`);
                         const stdinBtns = document.getElementById(`stdin-btns-${safeId}`);
