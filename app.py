@@ -2155,20 +2155,11 @@ def sync_google_sheets_to_local_if_empty(username):
 
 
 def kill_lingering_instances():
-    """Closes all lingering chromedriver processes and chrome instances started by pipelines."""
+    """Closes lingering Chrome instances targeting Connectify profile paths safely without global driver disruption."""
     import subprocess as sp
     import sys
     
-    print("[Startup Cleanup] Cleaning up lingering ChromeDriver and Chrome pipeline instances...")
-    
-    # 1. Kill chromedriver processes
     if sys.platform == 'win32':
-        try:
-            sp.run(["taskkill", "/F", "/IM", "chromedriver.exe"], capture_output=True, check=False)
-        except Exception as e:
-            print(f"[Startup Cleanup] Failed to kill chromedriver: {e}")
-            
-        # 2. Kill only Chrome instances started by our app (filtering by user data directory command line argument)
         try:
             # Run powershell command to find and terminate chrome.exe processes with 'chrome-profile' in their command line
             cmd = (
