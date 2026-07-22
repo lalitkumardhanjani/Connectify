@@ -292,7 +292,7 @@ async function pollAllLogs() {
                     }
                     
                     if (shouldShow) {
-                        createSubTerminalDOM(tid, polledTasks[tid].label);
+                        createSubTerminalDOM(tid, polledTasks[tid].label, polledTasks[tid].status);
                         const term = document.getElementById(`terminal-${safeId}`);
                         if (term) term.style.display = 'flex';
                         updateSubTerminalStatusDOM(tid, polledTasks[tid].status);
@@ -486,7 +486,7 @@ function getFriendlyTaskLabel(taskId) {
 }
 
 // Create a side-by-side terminal DOM element
-function createSubTerminalDOM(taskId, label) {
+function createSubTerminalDOM(taskId, label, status = 'running') {
     const wrapper = document.getElementById('console-logs-wrapper');
     if (!wrapper) return;
     
@@ -520,6 +520,7 @@ function createSubTerminalDOM(taskId, label) {
     term.style.overflow = "hidden";
     term.style.boxShadow = "0 8px 32px rgba(0, 0, 0, 0.3)";
     
+    const initialStatus = status || 'running';
     term.innerHTML = `
         <div class="sub-terminal-header" style="background: rgba(255, 255, 255, 0.03); padding: 10px 14px; font-size: 13px; font-weight: 500; border-bottom: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: space-between; align-items: center; color: var(--text-secondary); height: 40px; box-sizing: border-box;">
             <span><i class="fa-solid fa-terminal" style="margin-right: 8px; color: var(--accent-blue);"></i> ${label}</span>
@@ -527,7 +528,7 @@ function createSubTerminalDOM(taskId, label) {
                 <button class="btn-copy-logs" onclick="copyTerminalLogs('${safeId}', this)" title="Copy all logs from this console" style="background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: var(--text-secondary); padding: 3px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all 0.2s;">
                     <i class="fa-regular fa-copy"></i> <span>Copy Logs</span>
                 </button>
-                <span class="sub-terminal-status status-badge status-running" id="status-${safeId}" style="font-size: 11px; padding: 2px 8px; border-radius: 4px; text-transform: uppercase;">running</span>
+                <span class="sub-terminal-status status-badge status-${initialStatus}" id="status-${safeId}" style="font-size: 11px; padding: 2px 8px; border-radius: 4px; text-transform: uppercase;">${initialStatus}</span>
             </div>
         </div>
         <div class="terminal-logs" id="logs-${safeId}" style="height: 410px; flex: 1; overflow-y: auto; padding: 15px; box-sizing: border-box;">
@@ -535,6 +536,7 @@ function createSubTerminalDOM(taskId, label) {
         </div>
     `;
     wrapper.appendChild(term);
+    updateSubTerminalStatusDOM(taskId, initialStatus);
 }
 
 // Copy logs from a specific console
