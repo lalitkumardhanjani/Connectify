@@ -343,6 +343,7 @@ class TestEmailPipelineFull:
         monkeypatch.setattr("pipelines.email_outreach.pipeline.run_phase_one", mock_phase1)
         monkeypatch.setattr("pipelines.email_outreach.pipeline.run_phase_two", mock_phase2)
         monkeypatch.setattr("core.integrations.selenium_driver.get_driver", lambda *a, **kw: mock_driver)
+        monkeypatch.setattr("pipelines.email_outreach.pipeline.get_driver", lambda *a, **kw: mock_driver)
 
         scraper_instance = _make_mock_scraper(mock_driver)
         monkeypatch.setattr(
@@ -367,6 +368,7 @@ class TestEmailPipelineFull:
         monkeypatch.setattr("pipelines.email_outreach.pipeline.run_phase_one", lambda s: None)
         monkeypatch.setattr("pipelines.email_outreach.pipeline.run_phase_two", mock_phase2)
         monkeypatch.setattr("core.integrations.selenium_driver.get_driver", lambda *a, **kw: mock_driver)
+        monkeypatch.setattr("pipelines.email_outreach.pipeline.get_driver", lambda *a, **kw: mock_driver)
 
         scraper_instance = _make_mock_scraper(mock_driver)
         monkeypatch.setattr(
@@ -381,6 +383,7 @@ class TestEmailPipelineFull:
     def test_pipeline_aborts_on_login_failure(self, local_user, mock_driver, monkeypatch):
         """Login failure should abort the pipeline and return False."""
         monkeypatch.setattr("core.integrations.selenium_driver.get_driver", lambda *a, **kw: mock_driver)
+        monkeypatch.setattr("pipelines.email_outreach.pipeline.get_driver", lambda *a, **kw: mock_driver)
 
         scraper_instance = MagicMock()
         scraper_instance.login.return_value = False
@@ -396,6 +399,7 @@ class TestEmailPipelineFull:
     def test_pipeline_returns_false_on_unexpected_exception(self, local_user, mock_driver, monkeypatch):
         """Unhandled exceptions inside the pipeline should return False (not raise)."""
         monkeypatch.setattr("core.integrations.selenium_driver.get_driver", lambda *a, **kw: mock_driver)
+        monkeypatch.setattr("pipelines.email_outreach.pipeline.get_driver", lambda *a, **kw: mock_driver)
 
         def crash_phase1(scraper):
             raise RuntimeError("Simulated crash")

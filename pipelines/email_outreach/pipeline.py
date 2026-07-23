@@ -120,11 +120,11 @@ def run_pipeline(phase="full", review_mode=None):
     
     profile_suffix = None
     if phase == "phase1":
-        profile_suffix = "chrome-profile-email-scraper"
+        profile_suffix = "prof-email-phase1"
     elif phase == "phase2":
-        profile_suffix = "chrome-profile-email-sender"
+        profile_suffix = "prof-email-phase2"
     elif phase == "full":
-        profile_suffix = "chrome-profile-scraper"
+        profile_suffix = "prof-email-full"
 
     driver = get_driver(profile_suffix=profile_suffix)
     scraper = LinkedInScraper(driver)

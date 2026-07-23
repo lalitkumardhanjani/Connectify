@@ -8,16 +8,20 @@ from config.settings import get_chrome_profile_dir, MAC_CHROME_BINARY, CHROMEDRI
 from core.logging.config import logger
 
 def _cleanup_chrome_locks(profile_dir):
-    """Removes stale Chrome singleton lock files that can prevent a new Chrome session from starting."""
-    lock_files = ["SingletonLock", "SingletonCookie", "SingletonSocket"]
-    for lock in lock_files:
-        lock_path = os.path.join(profile_dir, lock)
-        if os.path.exists(lock_path):
-            try:
-                os.remove(lock_path)
-                logger.info(f"Removed stale Chrome lock file: {lock_path}")
-            except Exception as e:
-                logger.warning(f"Could not remove Chrome lock file {lock_path}: {e}")
+    """Recursively find and remove Chrome lockfiles and stale DevToolsActivePort files that cause profile lock errors or timeouts on launch."""
+    if not os.path.exists(profile_dir):
+        return
+        
+    lock_patterns = {"SingletonLock", "SingletonSocket", "SingletonCookie", "DevToolsActivePort", "LOCK"}
+    for root, dirs, files in os.walk(profile_dir):
+        for f in files:
+            if f in lock_patterns:
+                file_path = os.path.join(root, f)
+                try:
+                    os.remove(file_path)
+                    logger.info(f"Removed stale Chrome lockfile: {file_path}")
+                except Exception as e:
+                    logger.warning(f"Could not remove Chrome lockfile {file_path}: {e}")
 
 
 def _kill_stale_chrome_processes():
@@ -63,7 +67,11 @@ def get_driver(profile_suffix=None, headless=False):
     """
     is_win = (sys.platform == 'win32')
 
-    if profile_suffix:
+    env_profile_dir = os.getenv("CHROME_PROFILE_DIR")
+    if env_profile_dir:
+        chrome_profile_dir = env_profile_dir
+        os.makedirs(chrome_profile_dir, exist_ok=True)
+    elif profile_suffix:
         from config.settings import get_user_dir
         chrome_profile_dir = os.path.join(get_user_dir(), profile_suffix)
         os.makedirs(chrome_profile_dir, exist_ok=True)
@@ -91,6 +99,13 @@ def get_driver(profile_suffix=None, headless=False):
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
     options.add_argument("--disable-extensions")
+    options.add_argument("--no-first-run")
+    options.add_argument("--no-default-browser-check")
+    options.add_argument("--disable-session-crashed-bubble")
+    options.add_argument("--disable-infobars")
+    options.add_argument("--disable-breakpad")
+    options.add_argument("--disable-component-update")
+    options.add_argument("--remote-allow-origins=*")
     if is_win:
         options.add_argument("--disable-features=RendererCodeIntegrity")
     else:
@@ -161,7 +176,14 @@ def get_driver(profile_suffix=None, headless=False):
                     
         if working_driver_path:
             service = Service(working_driver_path)
-            driver = webdriver.Chrome(service=service, options=options)
+            try:
+                driver = webdriver.Chrome(service=service, options=options)
+            except Exception as first_err:
+                logger.warning(f"First attempt to start Chrome failed ({first_err}). Cleaning locks and retrying...")
+                _kill_lingering_chrome_instances(chrome_profile_dir)
+                _cleanup_chrome_locks(chrome_profile_dir)
+                time.sleep(1)
+                driver = webdriver.Chrome(service=service, options=options)
         else:
             # Fall back to Microsoft Edge only if no working local chromedriver exists
             logger.warning("No working local chromedriver found. Falling back to Microsoft Edge...")
